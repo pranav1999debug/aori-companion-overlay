@@ -338,7 +338,7 @@ export default function AoriChat() {
 
       {/* Fullscreen Aori Avatar — centered with crossfade */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative h-[80vh] max-h-[800px] w-full flex items-center justify-center">
+        <div className="relative h-[80vh] max-h-[800px] w-full flex items-center justify-center" style={{ animation: "breathe 4s ease-in-out infinite" }}>
           {/* Previous emotion (fading out) */}
           {isTransitioning && previousEmotion && (
             <img
