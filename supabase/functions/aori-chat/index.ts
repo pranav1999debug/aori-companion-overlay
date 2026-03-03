@@ -89,9 +89,9 @@ serve(async (req) => {
     const reply = data.choices?.[0]?.message?.content || "[smirk] Hmm~ say that again? 😏";
 
     // Parse emotion tag from response
-    const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud)\]/);
+    const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love)\]/);
     const emotion = emotionMatch ? emotionMatch[1] : "smirk";
-    const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud)\]\s*/, "");
+    const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love)\]\s*/, "");
 
     return new Response(
       JSON.stringify({ text, emotion }),
