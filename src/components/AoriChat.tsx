@@ -231,7 +231,6 @@ export default function AoriChat() {
   // Start/stop webcam
   const toggleWebcam = useCallback(async () => {
     if (webcamEnabled) {
-      // Stop webcam
       webcamStream?.getTracks().forEach((t) => t.stop());
       setWebcamStream(null);
       setWebcamEnabled(false);
@@ -253,8 +252,14 @@ export default function AoriChat() {
       setWebcamStream(stream);
       setWebcamEnabled(true);
 
-      // Wait a moment for video to initialize, then take first look
-      setTimeout(() => analyzeFrame(), 2000);
+      // Attach stream to hidden video and wait for it to be ready
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadeddata = () => {
+          // First analysis once video is actually playing
+          setTimeout(() => analyzeFrame(), 500);
+        };
+      }
 
       // Set interval to analyze every 60 seconds
       webcamIntervalRef.current = setInterval(() => {
