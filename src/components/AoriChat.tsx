@@ -328,12 +328,29 @@ export default function AoriChat() {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: "user" } });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: "user" } 
+      });
       setWebcamStream(stream);
       setWebcamEnabled(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadeddata = () => setTimeout(() => analyzeFrame(), 500);
+      
+      // Set up video element immediately
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+        
+        // Wait for video to be ready before first analysis
+        const waitForVideo = () => {
+          if (video.readyState >= 2) {
+            setTimeout(() => analyzeFrame(), 1000);
+          } else {
+            video.addEventListener('loadeddata', () => {
+              setTimeout(() => analyzeFrame(), 1000);
+            }, { once: true });
+          }
+        };
+        waitForVideo();
       }
       webcamIntervalRef.current = setInterval(() => analyzeFrame(), 60000);
       const msg = "Ara ara~ now I can see you! Don't do anything weird, baka~ 😏👁️";
