@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Moon, Settings } from "lucide-react";
-import { AoriEmotion, emotionImages } from "@/lib/aori-personality";
+import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -25,7 +25,7 @@ const ChatBubble = ({ message }: { message: Message }) => {
     >
       {!isUser && message.emotion && (
         <img
-          src={emotionImages[message.emotion]}
+          src={emotionCutouts[message.emotion]}
           alt="Aori"
           className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30 shrink-0"
         />
@@ -388,7 +388,30 @@ export default function AoriChat() {
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-transparent">
+    <div className="relative h-screen w-screen overflow-hidden">
+      {/* Scene background (full screen, covers everything) */}
+      <div className="absolute inset-0 z-0">
+        {/* Previous scene (fading out) */}
+        {isTransitioning && previousEmotion && (
+          <img
+            src={emotionImages[previousEmotion]}
+            alt={`Background ${previousEmotion}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-0"
+          />
+        )}
+        {/* Current scene (fading in) */}
+        <img
+          key={currentEmotion}
+          src={emotionImages[currentEmotion]}
+          alt={`Background ${currentEmotion}`}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-100"
+          style={{
+            animation: isTransitioning ? "fade-in-scene 0.5s ease-in-out" : undefined
+          }}
+        />
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+      </div>
 
       {/* Hidden webcam elements */}
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
@@ -431,11 +454,11 @@ export default function AoriChat() {
         {/* Previous emotion (fading out) */}
         {isTransitioning && previousEmotion && (
           <img
-            src={emotionImages[previousEmotion]}
+            src={emotionCutouts[previousEmotion]}
             alt={`Aori ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             style={{
-              filter: "drop-shadow(0 0 40px hsl(175 70% 45% / 0.2)) drop-shadow(0 0 80px hsl(215 80% 55% / 0.1))",
+              filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))",
               animation: "avatar-fade-out 0.5s ease-in-out forwards",
             }}
             draggable={false}
@@ -444,11 +467,11 @@ export default function AoriChat() {
         {/* Current emotion (fading in) */}
         <img
           key={currentEmotion}
-          src={emotionImages[currentEmotion]}
+          src={emotionCutouts[currentEmotion]}
           alt={`Aori ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
           style={{
-            filter: "drop-shadow(0 0 40px hsl(175 70% 45% / 0.2)) drop-shadow(0 0 80px hsl(215 80% 55% / 0.1))",
+            filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))",
             animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
           }}
           draggable={false}
@@ -573,9 +596,9 @@ export default function AoriChat() {
           {/* Chat header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
             <img
-              src={emotionImages[currentEmotion]}
+              src={emotionCutouts[currentEmotion]}
               alt="Aori"
-              className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40"
+              className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40 bg-white/10"
             />
             <div className="flex-1 min-w-0">
               <h2 className="font-display font-bold text-white text-sm">Aori Tatsumi</h2>
@@ -598,7 +621,7 @@ export default function AoriChat() {
             ))}
             {isTyping && (
               <div className="flex gap-2 items-end" style={{ animation: "slide-up 0.3s ease-out" }}>
-                <img src={emotionImages[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
+                <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
                 <div className="bg-white/[0.06] px-4 py-3 rounded-2xl rounded-bl-md">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: "0ms" }} />

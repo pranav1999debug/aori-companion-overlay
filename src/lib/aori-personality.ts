@@ -13,6 +13,21 @@ import aoriSleepy from "@/assets/aori_sleepy.png";
 import aoriJealous from "@/assets/aori_jealous.png";
 import aoriEmbarrassed from "@/assets/aori_embarrassed.png";
 
+import cutoutSmirk from "@/assets/cutout_smirk.png";
+import cutoutShock from "@/assets/cutout_shock.png";
+import cutoutExcited from "@/assets/cutout_excited.png";
+import cutoutAngry from "@/assets/cutout_angry.png";
+import cutoutHappy from "@/assets/cutout_happy.png";
+import cutoutProud from "@/assets/cutout_proud.png";
+import cutoutShy from "@/assets/cutout_shy.png";
+import cutoutSad from "@/assets/cutout_sad.png";
+import cutoutThinking from "@/assets/cutout_thinking.png";
+import cutoutLove from "@/assets/cutout_love.png";
+import cutoutConfused from "@/assets/cutout_confused.png";
+import cutoutSleepy from "@/assets/cutout_sleepy.png";
+import cutoutJealous from "@/assets/cutout_jealous.png";
+import cutoutEmbarrassed from "@/assets/cutout_embarrassed.png";
+
 export type AoriEmotion = "smirk" | "shock" | "excited" | "angry" | "happy" | "proud" | "shy" | "sad" | "thinking" | "love" | "confused" | "sleepy" | "jealous" | "embarrassed";
 
 export const emotionImages: Record<AoriEmotion, string> = {
@@ -30,6 +45,23 @@ export const emotionImages: Record<AoriEmotion, string> = {
   sleepy: aoriSleepy,
   jealous: aoriJealous,
   embarrassed: aoriEmbarrassed,
+};
+
+export const emotionCutouts: Record<AoriEmotion, string> = {
+  smirk: cutoutSmirk,
+  shock: cutoutShock,
+  excited: cutoutExcited,
+  angry: cutoutAngry,
+  happy: cutoutHappy,
+  proud: cutoutProud,
+  shy: cutoutShy,
+  sad: cutoutSad,
+  thinking: cutoutThinking,
+  love: cutoutLove,
+  confused: cutoutConfused,
+  sleepy: cutoutSleepy,
+  jealous: cutoutJealous,
+  embarrassed: cutoutEmbarrassed,
 };
 
 export const emotionLabels: Record<AoriEmotion, string> = {
