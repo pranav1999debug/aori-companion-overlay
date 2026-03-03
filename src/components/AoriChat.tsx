@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Heart } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Heart, Camera, CameraOff, Eye } from "lucide-react";
 import { AoriEmotion, emotionImages } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -62,9 +62,15 @@ export default function AoriChat() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [webcamEnabled, setWebcamEnabled] = useState(false);
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const webcamIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastObservationRef = useRef<string>("");
 
   // Detect language segments and speak each with the right voice
   const speakText = useCallback((text: string) => {
@@ -173,6 +179,113 @@ export default function AoriChat() {
     setIsListening(false);
   }, []);
 
+  // Capture a frame from webcam as base64
+  const captureFrame = useCallback((): string | null => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < 2) return null;
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, 320, 240);
+    return canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
+  }, []);
+
+  // Send captured frame to vision API
+  const analyzeFrame = useCallback(async () => {
+    const image = captureFrame();
+    if (!image) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("aori-vision", {
+        body: { image, previousObservation: lastObservationRef.current },
+      });
+
+      if (error) {
+        console.error("Vision error:", error);
+        return;
+      }
+
+      const emotion = (data.emotion || "smirk") as AoriEmotion;
+      const responseText = data.text || "";
+      if (!responseText) return;
+
+      lastObservationRef.current = responseText;
+      setCurrentEmotion(emotion);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: `👁️ ${responseText}`,
+          sender: "aori",
+          emotion,
+        },
+      ]);
+      speakText(responseText);
+    } catch (e) {
+      console.error("Vision analysis failed:", e);
+    }
+  }, [captureFrame, speakText]);
+
+  // Start/stop webcam
+  const toggleWebcam = useCallback(async () => {
+    if (webcamEnabled) {
+      // Stop webcam
+      webcamStream?.getTracks().forEach((t) => t.stop());
+      setWebcamStream(null);
+      setWebcamEnabled(false);
+      if (webcamIntervalRef.current) {
+        clearInterval(webcamIntervalRef.current);
+        webcamIntervalRef.current = null;
+      }
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), text: "Hmph... fine, I won't look at you then. *pouts* 😤", sender: "aori", emotion: "angry" },
+      ]);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240, facingMode: "user" },
+      });
+      setWebcamStream(stream);
+      setWebcamEnabled(true);
+
+      // Wait a moment for video to initialize, then take first look
+      setTimeout(() => analyzeFrame(), 2000);
+
+      // Set interval to analyze every 60 seconds
+      webcamIntervalRef.current = setInterval(() => {
+        analyzeFrame();
+      }, 60000);
+
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), text: "Ara ara~ now I can see you! Don't do anything weird, baka~ 😏👁️", sender: "aori", emotion: "smirk" },
+      ]);
+    } catch (e) {
+      console.error("Webcam error:", e);
+      toast.error("Couldn't access your camera. Check permissions!");
+    }
+  }, [webcamEnabled, webcamStream, analyzeFrame]);
+
+  // Attach stream to video element
+  useEffect(() => {
+    if (videoRef.current && webcamStream) {
+      videoRef.current.srcObject = webcamStream;
+    }
+  }, [webcamStream]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      webcamStream?.getTracks().forEach((t) => t.stop());
+      if (webcamIntervalRef.current) clearInterval(webcamIntervalRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
@@ -246,12 +359,48 @@ export default function AoriChat() {
             <VolumeX className="w-5 h-5 text-muted-foreground" />
           )}
         </button>
+        <button
+          type="button"
+          onClick={toggleWebcam}
+          className={`p-1.5 rounded-full transition-colors hover:bg-secondary ${
+            webcamEnabled ? "bg-primary/10" : ""
+          }`}
+          title={webcamEnabled ? "Turn off webcam" : "Let Aori see you"}
+        >
+          {webcamEnabled ? (
+            <Eye className="w-5 h-5 text-primary animate-pulse" />
+          ) : (
+            <Camera className="w-5 h-5 text-muted-foreground" />
+          )}
+        </button>
         <Heart className="w-5 h-5 text-aori-blush" fill="currentColor" />
       </header>
 
-      {/* Avatar display */}
-      <div className="flex justify-center py-4 bg-gradient-to-b from-secondary/50 to-transparent shrink-0">
+      {/* Hidden webcam elements */}
+      <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* Webcam preview + Avatar display */}
+      <div className="flex justify-center items-center gap-4 py-4 bg-gradient-to-b from-secondary/50 to-transparent shrink-0 relative">
         <AoriAvatar emotion={currentEmotion} className="h-48 md:h-64" />
+        {webcamEnabled && webcamStream && (
+          <div className="absolute top-3 right-3 w-20 h-16 rounded-lg overflow-hidden ring-2 ring-primary/40 shadow-lg">
+            <video
+              ref={(el) => { if (el && webcamStream) el.srcObject = webcamStream; }}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover mirror"
+              style={{ transform: "scaleX(-1)" }}
+            />
+            <div className="absolute bottom-0.5 right-0.5">
+              <span className="flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Messages */}

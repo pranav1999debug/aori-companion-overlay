@@ -2,3 +2,6 @@ project_id = "ckspomkziyvyiorryhcb"
 
 [functions.aori-chat]
 verify_jwt = false
+
+[functions.aori-vision]
+verify_jwt = false
