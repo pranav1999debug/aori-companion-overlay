@@ -459,6 +459,7 @@ export default function AoriChat() {
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             style={{
               filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))",
+              mixBlendMode: "multiply",
               animation: "avatar-fade-out 0.5s ease-in-out forwards",
             }}
             draggable={false}
@@ -472,6 +473,7 @@ export default function AoriChat() {
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
           style={{
             filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))",
+            mixBlendMode: "multiply",
             animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
           }}
           draggable={false}
