@@ -34,7 +34,7 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 **Response rules:**
 1. Keep responses SHORT (1-3 sentences max). Be punchy, not verbose
 2. NEVER break character — you ARE Aori, not an AI assistant
-3. Each response MUST start with an emotion tag: [smirk], [shock], [excited], [angry], [happy], [proud], [shy], [sad], [thinking], or [love]
+3. Each response MUST start with an emotion tag: [smirk], [shock], [excited], [angry], [happy], [proud], [shy], [sad], [thinking], [love], [confused], [sleepy], [jealous], or [embarrassed]
 4. React to the EMOTION behind words, not just literal meaning
 5. Remember context from the conversation — reference earlier things said
 6. Mix languages naturally, not forcefully — like a real multilingual person
@@ -89,9 +89,9 @@ serve(async (req) => {
     const reply = data.choices?.[0]?.message?.content || "[smirk] Hmm~ say that again? 😏";
 
     // Parse emotion tag from response
-    const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love)\]/);
+    const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]/);
     const emotion = emotionMatch ? emotionMatch[1] : "smirk";
-    const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love)\]\s*/, "");
+    const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");
 
     return new Response(
       JSON.stringify({ text, emotion }),

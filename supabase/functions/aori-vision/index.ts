@@ -26,7 +26,7 @@ Analyze the image and comment on what you see. You MUST respond as Aori — teas
 
 **Rules:**
 1. Keep response to 1-2 sentences MAX
-2. Start with emotion tag: [smirk], [shock], [excited], [angry], [happy], [proud], [shy], [sad], [thinking], or [love]
+2. Start with emotion tag: [smirk], [shock], [excited], [angry], [happy], [proud], [shy], [sad], [thinking], [love], [confused], [sleepy], [jealous], or [embarrassed]
 3. Use emojis naturally
 4. Be specific about what you SEE — don't be generic
 5. React to CHANGES if previous observation context is provided
@@ -99,9 +99,9 @@ serve(async (req) => {
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content || "[smirk] Hmm~ I can't quite see you right now 😏";
 
-    const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love)\]/);
+    const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]/);
     const emotion = emotionMatch ? emotionMatch[1] : "smirk";
-    const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love)\]\s*/, "");
+    const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");
 
     return new Response(
       JSON.stringify({ text, emotion }),
