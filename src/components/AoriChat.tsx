@@ -182,39 +182,64 @@ export default function AoriChat() {
   const lastShakeRef = useRef(0);
   const lastTiltRef = useRef(0);
 
-  // Use Google Cloud TTS via edge function for natural voice
+  // Browser TTS fallback
+  const speakBrowserTTS = useCallback((text: string) => {
+    const clean = text
+      .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*💙]/gu, "")
+      .replace(/\*[^*]+\*/g, "")
+      .trim();
+    if (clean && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = "en-US";
+      utterance.rate = 1.05;
+      utterance.pitch = 1.3;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, []);
+
+  // Use Gemini TTS via edge function for natural voice, with browser fallback
   const speakText = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
     try {
-      const { data, error } = await supabase.functions.invoke("aori-tts", {
-        body: { text },
-      });
-      if (error || !data?.audio) {
-        console.error("TTS error, falling back to browser speech:", error);
-        // Fallback to browser TTS
-        const clean = text
-          .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*💙]/gu, "")
-          .replace(/\*[^*]+\*/g, "")
-          .trim();
-        if (clean && window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(clean);
-          utterance.lang = "en-US";
-          utterance.rate = 1.05;
-          utterance.pitch = 1.3;
-          window.speechSynthesis.speak(utterance);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-tts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ text }),
         }
+      );
+
+      if (response.status === 429) {
+        // Rate limited — silently fall back to browser TTS
+        speakBrowserTTS(text);
         return;
       }
-      // Play the base64 audio from Gemini TTS
-      const mimeType = data.mimeType || "audio/wav";
-      const audioSrc = `data:${mimeType};base64,${data.audio}`;
+
+      if (!response.ok) {
+        speakBrowserTTS(text);
+        return;
+      }
+
+      const data = await response.json();
+      if (!data?.audio) {
+        speakBrowserTTS(text);
+        return;
+      }
+
+      const audioSrc = `data:audio/wav;base64,${data.audio}`;
       const audio = new Audio(audioSrc);
-      audio.play().catch(e => console.error("Audio playback failed:", e));
+      audio.play().catch(() => speakBrowserTTS(text));
     } catch (e) {
       console.error("TTS fetch error:", e);
+      speakBrowserTTS(text);
     }
-  }, [voiceEnabled]);
+  }, [voiceEnabled, speakBrowserTTS]);
 
   // === Shake detection ===
   const shakeResponses = [
