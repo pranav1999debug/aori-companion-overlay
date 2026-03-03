@@ -66,21 +66,81 @@ export default function AoriChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  // Detect language segments and speak each with the right voice
   const speakText = useCallback((text: string) => {
     if (!voiceEnabled || !window.speechSynthesis) return;
-    // Strip emojis for cleaner speech
-    const clean = text.replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*]/gu, "").trim();
+    // Strip emojis and special chars for cleaner speech
+    const clean = text
+      .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*💙]/gu, "")
+      .trim();
     if (!clean) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.rate = 1.1;
-    utterance.pitch = 1.3;
-    // Try to pick a female voice
+
     const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => /female|samantha|zira|google.*female/i.test(v.name))
-      || voices.find(v => /en.*us|en.*gb/i.test(v.lang));
-    if (preferred) utterance.voice = preferred;
-    window.speechSynthesis.speak(utterance);
+
+    // Helper to find best voice for a language
+    const findVoice = (langPattern: RegExp, namePattern?: RegExp) => {
+      if (namePattern) {
+        const byName = voices.find(v => namePattern.test(v.name));
+        if (byName) return byName;
+      }
+      return voices.find(v => langPattern.test(v.lang));
+    };
+
+    const jaVoice = findVoice(/^ja/i, /google.*日本|haruka|kyoko|nanami|ja-jp/i);
+    const hiVoice = findVoice(/^hi/i, /google.*हिन्दी|swara|hi-in/i);
+    const enVoice = findVoice(/^en/i, /samantha|zira|google.*female|aria|jenny/i);
+
+    // Split text into language segments
+    const segments: { text: string; lang: "ja" | "hi" | "en" }[] = [];
+    // Japanese: Hiragana, Katakana, CJK
+    // Hindi/Devanagari: \u0900-\u097F
+    const langRegex = /([\u3040-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF]+)|([\u0900-\u097F\u0A00-\u0A7F]+(?:\s+[\u0900-\u097F\u0A00-\u0A7F]+)*)|([^\u3040-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF\u0900-\u097F\u0A00-\u0A7F]+)/g;
+    
+    let match;
+    while ((match = langRegex.exec(clean)) !== null) {
+      const segment = match[0].trim();
+      if (!segment) continue;
+      if (match[1]) segments.push({ text: segment, lang: "ja" });
+      else if (match[2]) segments.push({ text: segment, lang: "hi" });
+      else segments.push({ text: segment, lang: "en" });
+    }
+
+    if (segments.length === 0) segments.push({ text: clean, lang: "en" });
+
+    // Queue utterances for each segment with appropriate voice
+    segments.forEach((seg, i) => {
+      const utterance = new SpeechSynthesisUtterance(seg.text);
+      
+      switch (seg.lang) {
+        case "ja":
+          utterance.lang = "ja-JP";
+          if (jaVoice) utterance.voice = jaVoice;
+          utterance.rate = 1.0;
+          utterance.pitch = 1.4;
+          break;
+        case "hi":
+          utterance.lang = "hi-IN";
+          if (hiVoice) utterance.voice = hiVoice;
+          utterance.rate = 1.0;
+          utterance.pitch = 1.2;
+          break;
+        default:
+          utterance.lang = "en-US";
+          if (enVoice) utterance.voice = enVoice;
+          utterance.rate = 1.05;
+          utterance.pitch = 1.3;
+          break;
+      }
+
+      // Slight pause between segments for natural flow
+      if (i > 0) {
+        const pause = new SpeechSynthesisUtterance(" ");
+        pause.rate = 0.1;
+        window.speechSynthesis.speak(pause);
+      }
+      window.speechSynthesis.speak(utterance);
+    });
   }, [voiceEnabled]);
 
   const startListening = useCallback(() => {
