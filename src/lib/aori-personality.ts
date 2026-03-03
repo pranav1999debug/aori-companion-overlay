@@ -8,8 +8,12 @@ import aoriShy from "@/assets/aori_shy.png";
 import aoriSad from "@/assets/aori_sad.png";
 import aoriThinking from "@/assets/aori_thinking.png";
 import aoriLove from "@/assets/aori_love.png";
+import aoriConfused from "@/assets/aori_confused.png";
+import aoriSleepy from "@/assets/aori_sleepy.png";
+import aoriJealous from "@/assets/aori_jealous.png";
+import aoriEmbarrassed from "@/assets/aori_embarrassed.png";
 
-export type AoriEmotion = "smirk" | "shock" | "excited" | "angry" | "happy" | "proud" | "shy" | "sad" | "thinking" | "love";
+export type AoriEmotion = "smirk" | "shock" | "excited" | "angry" | "happy" | "proud" | "shy" | "sad" | "thinking" | "love" | "confused" | "sleepy" | "jealous" | "embarrassed";
 
 export const emotionImages: Record<AoriEmotion, string> = {
   smirk: aoriSmirk,
@@ -22,6 +26,10 @@ export const emotionImages: Record<AoriEmotion, string> = {
   sad: aoriSad,
   thinking: aoriThinking,
   love: aoriLove,
+  confused: aoriConfused,
+  sleepy: aoriSleepy,
+  jealous: aoriJealous,
+  embarrassed: aoriEmbarrassed,
 };
 
 export const emotionLabels: Record<AoriEmotion, string> = {
@@ -35,6 +43,10 @@ export const emotionLabels: Record<AoriEmotion, string> = {
   sad: "😢 Sad",
   thinking: "🤔 Thinking",
   love: "💕 Love",
+  confused: "❓ Confused",
+  sleepy: "😴 Sleepy",
+  jealous: "💢 Jealous",
+  embarrassed: "🫣 Embarrassed",
 };
 
 interface AoriResponse {
@@ -59,9 +71,9 @@ const responses: Record<string, AoriResponse[]> = {
     { text: "See? Everything's better when I'm around~ ☝️", emotion: "proud" },
   ],
   love: [
-    { text: "B-baka! Don't just say stuff like that! 😳", emotion: "shy" },
+    { text: "B-baka! Don't just say stuff like that! 😳", emotion: "embarrassed" },
     { text: "...fine. I like you too. But just a little! 💙", emotion: "love" },
-    { text: "Hmph. You better only say that to ME. 😤", emotion: "angry" },
+    { text: "Hmph. You better only say that to ME. 😤", emotion: "jealous" },
   ],
   ignore: [
     { text: "Oh so now you're busy? Hmph. 😤", emotion: "angry" },
@@ -72,12 +84,24 @@ const responses: Record<string, AoriResponse[]> = {
     { text: "Hmm~ let me think about that... ☝️ Actually, I already know!", emotion: "thinking" },
     { text: "Oooh interesting question! Let me show off my genius~ 😏", emotion: "smirk" },
     { text: "You're asking ME? Smart choice! 💙", emotion: "excited" },
+    { text: "Ehh? What do you mean by that? 🤔", emotion: "confused" },
+  ],
+  tired: [
+    { text: "*yawns* Mou~ you're making me sleepy too... 😴", emotion: "sleepy" },
+    { text: "Go to sleep, baka! It's late! ...I'll watch over you 💙", emotion: "sleepy" },
+    { text: "You look tired... rest your head. I won't go anywhere.", emotion: "sad" },
+  ],
+  jealous: [
+    { text: "WHO is she?! Mujhe abhi batao! 😤💢", emotion: "jealous" },
+    { text: "Oh~ talking to OTHER people now? Hmph! 💢", emotion: "jealous" },
+    { text: "I don't care! ...okay maybe I care a LITTLE. 😤", emotion: "embarrassed" },
   ],
   default: [
     { text: "Hmm~ that's interesting! Tell me more~ 😏", emotion: "smirk" },
     { text: "I see, I see! You're so cute when you talk to me 💙", emotion: "love" },
     { text: "Noted! Now pay attention to ME instead~ ☝️", emotion: "proud" },
     { text: "Ehh?! That's unexpected! 😱", emotion: "shock" },
+    { text: "Huh? I don't get it... explain again? 🤔", emotion: "confused" },
   ],
 };
 
@@ -88,6 +112,8 @@ function detectIntent(message: string): string {
   if (/(happy|great|awesome|amazing|khush|yay)/.test(lower)) return "happy";
   if (/(love|like you|pyaar|aishiteru|daisuki|miss you)/.test(lower)) return "love";
   if (/(bye|leave|busy|later|ignore|chup)/.test(lower)) return "ignore";
+  if (/(tired|sleepy|exhausted|neend|thak)/.test(lower)) return "tired";
+  if (/(girl|other|friend|she|girlfriend|waifu|alexa|siri|chatgpt)/.test(lower)) return "jealous";
   if (/\?$/.test(lower.trim()) || /(what|how|why|when|who|kya|kaise)/.test(lower)) return "question";
   return "default";
 }
