@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['"M PLUS Rounded 1c"', 'Quicksand', 'sans-serif'],
+        body: ['Quicksand', '"M PLUS Rounded 1c"', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,6 +50,14 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        aori: {
+          navy: "hsl(var(--aori-navy))",
+          blue: "hsl(var(--aori-blue))",
+          cyan: "hsl(var(--aori-cyan))",
+          blush: "hsl(var(--aori-blush))",
+          "bubble-user": "hsl(var(--aori-bubble-user))",
+          "bubble-aori": "hsl(var(--aori-bubble-aori))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
