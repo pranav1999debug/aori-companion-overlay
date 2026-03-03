@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Mic, Heart } from "lucide-react";
-import { AoriEmotion, emotionImages, getAoriResponse } from "@/lib/aori-personality";
+import { AoriEmotion, emotionImages } from "@/lib/aori-personality";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 interface Message {
   id: number;
@@ -52,6 +59,7 @@ export default function AoriChat() {
   const [input, setInput] = useState("");
   const [currentEmotion, setCurrentEmotion] = useState<AoriEmotion>("smirk");
   const [isTyping, setIsTyping] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -59,24 +67,44 @@ export default function AoriChat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isTyping) return;
 
     const userMsg: Message = { id: Date.now(), text, sender: "user" };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = getAoriResponse(text);
-      setCurrentEmotion(response.emotion);
+    const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: text }];
+    setChatHistory(newHistory);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: { messages: newHistory },
+      });
+
+      if (error) throw error;
+
+      const emotion = (data.emotion || "smirk") as AoriEmotion;
+      const responseText = data.text || "Hmm~ say that again? 😏";
+
+      setCurrentEmotion(emotion);
       setMessages((prev) => [
         ...prev,
-        { id: Date.now() + 1, text: response.text, sender: "aori", emotion: response.emotion },
+        { id: Date.now() + 1, text: responseText, sender: "aori", emotion },
       ]);
+      setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+    } catch (e) {
+      console.error("Chat error:", e);
+      toast.error("Aori couldn't respond right now. Try again!");
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry" },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 800 + Math.random() * 1200);
+    }
   };
 
   return (
