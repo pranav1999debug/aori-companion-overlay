@@ -49,6 +49,8 @@ export default function AoriChat() {
   ]);
   const [input, setInput] = useState("");
   const [currentEmotion, setCurrentEmotion] = useState<AoriEmotion>("smirk");
+  const [previousEmotion, setPreviousEmotion] = useState<AoriEmotion | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isListening, setIsListening] = useState(false);
@@ -64,6 +66,23 @@ export default function AoriChat() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastObservationRef = useRef<string>("");
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const changeEmotion = useCallback((newEmotion: AoriEmotion) => {
+    if (newEmotion === currentEmotion) return;
+    if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+    setPreviousEmotion(currentEmotion);
+    setIsTransitioning(true);
+    setCurrentEmotion(newEmotion);
+    transitionTimeoutRef.current = setTimeout(() => {
+      setIsTransitioning(false);
+      setPreviousEmotion(null);
+    }, 500);
+  }, [currentEmotion]);
+
+  useEffect(() => {
+    return () => { if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current); };
+  }, []);
 
   // Detect language segments and speak each with the right voice
   const speakText = useCallback((text: string) => {
@@ -222,7 +241,7 @@ export default function AoriChat() {
       const responseText = data.text || "";
       if (!responseText) return;
       lastObservationRef.current = responseText;
-      setCurrentEmotion(emotion);
+      changeEmotion(emotion);
       setLastAoriText(`👁️ ${responseText}`);
       setMessages((prev) => [...prev, { id: Date.now(), text: `👁️ ${responseText}`, sender: "aori", emotion }]);
       speakText(responseText);
@@ -288,7 +307,7 @@ export default function AoriChat() {
       if (error) throw error;
       const emotion = (data.emotion || "smirk") as AoriEmotion;
       const responseText = data.text || "Hmm~ say that again? 😏";
-      setCurrentEmotion(emotion);
+      changeEmotion(emotion);
       setLastAoriText(responseText);
       setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
@@ -317,16 +336,33 @@ export default function AoriChat() {
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Fullscreen Aori Avatar — centered and large */}
+      {/* Fullscreen Aori Avatar — centered with crossfade */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <img
-          src={emotionImages[currentEmotion]}
-          alt={`Aori ${currentEmotion}`}
-          className="h-[80vh] max-h-[800px] object-contain select-none"
-          style={{
-            filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
-          }}
-        />
+        <div className="relative h-[80vh] max-h-[800px] w-full flex items-center justify-center">
+          {/* Previous emotion (fading out) */}
+          {isTransitioning && previousEmotion && (
+            <img
+              src={emotionImages[previousEmotion]}
+              alt={`Aori ${previousEmotion}`}
+              className="absolute h-full object-contain select-none"
+              style={{
+                filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
+                animation: "avatar-fade-out 0.5s ease-in-out forwards",
+              }}
+            />
+          )}
+          {/* Current emotion (fading in) */}
+          <img
+            key={currentEmotion}
+            src={emotionImages[currentEmotion]}
+            alt={`Aori ${currentEmotion}`}
+            className="absolute h-full object-contain select-none"
+            style={{
+              filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
+              animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
+            }}
+          />
+        </div>
       </div>
 
       {/* Webcam preview (top-left, small) */}

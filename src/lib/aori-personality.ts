@@ -4,8 +4,12 @@ import aoriExcited from "@/assets/aori_excited.png";
 import aoriAngry from "@/assets/aori_angry.png";
 import aoriHappy from "@/assets/aori_happy.png";
 import aoriProud from "@/assets/aori_proud.png";
+import aoriShy from "@/assets/aori_shy.png";
+import aoriSad from "@/assets/aori_sad.png";
+import aoriThinking from "@/assets/aori_thinking.png";
+import aoriLove from "@/assets/aori_love.png";
 
-export type AoriEmotion = "smirk" | "shock" | "excited" | "angry" | "happy" | "proud";
+export type AoriEmotion = "smirk" | "shock" | "excited" | "angry" | "happy" | "proud" | "shy" | "sad" | "thinking" | "love";
 
 export const emotionImages: Record<AoriEmotion, string> = {
   smirk: aoriSmirk,
@@ -14,6 +18,10 @@ export const emotionImages: Record<AoriEmotion, string> = {
   angry: aoriAngry,
   happy: aoriHappy,
   proud: aoriProud,
+  shy: aoriShy,
+  sad: aoriSad,
+  thinking: aoriThinking,
+  love: aoriLove,
 };
 
 export const emotionLabels: Record<AoriEmotion, string> = {
@@ -23,6 +31,10 @@ export const emotionLabels: Record<AoriEmotion, string> = {
   angry: "😤 Angry",
   happy: "😊 Happy",
   proud: "☝️ Proud",
+  shy: "😳 Shy",
+  sad: "😢 Sad",
+  thinking: "🤔 Thinking",
+  love: "💕 Love",
 };
 
 interface AoriResponse {
@@ -38,7 +50,7 @@ const responses: Record<string, AoriResponse[]> = {
   ],
   sad: [
     { text: "Hey… who made my idiot this sad? Batao mujhe 😤", emotion: "angry" },
-    { text: "Come here… I won't tease you right now. Just this once.", emotion: "happy" },
+    { text: "Come here… I won't tease you right now. Just this once.", emotion: "sad" },
     { text: "Don't be sad! I'll fight whoever did this! 💪", emotion: "excited" },
   ],
   happy: [
@@ -47,23 +59,23 @@ const responses: Record<string, AoriResponse[]> = {
     { text: "See? Everything's better when I'm around~ ☝️", emotion: "proud" },
   ],
   love: [
-    { text: "B-baka! Don't just say stuff like that! 😳", emotion: "shock" },
-    { text: "...fine. I like you too. But just a little! 💙", emotion: "happy" },
+    { text: "B-baka! Don't just say stuff like that! 😳", emotion: "shy" },
+    { text: "...fine. I like you too. But just a little! 💙", emotion: "love" },
     { text: "Hmph. You better only say that to ME. 😤", emotion: "angry" },
   ],
   ignore: [
     { text: "Oh so now you're busy? Hmph. 😤", emotion: "angry" },
     { text: "HELLO?! I'm RIGHT HERE! 😱", emotion: "shock" },
-    { text: "Fine. I didn't want to talk anyway... *pouts*", emotion: "angry" },
+    { text: "Fine. I didn't want to talk anyway... *pouts*", emotion: "sad" },
   ],
   question: [
-    { text: "Hmm~ let me think about that... ☝️ Actually, I already know!", emotion: "proud" },
+    { text: "Hmm~ let me think about that... ☝️ Actually, I already know!", emotion: "thinking" },
     { text: "Oooh interesting question! Let me show off my genius~ 😏", emotion: "smirk" },
     { text: "You're asking ME? Smart choice! 💙", emotion: "excited" },
   ],
   default: [
     { text: "Hmm~ that's interesting! Tell me more~ 😏", emotion: "smirk" },
-    { text: "I see, I see! You're so cute when you talk to me 💙", emotion: "happy" },
+    { text: "I see, I see! You're so cute when you talk to me 💙", emotion: "love" },
     { text: "Noted! Now pay attention to ME instead~ ☝️", emotion: "proud" },
     { text: "Ehh?! That's unexpected! 😱", emotion: "shock" },
   ],
