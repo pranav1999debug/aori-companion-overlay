@@ -187,6 +187,8 @@ export default function AoriChat() {
     if (!voiceEnabled || !window.speechSynthesis) return;
     const clean = text
       .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*💙]/gu, "")
+      // Strip any Devanagari that slips through (shouldn't happen now)
+      .replace(/[\u0900-\u097F\u0A00-\u0A7F]+/g, "")
       .trim();
     if (!clean) return;
     window.speechSynthesis.cancel();
@@ -201,39 +203,30 @@ export default function AoriChat() {
     };
 
     const jaVoice = findVoice(/^ja/i, /google.*日本|haruka|kyoko|nanami|ja-jp/i);
-    const hiVoice = findVoice(/^hi/i, /google.*हिन्दी|swara|hi-in/i);
     const enVoice = findVoice(/^en/i, /samantha|zira|google.*female|aria|jenny/i);
 
-    const segments: { text: string; lang: "ja" | "hi" | "en" }[] = [];
-    const langRegex = /([\u3040-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF]+)|([\u0900-\u097F\u0A00-\u0A7F]+(?:\s+[\u0900-\u097F\u0A00-\u0A7F]+)*)|([^\u3040-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF\u0900-\u097F\u0A00-\u0A7F]+)/g;
+    // Only split Japanese segments; everything else (English + romanized Hindi) uses English voice
+    const segments: { text: string; lang: "ja" | "en" }[] = [];
+    const langRegex = /([\u3040-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF]+)|([^\u3040-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF]+)/g;
     let match;
     while ((match = langRegex.exec(clean)) !== null) {
       const segment = match[0].trim();
       if (!segment) continue;
       if (match[1]) segments.push({ text: segment, lang: "ja" });
-      else if (match[2]) segments.push({ text: segment, lang: "hi" });
       else segments.push({ text: segment, lang: "en" });
     }
     if (segments.length === 0) segments.push({ text: clean, lang: "en" });
 
     segments.forEach((seg, i) => {
       const utterance = new SpeechSynthesisUtterance(seg.text);
-      switch (seg.lang) {
-        case "ja":
-          utterance.lang = "ja-JP";
-          if (jaVoice) utterance.voice = jaVoice;
-          utterance.rate = 1.0; utterance.pitch = 1.4;
-          break;
-        case "hi":
-          utterance.lang = "hi-IN";
-          if (hiVoice) utterance.voice = hiVoice;
-          utterance.rate = 1.0; utterance.pitch = 1.2;
-          break;
-        default:
-          utterance.lang = "en-US";
-          if (enVoice) utterance.voice = enVoice;
-          utterance.rate = 1.05; utterance.pitch = 1.3;
-          break;
+      if (seg.lang === "ja") {
+        utterance.lang = "ja-JP";
+        if (jaVoice) utterance.voice = jaVoice;
+        utterance.rate = 1.0; utterance.pitch = 1.4;
+      } else {
+        utterance.lang = "en-US";
+        if (enVoice) utterance.voice = enVoice;
+        utterance.rate = 1.05; utterance.pitch = 1.3;
       }
       if (i > 0) {
         const pause = new SpeechSynthesisUtterance(" ");
