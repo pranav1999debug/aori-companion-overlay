@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.aori-vision]
 verify_jwt = false
+
+[functions.aori-tts]
+verify_jwt = false
