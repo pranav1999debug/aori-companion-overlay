@@ -206,8 +206,9 @@ export default function AoriChat() {
         }
         return;
       }
-      // Play the base64 MP3 audio
-      const audioSrc = `data:audio/mp3;base64,${data.audio}`;
+      // Play the base64 audio from Gemini TTS
+      const mimeType = data.mimeType || "audio/wav";
+      const audioSrc = `data:${mimeType};base64,${data.audio}`;
       const audio = new Audio(audioSrc);
       audio.play().catch(e => console.error("Audio playback failed:", e));
     } catch (e) {

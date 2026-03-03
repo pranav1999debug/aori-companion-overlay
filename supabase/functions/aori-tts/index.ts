@@ -26,7 +26,7 @@ serve(async (req) => {
     // Clean text: strip emojis and action markers
     const clean = text
       .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*💙]/gu, "")
-      .replace(/\*[^*]+\*/g, "") // strip *action text*
+      .replace(/\*[^*]+\*/g, "")
       .trim();
 
     if (!clean) {
@@ -36,24 +36,23 @@ serve(async (req) => {
       );
     }
 
-    // Detect if text contains Japanese characters
-    const hasJapanese = /[\u3040-\u30FF\u4E00-\u9FFF]/.test(clean);
-
-    // Use Google Cloud Text-to-Speech API
-    const ttsUrl = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`;
+    // Use Gemini's TTS model with the AI Studio API key
+    const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${GOOGLE_API_KEY}`;
 
     const ttsBody = {
-      input: { text: clean },
-      voice: {
-        languageCode: hasJapanese ? "ja-JP" : "en-US",
-        name: hasJapanese ? "ja-JP-Neural2-B" : "en-US-Neural2-F",
-        ssmlGender: "FEMALE",
-      },
-      audioConfig: {
-        audioEncoding: "MP3",
-        speakingRate: hasJapanese ? 1.0 : 1.05,
-        pitch: hasJapanese ? 3.0 : 2.5,
-      },
+      contents: [{
+        parts: [{ text: `Say this with a cute, energetic anime girl voice: ${clean}` }]
+      }],
+      generationConfig: {
+        response_modalities: ["AUDIO"],
+        speech_config: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: "Kore" // Young female voice, fits Aori's character
+            }
+          }
+        }
+      }
     };
 
     const ttsResponse = await fetch(ttsUrl, {
@@ -64,7 +63,7 @@ serve(async (req) => {
 
     if (!ttsResponse.ok) {
       const errText = await ttsResponse.text();
-      console.error("Google TTS error:", ttsResponse.status, errText);
+      console.error("Gemini TTS error:", ttsResponse.status, errText);
       return new Response(
         JSON.stringify({ error: `TTS API error: ${ttsResponse.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -72,10 +71,18 @@ serve(async (req) => {
     }
 
     const ttsData = await ttsResponse.json();
-    const audioContent = ttsData.audioContent; // base64 encoded MP3
+    const audioPart = ttsData.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+
+    if (!audioPart?.data) {
+      console.error("No audio data in response:", JSON.stringify(ttsData).slice(0, 500));
+      return new Response(
+        JSON.stringify({ error: "No audio generated" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
-      JSON.stringify({ audio: audioContent }),
+      JSON.stringify({ audio: audioPart.data, mimeType: audioPart.mimeType || "audio/wav" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
