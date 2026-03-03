@@ -431,8 +431,8 @@ export default function AoriChat() {
       </div>
 
       {/* Hidden webcam elements */}
-      <video ref={videoRef} autoPlay playsInline muted className="hidden" />
-      <canvas ref={canvasRef} className="hidden" />
+      <video ref={videoRef} autoPlay playsInline muted style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }} />
+      <canvas ref={canvasRef} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }} />
 
       {/* Draggable & Resizable Aori Avatar */}
       <div
