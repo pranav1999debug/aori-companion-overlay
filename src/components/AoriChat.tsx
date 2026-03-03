@@ -388,15 +388,7 @@ export default function AoriChat() {
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[hsl(220,25%,6%)]">
-      {/* Subtle dot pattern background */}
-      <div
-        className="absolute inset-0 opacity-[0.08] pointer-events-none"
-        style={{
-          backgroundImage: "radial-gradient(circle, hsl(215 80% 55%) 0.5px, transparent 0.5px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
+    <div className="relative h-screen w-screen overflow-hidden bg-transparent">
 
       {/* Hidden webcam elements */}
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
