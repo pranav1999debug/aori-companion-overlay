@@ -72,6 +72,7 @@ export default function AoriChat() {
   const [avatarInitialized, setAvatarInitialized] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origSize: number } | null>(null);
+  const pinchRef = useRef<{ initialDist: number; origSize: number } | null>(null);
 
   // Center avatar on mount
   useEffect(() => {
@@ -84,9 +85,36 @@ export default function AoriChat() {
     }
   }, [avatarInitialized, avatarSize]);
 
+  const getTouchDist = (touches: React.TouchList | TouchList) => {
+    const t1 = touches[0]; const t2 = touches[1];
+    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  };
   const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('[data-resize]')) return;
     e.preventDefault();
+
+    // Two-finger pinch-to-zoom
+    if ('touches' in e && e.touches.length >= 2) {
+      const dist = getTouchDist(e.touches);
+      pinchRef.current = { initialDist: dist, origSize: avatarSize };
+      const handlePinchMove = (ev: TouchEvent) => {
+        ev.preventDefault();
+        if (!pinchRef.current || ev.touches.length < 2) return;
+        const newDist = getTouchDist(ev.touches);
+        const scale = newDist / pinchRef.current.initialDist;
+        setAvatarSize(Math.max(100, Math.min(800, Math.round(pinchRef.current.origSize * scale))));
+      };
+      const handlePinchEnd = () => {
+        pinchRef.current = null;
+        window.removeEventListener('touchmove', handlePinchMove);
+        window.removeEventListener('touchend', handlePinchEnd);
+      };
+      window.addEventListener('touchmove', handlePinchMove, { passive: false });
+      window.addEventListener('touchend', handlePinchEnd);
+      return;
+    }
+
+    // Single-finger drag
     const point = 'touches' in e ? e.touches[0] : e;
     dragRef.current = { startX: point.clientX, startY: point.clientY, origX: avatarPos.x, origY: avatarPos.y };
     const handleMove = (ev: MouseEvent | TouchEvent) => {
@@ -108,7 +136,7 @@ export default function AoriChat() {
     window.addEventListener('mouseup', handleEnd);
     window.addEventListener('touchmove', handleMove, { passive: false });
     window.addEventListener('touchend', handleEnd);
-  }, [avatarPos]);
+  }, [avatarPos, avatarSize]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
