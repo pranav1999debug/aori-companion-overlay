@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Mic, Heart } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Heart } from "lucide-react";
 import { AoriEmotion, emotionImages } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -60,8 +60,58 @@ export default function AoriChat() {
   const [currentEmotion, setCurrentEmotion] = useState<AoriEmotion>("smirk");
   const [isTyping, setIsTyping] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  const speakText = useCallback((text: string) => {
+    if (!voiceEnabled || !window.speechSynthesis) return;
+    // Strip emojis for cleaner speech
+    const clean = text.replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*]/gu, "").trim();
+    if (!clean) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.rate = 1.1;
+    utterance.pitch = 1.3;
+    // Try to pick a female voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => /female|samantha|zira|google.*female/i.test(v.name))
+      || voices.find(v => /en.*us|en.*gb/i.test(v.lang));
+    if (preferred) utterance.voice = preferred;
+    window.speechSynthesis.speak(utterance);
+  }, [voiceEnabled]);
+
+  const startListening = useCallback(() => {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      toast.error("Speech recognition not supported in this browser");
+      return;
+    }
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = (e: any) => {
+      console.error("Speech recognition error:", e.error);
+      setIsListening(false);
+      if (e.error !== "aborted") toast.error("Couldn't hear you. Try again!");
+    };
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, []);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -95,6 +145,7 @@ export default function AoriChat() {
         { id: Date.now() + 1, text: responseText, sender: "aori", emotion },
       ]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+      speakText(responseText);
     } catch (e) {
       console.error("Chat error:", e);
       toast.error("Aori couldn't respond right now. Try again!");
@@ -123,6 +174,18 @@ export default function AoriChat() {
           <h1 className="font-display font-bold text-foreground text-base leading-tight">Aori Tatsumi</h1>
           <p className="text-xs text-muted-foreground">Your stubborn AI companion 💙</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setVoiceEnabled(!voiceEnabled)}
+          className="p-1.5 rounded-full transition-colors hover:bg-secondary"
+          title={voiceEnabled ? "Mute Aori" : "Unmute Aori"}
+        >
+          {voiceEnabled ? (
+            <Volume2 className="w-5 h-5 text-primary" />
+          ) : (
+            <VolumeX className="w-5 h-5 text-muted-foreground" />
+          )}
+        </button>
         <Heart className="w-5 h-5 text-aori-blush" fill="currentColor" />
       </header>
 
@@ -159,8 +222,17 @@ export default function AoriChat() {
           }}
           className="flex gap-2 items-center"
         >
-          <button type="button" className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-full">
-            <Mic className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={isListening ? stopListening : startListening}
+            className={`p-2 rounded-full transition-colors ${
+              isListening
+                ? "bg-destructive/10 text-destructive animate-pulse"
+                : "text-muted-foreground hover:text-primary"
+            }`}
+            title={isListening ? "Stop listening" : "Voice input"}
+          >
+            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
           <input
             ref={inputRef}
