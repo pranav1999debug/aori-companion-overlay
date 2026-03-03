@@ -67,6 +67,72 @@ export default function AoriChat() {
   const webcamIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastObservationRef = useRef<string>("");
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [avatarPos, setAvatarPos] = useState({ x: 0, y: 0 });
+  const [avatarSize, setAvatarSize] = useState(400);
+  const [avatarInitialized, setAvatarInitialized] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeRef = useRef<{ startX: number; startY: number; origSize: number } | null>(null);
+
+  // Center avatar on mount
+  useEffect(() => {
+    if (!avatarInitialized) {
+      setAvatarPos({
+        x: (window.innerWidth - avatarSize) / 2,
+        y: (window.innerHeight - avatarSize) / 2 - 40,
+      });
+      setAvatarInitialized(true);
+    }
+  }, [avatarInitialized, avatarSize]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('[data-resize]')) return;
+    e.preventDefault();
+    const point = 'touches' in e ? e.touches[0] : e;
+    dragRef.current = { startX: point.clientX, startY: point.clientY, origX: avatarPos.x, origY: avatarPos.y };
+    const handleMove = (ev: MouseEvent | TouchEvent) => {
+      if (!dragRef.current) return;
+      const p = 'touches' in ev ? ev.touches[0] : ev;
+      setAvatarPos({
+        x: dragRef.current.origX + (p.clientX - dragRef.current.startX),
+        y: dragRef.current.origY + (p.clientY - dragRef.current.startY),
+      });
+    };
+    const handleEnd = () => {
+      dragRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+  }, [avatarPos]);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const point = 'touches' in e ? e.touches[0] : e;
+    resizeRef.current = { startX: point.clientX, startY: point.clientY, origSize: avatarSize };
+    const handleMove = (ev: MouseEvent | TouchEvent) => {
+      if (!resizeRef.current) return;
+      const p = 'touches' in ev ? ev.touches[0] : ev;
+      const delta = Math.max(p.clientX - resizeRef.current.startX, p.clientY - resizeRef.current.startY);
+      setAvatarSize(Math.max(100, Math.min(800, resizeRef.current.origSize + delta)));
+    };
+    const handleEnd = () => {
+      resizeRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+  }, [avatarSize]);
 
   const changeEmotion = useCallback((newEmotion: AoriEmotion) => {
     if (newEmotion === currentEmotion) return;
@@ -336,33 +402,56 @@ export default function AoriChat() {
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Fullscreen Aori Avatar — centered with crossfade */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative h-[80vh] max-h-[800px] w-full flex items-center justify-center" style={{ animation: "breathe 4s ease-in-out infinite" }}>
-          {/* Previous emotion (fading out) */}
-          {isTransitioning && previousEmotion && (
-            <img
-              src={emotionImages[previousEmotion]}
-              alt={`Aori ${previousEmotion}`}
-              className="absolute h-full object-contain select-none"
-              style={{
-                filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
-                animation: "avatar-fade-out 0.5s ease-in-out forwards",
-              }}
-            />
-          )}
-          {/* Current emotion (fading in) */}
+      {/* Draggable & Resizable Aori Avatar */}
+      <div
+        className="absolute z-10 cursor-grab active:cursor-grabbing select-none"
+        style={{
+          left: avatarPos.x,
+          top: avatarPos.y,
+          width: avatarSize,
+          height: avatarSize,
+          touchAction: "none",
+          animation: "breathe 4s ease-in-out infinite",
+        }}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+      >
+        {/* Resize handle */}
+        <div
+          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary/40 border border-primary/60 cursor-nwse-resize z-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+          onMouseDown={handleResizeStart}
+          onTouchStart={handleResizeStart}
+          title="Resize Aori"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" className="text-primary-foreground">
+            <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </div>
+        {/* Previous emotion (fading out) */}
+        {isTransitioning && previousEmotion && (
           <img
-            key={currentEmotion}
-            src={emotionImages[currentEmotion]}
-            alt={`Aori ${currentEmotion}`}
-            className="absolute h-full object-contain select-none"
+            src={emotionImages[previousEmotion]}
+            alt={`Aori ${previousEmotion}`}
+            className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             style={{
               filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
-              animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
+              animation: "avatar-fade-out 0.5s ease-in-out forwards",
             }}
+            draggable={false}
           />
-        </div>
+        )}
+        {/* Current emotion (fading in) */}
+        <img
+          key={currentEmotion}
+          src={emotionImages[currentEmotion]}
+          alt={`Aori ${currentEmotion}`}
+          className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
+          style={{
+            filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
+            animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
+          }}
+          draggable={false}
+        />
       </div>
 
       {/* Webcam preview (top-left, small) */}
