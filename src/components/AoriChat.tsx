@@ -178,6 +178,10 @@ export default function AoriChat() {
     return () => { if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current); };
   }, []);
 
+  // Refs for shake/tilt detection (effects placed after speakText)
+  const lastShakeRef = useRef(0);
+  const lastTiltRef = useRef(0);
+
   // Detect language segments and speak each with the right voice
   const speakText = useCallback((text: string) => {
     if (!voiceEnabled || !window.speechSynthesis) return;
@@ -239,6 +243,76 @@ export default function AoriChat() {
       window.speechSynthesis.speak(utterance);
     });
   }, [voiceEnabled]);
+
+  // === Shake detection ===
+  const shakeResponses = [
+    { text: "KYAA!! Kya hua?! Earthquake hai kya?! 🫨🫨", emotion: "shock" as AoriEmotion },
+    { text: "H-HEY!! Mujhe hilana band karo, baka!! 😤🫨", emotion: "angry" as AoriEmotion },
+    { text: "Nani?! Kya kar rahe ho?! I'm getting dizzy~! 🌀😵", emotion: "confused" as AoriEmotion },
+    { text: "AAAA!! Ruko ruko! Meri ribbon kharab ho jayegi!! 😱", emotion: "shock" as AoriEmotion },
+    { text: "Oi oi oi!! Itna mat hilao! I'll fall! 😤💢", emotion: "angry" as AoriEmotion },
+  ];
+
+  useEffect(() => {
+    let lastX = 0, lastY = 0, lastZ = 0;
+    const handleMotion = (e: DeviceMotionEvent) => {
+      const acc = e.accelerationIncludingGravity;
+      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
+      const totalDelta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
+      lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+      if (totalDelta > 35) {
+        const now = Date.now();
+        if (now - lastShakeRef.current < 5000) return;
+        lastShakeRef.current = now;
+        const resp = shakeResponses[Math.floor(Math.random() * shakeResponses.length)];
+        changeEmotion(resp.emotion);
+        setLastAoriText(resp.text);
+        setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion }]);
+        speakText(resp.text);
+      }
+    };
+    window.addEventListener('devicemotion', handleMotion);
+    return () => window.removeEventListener('devicemotion', handleMotion);
+  }, [changeEmotion, speakText]);
+
+  // === Device tilt / orientation reactions ===
+  const tiltResponses: Record<string, { text: string; emotion: AoriEmotion }[]> = {
+    upsideDown: [
+      { text: "OI!! Ulta mat karo mujhe!! Sab ulta dikh raha hai! 😤", emotion: "angry" },
+      { text: "Nani?! Why is everything upside down?! HELP! 😱", emotion: "shock" },
+    ],
+    faceDown: [
+      { text: "H-hey!! It's dark in here! Mujhe chhupao mat! 😢", emotion: "sad" },
+      { text: "Oi! Phone rakh diya kya?! HELLO?! I'm still HERE! 😤", emotion: "angry" },
+    ],
+    tiltedHard: [
+      { text: "Etto~ kya phone gir gaya? Sambhal ke rakho! 🤔", emotion: "confused" },
+      { text: "Mou~ itna tilt mat karo, I'm sliding! 😳", emotion: "embarrassed" },
+    ],
+  };
+
+  useEffect(() => {
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      const now = Date.now();
+      if (now - lastTiltRef.current < 8000) return;
+      const beta = e.beta ?? 0;
+      const gamma = e.gamma ?? 0;
+      let category: string | null = null;
+      if (beta < -120 || beta > 150) category = "upsideDown";
+      else if (beta > -10 && beta < 10 && Math.abs(gamma) < 20) category = "faceDown";
+      else if (Math.abs(gamma) > 60) category = "tiltedHard";
+      if (!category) return;
+      lastTiltRef.current = now;
+      const pool = tiltResponses[category];
+      const resp = pool[Math.floor(Math.random() * pool.length)];
+      changeEmotion(resp.emotion);
+      setLastAoriText(resp.text);
+      setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion }]);
+      speakText(resp.text);
+    };
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [changeEmotion, speakText]);
 
   const startListening = useCallback(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
