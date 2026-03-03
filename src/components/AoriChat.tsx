@@ -129,25 +129,70 @@ export default function AoriChat() {
 
   const startListening = useCallback(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) { toast.error("Speech recognition not supported"); return; }
+    if (!SpeechRecognitionAPI) { 
+      toast.error("Speech recognition is not supported in this browser. Try Chrome or Edge!");
+      return; 
+    }
+    
+    // Stop any existing recognition first
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+    }
+
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
-      setChatOpen(true);
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
+
+    let finalTranscript = "";
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + " ";
+        } else {
+          interim = transcript;
+        }
+      }
+      const displayText = (finalTranscript + interim).trim();
+      if (displayText) {
+        setInput(displayText);
+        if (!chatOpen) setChatOpen(true);
+      }
     };
-    recognition.onend = () => setIsListening(false);
+
+    recognition.onend = () => {
+      setIsListening(false);
+      // Auto-send if we got a final transcript
+      if (finalTranscript.trim()) {
+        setInput(finalTranscript.trim());
+      }
+    };
+
     recognition.onerror = (e: any) => {
       setIsListening(false);
-      if (e.error !== "aborted") toast.error("Couldn't hear you. Try again!");
+      if (e.error === "not-allowed") {
+        toast.error("Microphone access denied. Please allow mic permissions!");
+      } else if (e.error === "no-speech") {
+        toast("No speech detected. Try speaking louder!", { duration: 3000 });
+      } else if (e.error !== "aborted") {
+        toast.error("Couldn't hear you. Try again!");
+      }
     };
+
     recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, []);
+    
+    try {
+      recognition.start();
+      setIsListening(true);
+      toast("🎤 Listening... speak now!", { duration: 2000 });
+    } catch (e) {
+      toast.error("Failed to start voice recognition.");
+    }
+  }, [chatOpen]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
