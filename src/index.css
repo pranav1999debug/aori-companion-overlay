@@ -140,3 +140,8 @@
   0% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.03); }
 }
+
+@keyframes pulse-glow-aura {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}

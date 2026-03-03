@@ -416,6 +416,15 @@ export default function AoriChat() {
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
+        {/* Glowing aura behind Aori */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse 60% 70% at 50% 55%, hsl(175 70% 45% / 0.15) 0%, hsl(215 80% 55% / 0.08) 40%, transparent 70%)",
+            filter: "blur(20px)",
+            animation: "pulse-glow-aura 3s ease-in-out infinite",
+          }}
+        />
         {/* Resize handle */}
         <div
           className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary/40 border border-primary/60 cursor-nwse-resize z-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
@@ -434,7 +443,7 @@ export default function AoriChat() {
             alt={`Aori ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             style={{
-              filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
+              filter: "drop-shadow(0 0 40px hsl(175 70% 45% / 0.2)) drop-shadow(0 0 80px hsl(215 80% 55% / 0.1))",
               animation: "avatar-fade-out 0.5s ease-in-out forwards",
             }}
             draggable={false}
@@ -447,7 +456,7 @@ export default function AoriChat() {
           alt={`Aori ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
           style={{
-            filter: "drop-shadow(0 0 60px hsl(215 80% 55% / 0.15))",
+            filter: "drop-shadow(0 0 40px hsl(175 70% 45% / 0.2)) drop-shadow(0 0 80px hsl(215 80% 55% / 0.1))",
             animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
           }}
           draggable={false}
