@@ -1,1 +1,4 @@
 project_id = "ckspomkziyvyiorryhcb"
+
+[functions.aori-chat]
+verify_jwt = false
