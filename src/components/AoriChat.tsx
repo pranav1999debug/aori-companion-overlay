@@ -258,6 +258,7 @@ export default function AoriChat() {
   // Speech queue to prevent interruptions
   const speechQueueRef = useRef<(() => Promise<void>)[]>([]);
   const isSpeakingRef = useRef(false);
+  const startListeningOnceRef = useRef<() => void>(() => {});
 
   const processQueue = useCallback(async () => {
     if (isSpeakingRef.current) return;
@@ -267,7 +268,7 @@ export default function AoriChat() {
       if (voiceModeRef.current) {
         setTimeout(() => {
           if (voiceModeRef.current) {
-            startListeningOnce();
+            startListeningOnceRef.current();
           }
         }, 500);
       }
