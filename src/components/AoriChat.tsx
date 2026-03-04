@@ -273,9 +273,14 @@ export default function AoriChat() {
   const playAudioAsync = useCallback((audioSrc: string): Promise<void> => {
     return new Promise((resolve) => {
       const audio = new Audio(audioSrc);
-      audio.onended = () => resolve();
-      audio.onerror = () => resolve();
-      audio.play().catch(() => resolve());
+      audio.onended = () => { console.log("TTS audio playback ended"); resolve(); };
+      audio.onerror = (e) => { console.error("TTS audio error:", e); resolve(); };
+      audio.play().then(() => {
+        console.log("TTS audio playing successfully");
+      }).catch((err) => {
+        console.error("TTS audio play() failed:", err);
+        resolve();
+      });
     });
   }, []);
 
@@ -339,6 +344,7 @@ export default function AoriChat() {
   // Use Gemini TTS via edge function with IndexedDB caching & browser fallback
   // This queues speech so Aori is never interrupted mid-sentence
   const speakText = useCallback(async (text: string) => {
+    console.log("speakText called, voiceEnabled:", voiceEnabled, "text:", text.substring(0, 50));
     if (!voiceEnabled) return;
 
     const job = async () => {
