@@ -247,6 +247,8 @@ export default function AoriChat() {
   // Refs for shake/tilt detection (effects placed after speakText)
   const lastShakeRef = useRef(0);
   const lastTiltRef = useRef(0);
+  // Track when TTS was rate-limited to avoid hammering the endpoint
+  const ttsRateLimitedUntilRef = useRef(0);
 
   // Browser TTS fallback
   const speakBrowserTTS = useCallback((text: string) => {
@@ -267,6 +269,13 @@ export default function AoriChat() {
   // Use Gemini TTS via edge function for natural voice, with browser fallback
   const speakText = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
+
+    // If we were recently rate-limited, skip the API call entirely
+    if (Date.now() < ttsRateLimitedUntilRef.current) {
+      speakBrowserTTS(text);
+      return;
+    }
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-tts`,
@@ -282,7 +291,8 @@ export default function AoriChat() {
       );
 
       if (response.status === 429) {
-        // Rate limited — silently fall back to browser TTS
+        // Don't retry for 60 seconds
+        ttsRateLimitedUntilRef.current = Date.now() + 60000;
         speakBrowserTTS(text);
         return;
       }
