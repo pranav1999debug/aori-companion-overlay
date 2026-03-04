@@ -110,6 +110,8 @@ export default function AoriChat() {
     } catch {}
   }, [chatHistory]);
   const [isListening, setIsListening] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [webcamEnabled, setWebcamEnabled] = useState(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
@@ -127,7 +129,7 @@ export default function AoriChat() {
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -470,75 +472,78 @@ export default function AoriChat() {
     return () => window.removeEventListener('deviceorientation', handleOrientation);
   }, [changeEmotion, speakText]);
 
-  const startListening = useCallback(() => {
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) { 
-      toast.error("Speech recognition is not supported in this browser. Try Chrome or Edge!");
-      return; 
-    }
-    
-    // Stop any existing recognition first
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-    }
-
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = "en-US";
-    recognition.interimResults = true;
-    recognition.continuous = true;
-    recognition.maxAlternatives = 1;
-
-    let finalTranscript = "";
-
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript + " ";
-        } else {
-          interim = transcript;
-        }
-      }
-      const displayText = (finalTranscript + interim).trim();
-      if (displayText) {
-        setInput(displayText);
-        if (!chatOpen) setChatOpen(true);
-      }
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      // Auto-send if we got a final transcript
-      if (finalTranscript.trim()) {
-        setInput(finalTranscript.trim());
-      }
-    };
-
-    recognition.onerror = (e: any) => {
-      setIsListening(false);
-      if (e.error === "not-allowed") {
-        toast.error("Microphone access denied. Please allow mic permissions!");
-      } else if (e.error === "no-speech") {
-        toast("No speech detected. Try speaking louder!", { duration: 3000 });
-      } else if (e.error !== "aborted") {
-        toast.error("Couldn't hear you. Try again!");
-      }
-    };
-
-    recognitionRef.current = recognition;
-    
+  const startListening = useCallback(async () => {
     try {
-      recognition.start();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' });
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+        
+        // Convert to base64
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = (reader.result as string).split(',')[1];
+          if (!base64) {
+            toast("No audio recorded. Try again!", { duration: 3000 });
+            return;
+          }
+
+          toast("🔄 Transcribing...", { duration: 2000 });
+
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-stt`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                },
+                body: JSON.stringify({ audio: base64, mimeType: mediaRecorder.mimeType }),
+              }
+            );
+
+            if (!response.ok) {
+              toast.error("Transcription failed. Try typing instead!");
+              return;
+            }
+
+            const data = await response.json();
+            if (data.text?.trim()) {
+              setInput(data.text.trim());
+              if (!chatOpen) setChatOpen(true);
+            } else {
+              toast("No speech detected. Try speaking louder!", { duration: 3000 });
+            }
+          } catch (e) {
+            console.error("STT error:", e);
+            toast.error("Couldn't transcribe audio. Try again!");
+          }
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
       setIsListening(true);
-      toast("🎤 Listening... speak now!", { duration: 2000 });
+      toast("🎤 Recording... tap again to stop", { duration: 2000 });
     } catch (e) {
-      toast.error("Failed to start voice recognition.");
+      toast.error("Microphone access denied. Please allow mic permissions!");
     }
   }, [chatOpen]);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
     setIsListening(false);
   }, []);
 
