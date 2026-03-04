@@ -911,7 +911,7 @@ export default function AoriChat() {
 
         {/* Mic */}
         <button
-          onClick={isListening ? stopListening : startListening}
+          onClick={voiceModeActive ? toggleVoiceMode : toggleVoiceMode}
           className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${
             isListening
               ? "bg-destructive/30 border-destructive/40 text-destructive animate-pulse"
@@ -1057,7 +1057,7 @@ export default function AoriChat() {
             >
               <button
                 type="button"
-                onClick={isListening ? stopListening : startListening}
+                onClick={toggleVoiceMode}
                 className={`p-2 rounded-full transition-colors ${
                   isListening ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"
                 }`}
