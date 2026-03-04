@@ -492,7 +492,47 @@ export default function AoriChat() {
     return () => window.removeEventListener('deviceorientation', handleOrientation);
   }, [changeEmotion, speakText]);
 
-  const startListening = useCallback(async () => {
+  // Send a message programmatically (used by voice mode)
+  const sendMessageWithText = useCallback(async (text: string) => {
+    if (!text.trim() || isTyping) return;
+    const userMsg: Message = { id: Date.now(), text, sender: "user" };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+    const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: text }];
+    setChatHistory(newHistory);
+    try {
+      const { data, error } = await supabase.functions.invoke("aori-chat", { body: { messages: newHistory } });
+      if (error) throw error;
+      const emotion = (data.emotion || "smirk") as AoriEmotion;
+      const responseText = data.text || "Hmm~ say that again? 😏";
+      changeEmotion(emotion);
+      setLastAoriText(responseText);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion }]);
+      setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+      speakText(responseText);
+    } catch (e) {
+      console.error("Chat error:", e);
+      toast.error("Aori couldn't respond right now. Try again!");
+      setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry" }]);
+      // If voice mode, restart listening even on error
+      if (voiceModeRef.current) {
+        setTimeout(() => {
+          if (voiceModeRef.current) startListeningOnceRef.current();
+        }, 1000);
+      }
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping]);
+
+  // Start a single recording session (used by voice mode loop and manual trigger)
+  const startListeningOnce = useCallback(async () => {
+    if (isTyping || isSpeakingRef.current) {
+      // Don't start if Aori is still talking or processing
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' });
@@ -511,7 +551,9 @@ export default function AoriChat() {
         reader.onloadend = async () => {
           const base64 = (reader.result as string).split(',')[1];
           if (!base64) {
-            toast("No audio recorded. Try again!", { duration: 3000 });
+            if (voiceModeRef.current) {
+              setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
+            }
             return;
           }
 
@@ -533,43 +575,88 @@ export default function AoriChat() {
 
             if (!response.ok) {
               toast.error("Transcription failed. Try typing instead!");
+              if (voiceModeRef.current) {
+                setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+              }
               return;
             }
 
             const data = await response.json();
             if (data.text?.trim()) {
-              setInput(data.text.trim());
-              if (!chatOpen) setChatOpen(true);
+              // Auto-send the transcribed message
+              sendMessageWithText(data.text.trim());
             } else {
               toast("No speech detected. Try speaking louder!", { duration: 3000 });
+              // Restart listening in voice mode
+              if (voiceModeRef.current) {
+                setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
+              }
             }
           } catch (e) {
             console.error("STT error:", e);
             toast.error("Couldn't transcribe audio. Try again!");
+            if (voiceModeRef.current) {
+              setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+            }
           }
         };
         reader.readAsDataURL(audioBlob);
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(1000); // 1s timeslices for smaller chunks
+      mediaRecorder.start(1000);
       setIsListening(true);
-      toast("🎤 Recording... tap again to stop", { duration: 2000 });
+      
+      if (voiceModeRef.current) {
+        toast("🎤 Listening...", { duration: 2000 });
+      }
 
-      // Auto-stop after 10 seconds to prevent oversized payloads
+      // Auto-stop after 10 seconds
       recordingTimeoutRef.current = window.setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
           mediaRecorderRef.current.stop();
           setIsListening(false);
-          toast("⏱️ Recording stopped (10s max)", { duration: 2000 });
         }
       }, 10000);
     } catch (e) {
       toast.error("Microphone access denied. Please allow mic permissions!");
+      setVoiceModeActive(false);
+      voiceModeRef.current = false;
     }
-  }, [chatOpen]);
+  }, [isTyping, sendMessageWithText]);
+
+  // Keep the ref in sync
+  useEffect(() => {
+    startListeningOnceRef.current = startListeningOnce;
+  }, [startListeningOnce]);
+
+  // Toggle voice mode on/off
+  const toggleVoiceMode = useCallback(() => {
+    if (voiceModeRef.current) {
+      // Turn off voice mode
+      voiceModeRef.current = false;
+      setVoiceModeActive(false);
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      setIsListening(false);
+      toast("🎤 Voice mode off", { duration: 2000 });
+    } else {
+      // Turn on voice mode
+      voiceModeRef.current = true;
+      setVoiceModeActive(true);
+      toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
+      startListeningOnce();
+    }
+  }, [startListeningOnce]);
 
   const stopListening = useCallback(() => {
+    voiceModeRef.current = false;
+    setVoiceModeActive(false);
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
       recordingTimeoutRef.current = null;
