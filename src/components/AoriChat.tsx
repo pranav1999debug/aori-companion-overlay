@@ -911,15 +911,15 @@ export default function AoriChat() {
 
         {/* Mic */}
         <button
-          onClick={voiceModeActive ? toggleVoiceMode : toggleVoiceMode}
+          onClick={toggleVoiceMode}
           className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${
-            isListening
+            voiceModeActive
               ? "bg-destructive/30 border-destructive/40 text-destructive animate-pulse"
               : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"
           }`}
-          title={isListening ? "Stop listening" : "Voice input"}
+          title={voiceModeActive ? "Stop voice mode" : "Voice mode"}
         >
-          {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
 
         {/* Volume */}
