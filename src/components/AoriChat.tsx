@@ -262,7 +262,17 @@ export default function AoriChat() {
   const processQueue = useCallback(async () => {
     if (isSpeakingRef.current) return;
     const next = speechQueueRef.current.shift();
-    if (!next) return;
+    if (!next) {
+      // Queue is empty — if voice mode is active, restart listening
+      if (voiceModeRef.current) {
+        setTimeout(() => {
+          if (voiceModeRef.current) {
+            startListeningOnce();
+          }
+        }, 500);
+      }
+      return;
+    }
     isSpeakingRef.current = true;
     try {
       await next();
