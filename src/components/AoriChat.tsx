@@ -110,6 +110,8 @@ export default function AoriChat() {
     } catch {}
   }, [chatHistory]);
   const [isListening, setIsListening] = useState(false);
+  const [voiceModeActive, setVoiceModeActive] = useState(false);
+  const voiceModeRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<number | null>(null);
