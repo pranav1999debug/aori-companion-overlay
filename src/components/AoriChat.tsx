@@ -112,6 +112,7 @@ export default function AoriChat() {
   const [isListening, setIsListening] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimeoutRef = useRef<number | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [webcamEnabled, setWebcamEnabled] = useState(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
@@ -538,15 +539,28 @@ export default function AoriChat() {
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
+      mediaRecorder.start(1000); // 1s timeslices for smaller chunks
       setIsListening(true);
       toast("🎤 Recording... tap again to stop", { duration: 2000 });
+
+      // Auto-stop after 10 seconds to prevent oversized payloads
+      recordingTimeoutRef.current = window.setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+          mediaRecorderRef.current.stop();
+          setIsListening(false);
+          toast("⏱️ Recording stopped (10s max)", { duration: 2000 });
+        }
+      }, 10000);
     } catch (e) {
       toast.error("Microphone access denied. Please allow mic permissions!");
     }
   }, [chatOpen]);
 
   const stopListening = useCallback(() => {
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
