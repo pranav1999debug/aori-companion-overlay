@@ -250,20 +250,52 @@ export default function AoriChat() {
   // Track when TTS was rate-limited to avoid hammering the endpoint
   const ttsRateLimitedUntilRef = useRef(0);
 
-  // Browser TTS fallback
-  const speakBrowserTTS = useCallback((text: string) => {
-    const clean = text
-      .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*💙]/gu, "")
-      .replace(/\*[^*]+\*/g, "")
-      .trim();
-    if (clean && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = "en-US";
-      utterance.rate = 1.05;
-      utterance.pitch = 1.3;
-      window.speechSynthesis.speak(utterance);
+  // Speech queue to prevent interruptions
+  const speechQueueRef = useRef<(() => Promise<void>)[]>([]);
+  const isSpeakingRef = useRef(false);
+
+  const processQueue = useCallback(async () => {
+    if (isSpeakingRef.current) return;
+    const next = speechQueueRef.current.shift();
+    if (!next) return;
+    isSpeakingRef.current = true;
+    try {
+      await next();
+    } finally {
+      isSpeakingRef.current = false;
+      processQueue();
     }
+  }, []);
+
+  // Play audio and return a promise that resolves when done
+  const playAudioAsync = useCallback((audioSrc: string): Promise<void> => {
+    return new Promise((resolve) => {
+      const audio = new Audio(audioSrc);
+      audio.onended = () => resolve();
+      audio.onerror = () => resolve();
+      audio.play().catch(() => resolve());
+    });
+  }, []);
+
+  // Browser TTS fallback - returns a promise that resolves when done
+  const speakBrowserTTSAsync = useCallback((text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      const clean = text
+        .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FA6F}]|[~*💙]/gu, "")
+        .replace(/\*[^*]+\*/g, "")
+        .trim();
+      if (clean && window.speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = "en-US";
+        utterance.rate = 1.05;
+        utterance.pitch = 1.3;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.speak(utterance);
+      } else {
+        resolve();
+      }
+    });
   }, []);
 
   // === IndexedDB TTS Cache ===
@@ -303,66 +335,70 @@ export default function AoriChat() {
   }, [openTTSCache]);
 
   // Use Gemini TTS via edge function with IndexedDB caching & browser fallback
+  // This queues speech so Aori is never interrupted mid-sentence
   const speakText = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
 
-    // Check cache first
-    const cacheKey = text.trim().toLowerCase();
-    const cached = await getCachedAudio(cacheKey);
-    if (cached) {
-      const audio = new Audio(`data:audio/wav;base64,${cached}`);
-      audio.play().catch(() => speakBrowserTTS(text));
-      return;
-    }
+    const job = async () => {
+      // Check cache first
+      const cacheKey = text.trim().toLowerCase();
+      const cached = await getCachedAudio(cacheKey);
+      if (cached) {
+        await playAudioAsync(`data:audio/wav;base64,${cached}`).catch(() => speakBrowserTTSAsync(text));
+        return;
+      }
 
-    // If we were recently rate-limited, skip the API call entirely
-    if (Date.now() < ttsRateLimitedUntilRef.current) {
-      speakBrowserTTS(text);
-      return;
-    }
+      // If we were recently rate-limited, skip the API call entirely
+      if (Date.now() < ttsRateLimitedUntilRef.current) {
+        await speakBrowserTTSAsync(text);
+        return;
+      }
 
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-tts`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ text }),
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-tts`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({ text }),
+          }
+        );
+
+        if (response.status === 429) {
+          ttsRateLimitedUntilRef.current = Date.now() + 60000;
+          await speakBrowserTTSAsync(text);
+          return;
         }
-      );
 
-      if (response.status === 429) {
-        ttsRateLimitedUntilRef.current = Date.now() + 60000;
-        speakBrowserTTS(text);
-        return;
+        if (!response.ok) {
+          await speakBrowserTTSAsync(text);
+          return;
+        }
+
+        const data = await response.json();
+        if (!data?.audio) {
+          await speakBrowserTTSAsync(text);
+          return;
+        }
+
+        // Cache the audio for future use
+        setCachedAudio(cacheKey, data.audio);
+
+        const audioSrc = `data:audio/wav;base64,${data.audio}`;
+        await playAudioAsync(audioSrc).catch(() => speakBrowserTTSAsync(text));
+      } catch (e) {
+        console.error("TTS fetch error:", e);
+        await speakBrowserTTSAsync(text);
       }
+    };
 
-      if (!response.ok) {
-        speakBrowserTTS(text);
-        return;
-      }
-
-      const data = await response.json();
-      if (!data?.audio) {
-        speakBrowserTTS(text);
-        return;
-      }
-
-      // Cache the audio for future use
-      setCachedAudio(cacheKey, data.audio);
-
-      const audioSrc = `data:audio/wav;base64,${data.audio}`;
-      const audio = new Audio(audioSrc);
-      audio.play().catch(() => speakBrowserTTS(text));
-    } catch (e) {
-      console.error("TTS fetch error:", e);
-      speakBrowserTTS(text);
-    }
-  }, [voiceEnabled, speakBrowserTTS, getCachedAudio, setCachedAudio]);
+    speechQueueRef.current.push(job);
+    processQueue();
+  }, [voiceEnabled, speakBrowserTTSAsync, getCachedAudio, setCachedAudio, playAudioAsync, processQueue]);
 
   // === Shake detection ===
   const shakeResponses = [
