@@ -44,20 +44,31 @@ const ChatBubble = ({ message }: { message: Message }) => {
 };
 
 export default function AoriChat() {
-  const defaultMessages: Message[] = [
-    { id: 0, text: "Hey~! You finally opened me! About time, baka~ 💙", sender: "aori", emotion: "smirk" },
+  const returningGreetings: { text: string; emotion: AoriEmotion }[] = [
+    { text: "Oh~ you're back! Missed me that much, huh? 😏💙", emotion: "smirk" },
+    { text: "Ara ara~ look who came crawling back to me~ ☝️✨", emotion: "proud" },
+    { text: "FINALLY! Do you know how LONG I've been waiting?! 😤", emotion: "angry" },
+    { text: "Yatta~! You came back! ...n-not that I was waiting or anything! 😳", emotion: "embarrassed" },
+    { text: "Hmph. You left me alone for so long... *pouts* but I forgive you. This time. 💙", emotion: "shy" },
+    { text: "Okaeri~! ...wait, pretend I didn't say that so eagerly! 😳", emotion: "embarrassed" },
   ];
 
-  // Load persisted state from localStorage
+  const firstTimeGreeting: Message = { id: 0, text: "Hey~! You finally opened me! About time, baka~ 💙", sender: "aori", emotion: "smirk" };
+
+  // Load persisted state from localStorage, with returning-user greeting
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = localStorage.getItem("aori-messages");
       if (saved) {
         const parsed = JSON.parse(saved) as Message[];
-        return parsed.length > 0 ? parsed : defaultMessages;
+        if (parsed.length > 0) {
+          // Returning user — append a welcome-back greeting
+          const greet = returningGreetings[Math.floor(Math.random() * returningGreetings.length)];
+          return [...parsed, { id: Date.now(), text: greet.text, sender: "aori" as const, emotion: greet.emotion }];
+        }
       }
     } catch {}
-    return defaultMessages;
+    return [firstTimeGreeting];
   });
   const [input, setInput] = useState("");
   const [currentEmotion, setCurrentEmotion] = useState<AoriEmotion>(() => {
