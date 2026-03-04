@@ -1059,10 +1059,10 @@ export default function AoriChat() {
                 type="button"
                 onClick={toggleVoiceMode}
                 className={`p-2 rounded-full transition-colors ${
-                  isListening ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"
+                  voiceModeActive ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"
                 }`}
               >
-                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
               <input
                 value={input}
