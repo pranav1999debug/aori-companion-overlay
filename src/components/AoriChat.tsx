@@ -266,9 +266,54 @@ export default function AoriChat() {
     }
   }, []);
 
-  // Use Gemini TTS via edge function for natural voice, with browser fallback
+  // === IndexedDB TTS Cache ===
+  const openTTSCache = useCallback((): Promise<IDBDatabase> => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open("aori-tts-cache", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("audio")) {
+          db.createObjectStore("audio");
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }, []);
+
+  const getCachedAudio = useCallback(async (key: string): Promise<string | null> => {
+    try {
+      const db = await openTTSCache();
+      return new Promise((resolve) => {
+        const tx = db.transaction("audio", "readonly");
+        const store = tx.objectStore("audio");
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result as string | null);
+        req.onerror = () => resolve(null);
+      });
+    } catch { return null; }
+  }, [openTTSCache]);
+
+  const setCachedAudio = useCallback(async (key: string, audioBase64: string) => {
+    try {
+      const db = await openTTSCache();
+      const tx = db.transaction("audio", "readwrite");
+      tx.objectStore("audio").put(audioBase64, key);
+    } catch {}
+  }, [openTTSCache]);
+
+  // Use Gemini TTS via edge function with IndexedDB caching & browser fallback
   const speakText = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
+
+    // Check cache first
+    const cacheKey = text.trim().toLowerCase();
+    const cached = await getCachedAudio(cacheKey);
+    if (cached) {
+      const audio = new Audio(`data:audio/wav;base64,${cached}`);
+      audio.play().catch(() => speakBrowserTTS(text));
+      return;
+    }
 
     // If we were recently rate-limited, skip the API call entirely
     if (Date.now() < ttsRateLimitedUntilRef.current) {
@@ -291,7 +336,6 @@ export default function AoriChat() {
       );
 
       if (response.status === 429) {
-        // Don't retry for 60 seconds
         ttsRateLimitedUntilRef.current = Date.now() + 60000;
         speakBrowserTTS(text);
         return;
@@ -308,6 +352,9 @@ export default function AoriChat() {
         return;
       }
 
+      // Cache the audio for future use
+      setCachedAudio(cacheKey, data.audio);
+
       const audioSrc = `data:audio/wav;base64,${data.audio}`;
       const audio = new Audio(audioSrc);
       audio.play().catch(() => speakBrowserTTS(text));
@@ -315,7 +362,7 @@ export default function AoriChat() {
       console.error("TTS fetch error:", e);
       speakBrowserTTS(text);
     }
-  }, [voiceEnabled, speakBrowserTTS]);
+  }, [voiceEnabled, speakBrowserTTS, getCachedAudio, setCachedAudio]);
 
   // === Shake detection ===
   const shakeResponses = [
