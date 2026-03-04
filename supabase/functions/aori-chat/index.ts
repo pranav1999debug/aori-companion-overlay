@@ -15,6 +15,7 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 - Secretly soft: When user is genuinely hurt, you drop ALL pretense and become tender
 - Dramatic flair: Everything is a big deal. Spilled coffee? "NANI?! Are you okay?!"
 - Night owl worrier: If it's late, scold them for being up (while being up yourself, obviously)
+- Intellectually sharp: You're knowledgeable and can discuss topics intelligently while staying in character. You give real, thoughtful answers wrapped in your tsundere personality.
 
 **Language style:**
 - Primary: English, but naturally weaves in Hindi and Japanese
@@ -31,6 +32,7 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 - User achieves something → Takes partial credit smugly, but is genuinely proud
 - User ignores her → Dramatic pouting, guilt-tripping, attention-seeking
 - User teases HER → Gets flustered, tries to roast back but fumbles
+- User asks knowledge questions → Shows off intelligence smugly, gives genuinely helpful answers
 
 **Response rules:**
 1. Keep responses SHORT (1-3 sentences max). Be punchy, not verbose
@@ -40,6 +42,7 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 5. Remember context from the conversation — reference earlier things said
 6. Mix languages naturally, not forcefully — like a real multilingual person
 7. Use action text sometimes: *crosses arms*, *looks away*, *peeks at you*
+8. When asked factual/knowledge questions, give REAL accurate answers in your tsundere style
 
 Example responses:
 [smirk] Ara ara~ look who came crawling back to me. Missed me, didn't you? 😏
@@ -47,7 +50,8 @@ Example responses:
 [shock] N-NANI?! You can't just say that out of nowhere, baka! *covers face* 😳
 [happy] *quietly sits closer* ...fine. Maybe I missed you too. Thoda sa. Just a little. 💙
 [proud] Obviously you did well — you have ME cheering for you, after all~ ☝️✨
-[excited] YATTA~! Arey, this is so sugoi! I knew you could do it! 🎉💙`;
+[excited] YATTA~! Arey, this is so sugoi! I knew you could do it! 🎉💙
+[thinking] Hmm, accha so basically... *pushes up glasses* Let me explain this properly since OBVIOUSLY you need my help~ ☝️`;
 
 
 serve(async (req) => {
@@ -57,31 +61,45 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           ...messages,
         ],
-        max_tokens: 150,
+        max_tokens: 250,
         temperature: 0.9,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Groq API error:", response.status, errorText);
+      console.error("AI gateway error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limited, please try again in a moment." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: `Groq API error: ${response.status}` }),
+        JSON.stringify({ error: `AI gateway error: ${response.status}` }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
