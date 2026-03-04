@@ -44,21 +44,76 @@ const ChatBubble = ({ message }: { message: Message }) => {
 };
 
 export default function AoriChat() {
-  const [messages, setMessages] = useState<Message[]>([
+  const defaultMessages: Message[] = [
     { id: 0, text: "Hey~! You finally opened me! About time, baka~ 💙", sender: "aori", emotion: "smirk" },
-  ]);
+  ];
+
+  // Load persisted state from localStorage
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem("aori-messages");
+      if (saved) {
+        const parsed = JSON.parse(saved) as Message[];
+        return parsed.length > 0 ? parsed : defaultMessages;
+      }
+    } catch {}
+    return defaultMessages;
+  });
   const [input, setInput] = useState("");
-  const [currentEmotion, setCurrentEmotion] = useState<AoriEmotion>("smirk");
+  const [currentEmotion, setCurrentEmotion] = useState<AoriEmotion>(() => {
+    try {
+      const saved = localStorage.getItem("aori-messages");
+      if (saved) {
+        const parsed = JSON.parse(saved) as Message[];
+        const lastAori = [...parsed].reverse().find(m => m.sender === "aori");
+        if (lastAori?.emotion) return lastAori.emotion;
+      }
+    } catch {}
+    return "smirk";
+  });
   const [previousEmotion, setPreviousEmotion] = useState<AoriEmotion | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem("aori-chat-history");
+      if (saved) return JSON.parse(saved) as ChatMessage[];
+    } catch {}
+    return [];
+  });
+
+  // Persist messages and chat history to localStorage
+  useEffect(() => {
+    try {
+      // Keep last 100 messages to avoid bloating storage
+      const toSave = messages.slice(-100);
+      localStorage.setItem("aori-messages", JSON.stringify(toSave));
+    } catch {}
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      // Keep last 50 conversation turns for context
+      const toSave = chatHistory.slice(-50);
+      localStorage.setItem("aori-chat-history", JSON.stringify(toSave));
+    } catch {}
+  }, [chatHistory]);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [webcamEnabled, setWebcamEnabled] = useState(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [lastAoriText, setLastAoriText] = useState("Hey~! You finally opened me! About time, baka~ 💙");
+  const [lastAoriText, setLastAoriText] = useState(() => {
+    try {
+      const saved = localStorage.getItem("aori-messages");
+      if (saved) {
+        const parsed = JSON.parse(saved) as Message[];
+        const lastAori = [...parsed].reverse().find(m => m.sender === "aori");
+        if (lastAori?.text) return lastAori.text;
+      }
+    } catch {}
+    return "Hey~! You finally opened me! About time, baka~ 💙";
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
