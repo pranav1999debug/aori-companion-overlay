@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Moon, Settings } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Moon, Settings, Trash2 } from "lucide-react";
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -881,6 +881,22 @@ export default function AoriChat() {
                 {isTyping ? "typing..." : "Your stubborn AI companion 💙"}
               </p>
             </div>
+            <button
+              onClick={() => {
+                localStorage.removeItem("aori-messages");
+                localStorage.removeItem("aori-chat-history");
+                localStorage.removeItem("aori-tts-cache");
+                setMessages([firstTimeGreeting]);
+                setChatHistory([]);
+                setCurrentEmotion("smirk");
+                setLastAoriText(firstTimeGreeting.text);
+                toast("Conversation reset! Starting fresh~ 💙");
+              }}
+              className="p-2 rounded-full hover:bg-white/[0.08] transition-colors"
+              title="Reset conversation"
+            >
+              <Trash2 className="w-4 h-4 text-white/50 hover:text-destructive/80" />
+            </button>
             <button
               onClick={() => setChatOpen(false)}
               className="p-2 rounded-full hover:bg-white/[0.08] transition-colors"
