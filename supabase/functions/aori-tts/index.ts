@@ -36,6 +36,9 @@ serve(async (req) => {
       );
     }
 
+    // Add vocal direction for expressiveness
+    const expressiveText = `[cheerful] ${clean}`;
+
     const ttsResponse = await fetch("https://api.groq.com/openai/v1/audio/speech", {
       method: "POST",
       headers: {
@@ -43,9 +46,9 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "playai-tts",
-        input: clean,
-        voice: "Arista-PlayAI",
+        model: "canopylabs/orpheus-v1-english",
+        input: expressiveText,
+        voice: "hannah",
         response_format: "wav",
       }),
     });
