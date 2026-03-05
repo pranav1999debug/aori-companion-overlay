@@ -252,6 +252,7 @@ export default function AoriChat() {
   // Refs for shake/tilt detection (effects placed after speakText)
   const lastShakeRef = useRef(0);
   const lastTiltRef = useRef(0);
+  const isFaceDownRef = useRef(false);
   // Track when TTS was rate-limited to avoid hammering the endpoint
   const ttsRateLimitedUntilRef = useRef(0);
 
@@ -431,6 +432,18 @@ export default function AoriChat() {
     { text: "Oi oi oi!! Itna mat hilao! I'll fall! 😤💢", emotion: "angry" as AoriEmotion },
   ];
 
+  // Track face-down orientation for shake gating
+  useEffect(() => {
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      const beta = e.beta ?? 0;
+      const gamma = e.gamma ?? 0;
+      // Face-down: beta near 0 and gamma near 0 (screen facing floor)
+      isFaceDownRef.current = (beta > -30 && beta < 30 && Math.abs(gamma) < 30);
+    };
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, []);
+
   useEffect(() => {
     let lastX = 0, lastY = 0, lastZ = 0;
     const handleMotion = (e: DeviceMotionEvent) => {
@@ -438,7 +451,8 @@ export default function AoriChat() {
       if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
       const totalDelta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
       lastX = acc.x; lastY = acc.y; lastZ = acc.z;
-      if (totalDelta > 35) {
+      // Only react to HARD shakes (threshold 50) AND only when phone is face-down
+      if (totalDelta > 50 && isFaceDownRef.current) {
         const now = Date.now();
         if (now - lastShakeRef.current < 5000) return;
         lastShakeRef.current = now;
@@ -453,44 +467,7 @@ export default function AoriChat() {
     return () => window.removeEventListener('devicemotion', handleMotion);
   }, [changeEmotion, speakText]);
 
-  // === Device tilt / orientation reactions ===
-  const tiltResponses: Record<string, { text: string; emotion: AoriEmotion }[]> = {
-    upsideDown: [
-      { text: "OI!! Ulta mat karo mujhe!! Sab ulta dikh raha hai! 😤", emotion: "angry" },
-      { text: "Nani?! Why is everything upside down?! HELP! 😱", emotion: "shock" },
-    ],
-    faceDown: [
-      { text: "H-hey!! It's dark in here! Mujhe chhupao mat! 😢", emotion: "sad" },
-      { text: "Oi! Phone rakh diya kya?! HELLO?! I'm still HERE! 😤", emotion: "angry" },
-    ],
-    tiltedHard: [
-      { text: "Etto~ kya phone gir gaya? Sambhal ke rakho! 🤔", emotion: "confused" },
-      { text: "Mou~ itna tilt mat karo, I'm sliding! 😳", emotion: "embarrassed" },
-    ],
-  };
-
-  useEffect(() => {
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      const now = Date.now();
-      if (now - lastTiltRef.current < 8000) return;
-      const beta = e.beta ?? 0;
-      const gamma = e.gamma ?? 0;
-      let category: string | null = null;
-      if (beta < -120 || beta > 150) category = "upsideDown";
-      else if (beta > -10 && beta < 10 && Math.abs(gamma) < 20) category = "faceDown";
-      else if (Math.abs(gamma) > 60) category = "tiltedHard";
-      if (!category) return;
-      lastTiltRef.current = now;
-      const pool = tiltResponses[category];
-      const resp = pool[Math.floor(Math.random() * pool.length)];
-      changeEmotion(resp.emotion);
-      setLastAoriText(resp.text);
-      setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion }]);
-      speakText(resp.text);
-    };
-    window.addEventListener('deviceorientation', handleOrientation);
-    return () => window.removeEventListener('deviceorientation', handleOrientation);
-  }, [changeEmotion, speakText]);
+  // Removed separate tilt/orientation reactions — Aori only reacts to face-down + hard shake now
 
   // Send a message programmatically (used by voice mode)
   const sendMessageWithText = useCallback(async (text: string) => {
@@ -499,7 +476,8 @@ export default function AoriChat() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
-    if (!chatOpen) setChatOpen(true);
+    // Only auto-open chat panel if NOT in voice mode
+    if (!chatOpen && !voiceModeRef.current) setChatOpen(true);
     const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: text }];
     setChatHistory(newHistory);
     try {
