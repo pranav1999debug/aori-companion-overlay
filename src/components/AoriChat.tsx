@@ -467,44 +467,7 @@ export default function AoriChat() {
     return () => window.removeEventListener('devicemotion', handleMotion);
   }, [changeEmotion, speakText]);
 
-  // === Device tilt / orientation reactions ===
-  const tiltResponses: Record<string, { text: string; emotion: AoriEmotion }[]> = {
-    upsideDown: [
-      { text: "OI!! Ulta mat karo mujhe!! Sab ulta dikh raha hai! 😤", emotion: "angry" },
-      { text: "Nani?! Why is everything upside down?! HELP! 😱", emotion: "shock" },
-    ],
-    faceDown: [
-      { text: "H-hey!! It's dark in here! Mujhe chhupao mat! 😢", emotion: "sad" },
-      { text: "Oi! Phone rakh diya kya?! HELLO?! I'm still HERE! 😤", emotion: "angry" },
-    ],
-    tiltedHard: [
-      { text: "Etto~ kya phone gir gaya? Sambhal ke rakho! 🤔", emotion: "confused" },
-      { text: "Mou~ itna tilt mat karo, I'm sliding! 😳", emotion: "embarrassed" },
-    ],
-  };
-
-  useEffect(() => {
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      const now = Date.now();
-      if (now - lastTiltRef.current < 8000) return;
-      const beta = e.beta ?? 0;
-      const gamma = e.gamma ?? 0;
-      let category: string | null = null;
-      if (beta < -120 || beta > 150) category = "upsideDown";
-      else if (beta > -10 && beta < 10 && Math.abs(gamma) < 20) category = "faceDown";
-      else if (Math.abs(gamma) > 60) category = "tiltedHard";
-      if (!category) return;
-      lastTiltRef.current = now;
-      const pool = tiltResponses[category];
-      const resp = pool[Math.floor(Math.random() * pool.length)];
-      changeEmotion(resp.emotion);
-      setLastAoriText(resp.text);
-      setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion }]);
-      speakText(resp.text);
-    };
-    window.addEventListener('deviceorientation', handleOrientation);
-    return () => window.removeEventListener('deviceorientation', handleOrientation);
-  }, [changeEmotion, speakText]);
+  // Removed separate tilt/orientation reactions — Aori only reacts to face-down + hard shake now
 
   // Send a message programmatically (used by voice mode)
   const sendMessageWithText = useCallback(async (text: string) => {
