@@ -252,6 +252,7 @@ export default function AoriChat() {
   // Refs for shake/tilt detection (effects placed after speakText)
   const lastShakeRef = useRef(0);
   const lastTiltRef = useRef(0);
+  const isFaceDownRef = useRef(false);
   // Track when TTS was rate-limited to avoid hammering the endpoint
   const ttsRateLimitedUntilRef = useRef(0);
 
@@ -499,7 +500,8 @@ export default function AoriChat() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
-    if (!chatOpen) setChatOpen(true);
+    // Only auto-open chat panel if NOT in voice mode
+    if (!chatOpen && !voiceModeRef.current) setChatOpen(true);
     const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: text }];
     setChatHistory(newHistory);
     try {
