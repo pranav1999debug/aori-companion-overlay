@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.aori-stt]
 verify_jwt = false
+
+[functions.aori-face]
+verify_jwt = false
+
+[functions.aori-environment]
+verify_jwt = false
