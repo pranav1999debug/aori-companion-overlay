@@ -259,6 +259,7 @@ export default function AoriChat() {
   // Speech queue to prevent interruptions
   const speechQueueRef = useRef<(() => Promise<void>)[]>([]);
   const isSpeakingRef = useRef(false);
+  const [isSpeakingState, setIsSpeakingState] = useState(false);
   const startListeningOnceRef = useRef<() => void>(() => {});
 
   const processQueue = useCallback(async () => {
@@ -276,10 +277,12 @@ export default function AoriChat() {
       return;
     }
     isSpeakingRef.current = true;
+    setIsSpeakingState(true);
     try {
       await next();
     } finally {
       isSpeakingRef.current = false;
+      setIsSpeakingState(false);
       processQueue();
     }
   }, []);
@@ -507,101 +510,60 @@ export default function AoriChat() {
     }
   }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping]);
 
-  // Start a single recording session (used by voice mode loop and manual trigger)
-  const startListeningOnce = useCallback(async () => {
-    if (isTyping || isSpeakingRef.current) {
-      // Don't start if Aori is still talking or processing
+  // Web Speech API recognition instance
+  const recognitionRef = useRef<any>(null);
+
+  // Start a single listening session using Web Speech API (free, no API tokens)
+  const startListeningOnce = useCallback(() => {
+    if (isTyping || isSpeakingRef.current) return;
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Speech recognition not supported in this browser!");
       return;
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' });
-      audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
 
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
-        
-        // Convert to base64
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(',')[1];
-          if (!base64) {
-            if (voiceModeRef.current) {
-              setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
-            }
-            return;
-          }
-
-          toast("🔄 Transcribing...", { duration: 2000 });
-
-          try {
-            const response = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-stt`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                },
-                body: JSON.stringify({ audio: base64, mimeType: mediaRecorder.mimeType }),
-              }
-            );
-
-            if (!response.ok) {
-              toast.error("Transcription failed. Try typing instead!");
-              if (voiceModeRef.current) {
-                setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
-              }
-              return;
-            }
-
-            const data = await response.json();
-            if (data.text?.trim()) {
-              // Auto-send the transcribed message
-              sendMessageWithText(data.text.trim());
-            } else {
-              toast("No speech detected. Try speaking louder!", { duration: 3000 });
-              // Restart listening in voice mode
-              if (voiceModeRef.current) {
-                setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
-              }
-            }
-          } catch (e) {
-            console.error("STT error:", e);
-            toast.error("Couldn't transcribe audio. Try again!");
-            if (voiceModeRef.current) {
-              setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
-            }
-          }
-        };
-        reader.readAsDataURL(audioBlob);
-      };
-
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(1000);
-      setIsListening(true);
-      
-      if (voiceModeRef.current) {
-        toast("🎤 Listening...", { duration: 2000 });
-      }
-
-      // Auto-stop after 10 seconds
-      recordingTimeoutRef.current = window.setTimeout(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-          mediaRecorderRef.current.stop();
-          setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) {
+        sendMessageWithText(transcript);
+      } else {
+        toast("No speech detected. Try speaking louder!", { duration: 3000 });
+        if (voiceModeRef.current) {
+          setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
         }
-      }, 10000);
-    } catch (e) {
-      toast.error("Microphone access denied. Please allow mic permissions!");
-      setVoiceModeActive(false);
-      voiceModeRef.current = false;
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      if (event.error === "no-speech") {
+        toast("No speech detected. Try again!", { duration: 2000 });
+      } else if (event.error !== "aborted") {
+        toast.error("Speech recognition error. Try again!");
+      }
+      setIsListening(false);
+      if (voiceModeRef.current && event.error !== "aborted") {
+        setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+
+    if (voiceModeRef.current) {
+      toast("🎤 Listening...", { duration: 2000 });
     }
   }, [isTyping, sendMessageWithText]);
 
@@ -616,12 +578,9 @@ export default function AoriChat() {
       // Turn off voice mode
       voiceModeRef.current = false;
       setVoiceModeActive(false);
-      if (recordingTimeoutRef.current) {
-        clearTimeout(recordingTimeoutRef.current);
-        recordingTimeoutRef.current = null;
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
       }
       setIsListening(false);
       toast("🎤 Voice mode off", { duration: 2000 });
@@ -637,12 +596,9 @@ export default function AoriChat() {
   const stopListening = useCallback(() => {
     voiceModeRef.current = false;
     setVoiceModeActive(false);
-    if (recordingTimeoutRef.current) {
-      clearTimeout(recordingTimeoutRef.current);
-      recordingTimeoutRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
     }
     setIsListening(false);
   }, []);
@@ -811,13 +767,18 @@ export default function AoriChat() {
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
-        {/* Glowing aura behind Aori */}
+        {/* Glowing aura behind Aori — scales up when speaking */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none transition-transform duration-300 ease-in-out"
           style={{
-            background: "radial-gradient(ellipse 60% 70% at 50% 55%, hsl(175 70% 45% / 0.15) 0%, hsl(215 80% 55% / 0.08) 40%, transparent 70%)",
-            filter: "blur(20px)",
-            animation: "pulse-glow-aura 3s ease-in-out infinite",
+            background: isSpeakingState
+              ? "radial-gradient(ellipse 70% 80% at 50% 55%, hsl(175 70% 45% / 0.35) 0%, hsl(215 80% 55% / 0.2) 40%, transparent 70%)"
+              : "radial-gradient(ellipse 60% 70% at 50% 55%, hsl(175 70% 45% / 0.15) 0%, hsl(215 80% 55% / 0.08) 40%, transparent 70%)",
+            filter: isSpeakingState ? "blur(25px)" : "blur(20px)",
+            transform: isSpeakingState ? "scale(1.25)" : "scale(1)",
+            animation: isSpeakingState
+              ? "pulse-glow-aura 1s ease-in-out infinite"
+              : "pulse-glow-aura 3s ease-in-out infinite",
           }}
         />
         {/* Resize handle */}
