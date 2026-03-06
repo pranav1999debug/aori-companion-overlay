@@ -392,7 +392,9 @@ export default function AoriChat() {
         );
 
         if (response.status === 429) {
-          ttsRateLimitedUntilRef.current = Date.now() + 60000;
+          // Back off for 30 minutes when rate limited (free tier: 3600 TPD)
+          ttsRateLimitedUntilRef.current = Date.now() + 30 * 60 * 1000;
+          console.warn("TTS rate limited — using browser fallback for 30 minutes");
           await speakBrowserTTSAsync(text);
           return;
         }
