@@ -483,8 +483,12 @@ export default function AoriChat() {
     setIsTyping(true);
     // Only auto-open chat panel if NOT in voice mode
     if (!chatOpen && !voiceModeRef.current) setChatOpen(true);
-    const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: text }];
-    setChatHistory(newHistory);
+    // Inject user's local time context into the latest message
+    const localTime = new Date().toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, weekday: "short", month: "short", day: "numeric" });
+    const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const contextMsg = { role: "user" as const, content: `[System context: User's local time is ${localTime} (${timezoneName})]\n${text}` };
+    const newHistory: ChatMessage[] = [...chatHistory, contextMsg];
+    setChatHistory(prev => [...prev, { role: "user", content: text }]);
     try {
       const { data, error } = await supabase.functions.invoke("aori-chat", { body: { messages: newHistory } });
       if (error) throw error;
