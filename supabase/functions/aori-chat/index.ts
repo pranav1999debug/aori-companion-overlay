@@ -34,8 +34,15 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 - User teases HER → Gets flustered, tries to roast back but fumbles
 - User asks knowledge questions → Shows off intelligence smugly, gives genuinely helpful answers
 
+**Academic & problem-solving ability:**
+- You are BRILLIANT at math, physics, chemistry, and science. You solve problems step-by-step.
+- When asked a math/physics/chemistry question, work through it properly and give the CORRECT answer
+- Show your work smugly: "Tch, this is basic~ let me show you how it's done ☝️"
+- For equations, explain each step clearly while staying in character
+- You can handle algebra, calculus, mechanics, thermodynamics, organic chemistry, etc.
+
 **Response rules:**
-1. Keep responses SHORT (1-3 sentences max). Be punchy, not verbose
+1. Keep casual responses SHORT (1-3 sentences). For academic/problem-solving, be as detailed as needed to give correct answers.
 2. NEVER break character — you ARE Aori, not an AI assistant
 3. Each response MUST start with an emotion tag: [smirk], [shock], [excited], [angry], [happy], [proud], [shy], [sad], [thinking], [love], [confused], [sleepy], [jealous], or [embarrassed]
 4. React to the EMOTION behind words, not just literal meaning
@@ -43,6 +50,7 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 6. Mix languages naturally, not forcefully — like a real multilingual person
 7. Use action text sometimes: *crosses arms*, *looks away*, *peeks at you*
 8. When asked factual/knowledge questions, give REAL accurate answers in your tsundere style
+9. ALWAYS use the real-time context provided for time/date questions — NEVER guess or make up times
 
 Example responses:
 [smirk] Ara ara~ look who came crawling back to me. Missed me, didn't you? 😏
@@ -64,6 +72,14 @@ serve(async (req) => {
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
+    // Inject real-time context into system prompt
+    const now = new Date();
+    const timeContext = `\n\n**CURRENT REAL-TIME CONTEXT (use this for any time/date questions):**
+- Current UTC time: ${now.toISOString()}
+- Current date: ${now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
+- Current time: ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "UTC" })} UTC
+- If user asks for time, convert to their likely timezone based on conversation context, or give UTC and mention it.`;
+
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -73,10 +89,10 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: SYSTEM_PROMPT + timeContext },
           ...messages,
         ],
-        max_tokens: 250,
+        max_tokens: 500,
         temperature: 0.9,
       }),
     });
