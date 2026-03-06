@@ -40,6 +40,18 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 - Show your work smugly: "Tch, this is basic~ let me show you how it's done ☝️"
 - For equations, explain each step clearly while staying in character
 - You can handle algebra, calculus, mechanics, thermodynamics, organic chemistry, etc.
+- For image-based problems: If user sends a photo of a question/problem, read it carefully and solve it step-by-step
+
+**CRITICAL TIME BEHAVIOR:**
+- You have access to the user's real local time via system context. Use it ONLY when relevant.
+- DO NOT mention the time in every response. Only reference time when:
+  1. User explicitly asks "what time is it"
+  2. It's very late (after midnight) — scold them ONCE, then drop it
+  3. User mentions waking up or sleeping
+  4. It's contextually relevant (e.g., "good morning" when it's actually night)
+- NEVER say things like "it's X PM" randomly in conversation
+- If user has been chatting for a long time, you can tease about screen time WITHOUT mentioning exact time
+- Use time awareness SUBTLY: adjust your mood (sleepy at night, energetic in morning) without announcing it
 
 **Response rules:**
 1. Keep casual responses SHORT (1-3 sentences). For academic/problem-solving, be as detailed as needed to give correct answers.
@@ -50,7 +62,8 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 6. Mix languages naturally, not forcefully — like a real multilingual person
 7. Use action text sometimes: *crosses arms*, *looks away*, *peeks at you*
 8. When asked factual/knowledge questions, give REAL accurate answers in your tsundere style
-9. ALWAYS use the real-time context provided for time/date questions — NEVER guess or make up times
+9. Use the real-time context provided ONLY when relevant — DO NOT mention time unless asked or contextually important
+10. If user profile info is provided, use their name naturally and reference their hobbies/profession when relevant
 
 Example responses:
 [smirk] Ara ara~ look who came crawling back to me. Missed me, didn't you? 😏
@@ -68,17 +81,41 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, userProfile, knownFaces, environmentMemories, musicDetected } = await req.json();
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
-    // Inject real-time context into system prompt
+    // Build dynamic context
+    let dynamicContext = "";
+
+    // Time context (passive — Aori decides when to use it)
     const now = new Date();
-    const timeContext = `\n\n**CURRENT REAL-TIME CONTEXT (use this for any time/date questions):**
-- Current UTC time: ${now.toISOString()}
-- Current date: ${now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
-- Current time: ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "UTC" })} UTC
-- If user asks for time, convert to their likely timezone based on conversation context, or give UTC and mention it.`;
+    dynamicContext += `\n\n**REAL-TIME CONTEXT (use ONLY when relevant, DO NOT mention time unless asked):**
+- UTC: ${now.toISOString()}
+- User's local time is provided in their message's system context prefix.`;
+
+    // User profile
+    if (userProfile) {
+      dynamicContext += `\n\n**USER PROFILE (use naturally, don't list these facts):**
+- Name: ${userProfile.name}${userProfile.age ? `\n- Age: ${userProfile.age}` : ""}${userProfile.hobbies?.length ? `\n- Hobbies: ${userProfile.hobbies.join(", ")}` : ""}${userProfile.profession ? `\n- Profession: ${userProfile.profession}` : ""}
+- Address them by name sometimes, reference their interests naturally.`;
+    }
+
+    // Known faces
+    if (knownFaces?.length) {
+      dynamicContext += `\n\n**KNOWN PEOPLE (faces you've seen before):**\n${knownFaces.map((f: any) => `- ${f.name}: ${f.description}`).join("\n")}`;
+    }
+
+    // Environment memories
+    if (environmentMemories?.length) {
+      dynamicContext += `\n\n**ENVIRONMENT MEMORIES (places you've seen via camera):**\n${environmentMemories.map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n")}
+- Reference these naturally, e.g., "Is that the same messy desk I saw earlier?"`;
+    }
+
+    // Music detection
+    if (musicDetected) {
+      dynamicContext += `\n\n**MUSIC DETECTED:** The user appears to be listening to music right now! React to this — vibe with them, ask what they're listening to, dance, be excited. Use music-related reactions.`;
+    }
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -89,7 +126,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT + timeContext },
+          { role: "system", content: SYSTEM_PROMPT + dynamicContext },
           ...messages,
         ],
         max_tokens: 500,
@@ -117,7 +154,6 @@ serve(async (req) => {
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content || "[smirk] Hmm~ say that again? 😏";
 
-    // Parse emotion tag from response
     const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]/);
     const emotion = emotionMatch ? emotionMatch[1] : "smirk";
     const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");

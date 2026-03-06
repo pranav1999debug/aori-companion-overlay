@@ -2,11 +2,24 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function RequireOnboarding({ children }: { children: React.ReactNode }) {
+  const onboarded = localStorage.getItem("aori-onboarded") === "true";
+  if (!onboarded) return <Navigate to="/onboarding" replace />;
+  return <>{children}</>;
+}
+
+function RedirectIfOnboarded({ children }: { children: React.ReactNode }) {
+  const onboarded = localStorage.getItem("aori-onboarded") === "true";
+  if (onboarded) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -15,8 +28,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/onboarding" element={<RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded>} />
+          <Route path="/" element={<RequireOnboarding><Index /></RequireOnboarding>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

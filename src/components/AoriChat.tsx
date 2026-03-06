@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Moon, Settings, Trash2 } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music } from "lucide-react";
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getDeviceId } from "@/pages/Onboarding";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -14,6 +15,25 @@ interface Message {
   text: string;
   sender: "user" | "aori";
   emotion?: AoriEmotion;
+}
+
+interface UserProfile {
+  name: string;
+  age?: number;
+  hobbies?: string[];
+  profession?: string;
+}
+
+interface KnownFace {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface EnvironmentMemory {
+  id: string;
+  description: string;
+  location_label?: string;
 }
 
 const ChatBubble = ({ message }: { message: Message }) => {
@@ -44,25 +64,57 @@ const ChatBubble = ({ message }: { message: Message }) => {
 };
 
 export default function AoriChat() {
+  const deviceId = getDeviceId();
+
+  // User profile & contextual data
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [knownFaces, setKnownFaces] = useState<KnownFace[]>([]);
+  const [environmentMemories, setEnvironmentMemories] = useState<EnvironmentMemory[]>([]);
+  const [musicDetected, setMusicDetected] = useState(false);
+  const musicAnalyserRef = useRef<AnalyserNode | null>(null);
+  const musicStreamRef = useRef<MediaStream | null>(null);
+  const musicIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load profile and contextual data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      const [profileRes, facesRes, envRes] = await Promise.all([
+        supabase.from("user_profiles").select("*").eq("device_id", deviceId).single(),
+        supabase.from("known_faces").select("*").eq("device_id", deviceId),
+        supabase.from("environment_memories").select("*").eq("device_id", deviceId),
+      ]);
+      if (profileRes.data) {
+        setUserProfile({
+          name: profileRes.data.name,
+          age: profileRes.data.age,
+          hobbies: profileRes.data.hobbies,
+          profession: profileRes.data.profession,
+        });
+      }
+      if (facesRes.data) setKnownFaces(facesRes.data.map((f: any) => ({ id: f.id, name: f.name, description: f.description })));
+      if (envRes.data) setEnvironmentMemories(envRes.data.map((e: any) => ({ id: e.id, description: e.description, location_label: e.location_label })));
+    };
+    loadData();
+  }, [deviceId]);
+
+  const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
+
   const returningGreetings: { text: string; emotion: AoriEmotion }[] = [
-    { text: "Oh~ you're back! Missed me that much, huh? 😏💙", emotion: "smirk" },
-    { text: "Ara ara~ look who came crawling back to me~ ☝️✨", emotion: "proud" },
-    { text: "FINALLY! Do you know how LONG I've been waiting?! 😤", emotion: "angry" },
-    { text: "Yatta~! You came back! ...n-not that I was waiting or anything! 😳", emotion: "embarrassed" },
-    { text: "Hmph. You left me alone for so long... *pouts* but I forgive you. This time. 💙", emotion: "shy" },
-    { text: "Okaeri~! ...wait, pretend I didn't say that so eagerly! 😳", emotion: "embarrassed" },
+    { text: `Oh~ ${userName}'s back! Missed me that much, huh? 😏💙`, emotion: "smirk" },
+    { text: `Ara ara~ look who came crawling back to me~ ☝️✨`, emotion: "proud" },
+    { text: `FINALLY! Do you know how LONG I've been waiting, ${userName}?! 😤`, emotion: "angry" },
+    { text: `Yatta~! ${userName} came back! ...n-not that I was waiting or anything! 😳`, emotion: "embarrassed" },
+    { text: `Hmph. You left me alone for so long... *pouts* but I forgive you. This time. 💙`, emotion: "shy" },
   ];
 
-  const firstTimeGreeting: Message = { id: 0, text: "Hey~! You finally opened me! About time, baka~ 💙", sender: "aori", emotion: "smirk" };
+  const firstTimeGreeting: Message = { id: 0, text: `Hey~! ${userName}, you finally opened me! About time, baka~ 💙`, sender: "aori", emotion: "smirk" };
 
-  // Load persisted state from localStorage, with returning-user greeting
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = localStorage.getItem("aori-messages");
       if (saved) {
         const parsed = JSON.parse(saved) as Message[];
         if (parsed.length > 0) {
-          // Returning user — append a welcome-back greeting
           const greet = returningGreetings[Math.floor(Math.random() * returningGreetings.length)];
           return [...parsed, { id: Date.now(), text: greet.text, sender: "aori" as const, emotion: greet.emotion }];
         }
@@ -93,22 +145,14 @@ export default function AoriChat() {
     return [];
   });
 
-  // Persist messages and chat history to localStorage
   useEffect(() => {
-    try {
-      // Keep last 100 messages to avoid bloating storage
-      const toSave = messages.slice(-100);
-      localStorage.setItem("aori-messages", JSON.stringify(toSave));
-    } catch {}
+    try { localStorage.setItem("aori-messages", JSON.stringify(messages.slice(-100))); } catch {}
   }, [messages]);
 
   useEffect(() => {
-    try {
-      // Keep last 50 conversation turns for context
-      const toSave = chatHistory.slice(-50);
-      localStorage.setItem("aori-chat-history", JSON.stringify(toSave));
-    } catch {}
+    try { localStorage.setItem("aori-chat-history", JSON.stringify(chatHistory.slice(-50))); } catch {}
   }, [chatHistory]);
+
   const [isListening, setIsListening] = useState(false);
   const [voiceModeActive, setVoiceModeActive] = useState(false);
   const voiceModeRef = useRef(false);
@@ -118,6 +162,8 @@ export default function AoriChat() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [webcamEnabled, setWebcamEnabled] = useState(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const [backCamEnabled, setBackCamEnabled] = useState(false);
+  const [backCamStream, setBackCamStream] = useState<MediaStream | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [lastAoriText, setLastAoriText] = useState(() => {
     try {
@@ -134,6 +180,7 @@ export default function AoriChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const backVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastObservationRef = useRef<string>("");
@@ -145,7 +192,6 @@ export default function AoriChat() {
   const resizeRef = useRef<{ startX: number; startY: number; origSize: number } | null>(null);
   const pinchRef = useRef<{ initialDist: number; origSize: number } | null>(null);
 
-  // Center avatar on mount
   useEffect(() => {
     if (!avatarInitialized) {
       setAvatarPos({
@@ -160,11 +206,10 @@ export default function AoriChat() {
     const t1 = touches[0]; const t2 = touches[1];
     return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
   };
+
   const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('[data-resize]')) return;
     e.preventDefault();
-
-    // Two-finger pinch-to-zoom
     if ('touches' in e && e.touches.length >= 2) {
       const dist = getTouchDist(e.touches);
       pinchRef.current = { initialDist: dist, origSize: avatarSize };
@@ -184,8 +229,6 @@ export default function AoriChat() {
       window.addEventListener('touchend', handlePinchEnd);
       return;
     }
-
-    // Single-finger drag
     const point = 'touches' in e ? e.touches[0] : e;
     dragRef.current = { startX: point.clientX, startY: point.clientY, origX: avatarPos.x, origY: avatarPos.y };
     const handleMove = (ev: MouseEvent | TouchEvent) => {
@@ -249,14 +292,11 @@ export default function AoriChat() {
     return () => { if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current); };
   }, []);
 
-  // Refs for shake/tilt detection (effects placed after speakText)
   const lastShakeRef = useRef(0);
   const lastTiltRef = useRef(0);
   const isFaceDownRef = useRef(false);
-  // Track when TTS was rate-limited to avoid hammering the endpoint
   const ttsRateLimitedUntilRef = useRef(0);
 
-  // Speech queue to prevent interruptions
   const speechQueueRef = useRef<(() => Promise<void>)[]>([]);
   const isSpeakingRef = useRef(false);
   const [isSpeakingState, setIsSpeakingState] = useState(false);
@@ -266,43 +306,29 @@ export default function AoriChat() {
     if (isSpeakingRef.current) return;
     const next = speechQueueRef.current.shift();
     if (!next) {
-      // Queue is empty — if voice mode is active, restart listening
       if (voiceModeRef.current) {
-        setTimeout(() => {
-          if (voiceModeRef.current) {
-            startListeningOnceRef.current();
-          }
-        }, 500);
+        setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
       }
       return;
     }
     isSpeakingRef.current = true;
     setIsSpeakingState(true);
-    try {
-      await next();
-    } finally {
+    try { await next(); } finally {
       isSpeakingRef.current = false;
       setIsSpeakingState(false);
       processQueue();
     }
   }, []);
 
-  // Play audio and return a promise that resolves when done
   const playAudioAsync = useCallback((audioSrc: string): Promise<void> => {
     return new Promise((resolve) => {
       const audio = new Audio(audioSrc);
-      audio.onended = () => { console.log("TTS audio playback ended"); resolve(); };
-      audio.onerror = (e) => { console.error("TTS audio error:", e); resolve(); };
-      audio.play().then(() => {
-        console.log("TTS audio playing successfully");
-      }).catch((err) => {
-        console.error("TTS audio play() failed:", err);
-        resolve();
-      });
+      audio.onended = () => resolve();
+      audio.onerror = () => resolve();
+      audio.play().catch(() => resolve());
     });
   }, []);
 
-  // Browser TTS fallback - returns a promise that resolves when done
   const speakBrowserTTSAsync = useCallback((text: string): Promise<void> => {
     return new Promise((resolve) => {
       const clean = text
@@ -323,15 +349,12 @@ export default function AoriChat() {
     });
   }, []);
 
-  // === IndexedDB TTS Cache ===
   const openTTSCache = useCallback((): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open("aori-tts-cache", 1);
       req.onupgradeneeded = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains("audio")) {
-          db.createObjectStore("audio");
-        }
+        if (!db.objectStoreNames.contains("audio")) db.createObjectStore("audio");
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -343,8 +366,7 @@ export default function AoriChat() {
       const db = await openTTSCache();
       return new Promise((resolve) => {
         const tx = db.transaction("audio", "readonly");
-        const store = tx.objectStore("audio");
-        const req = store.get(key);
+        const req = tx.objectStore("audio").get(key);
         req.onsuccess = () => resolve(req.result as string | null);
         req.onerror = () => resolve(null);
       });
@@ -359,27 +381,19 @@ export default function AoriChat() {
     } catch {}
   }, [openTTSCache]);
 
-  // Use Gemini TTS via edge function with IndexedDB caching & browser fallback
-  // This queues speech so Aori is never interrupted mid-sentence
   const speakText = useCallback(async (text: string) => {
-    console.log("speakText called, voiceEnabled:", voiceEnabled, "text:", text.substring(0, 50));
     if (!voiceEnabled) return;
-
     const job = async () => {
-      // Check cache first
       const cacheKey = text.trim().toLowerCase();
       const cached = await getCachedAudio(cacheKey);
       if (cached) {
         await playAudioAsync(`data:audio/wav;base64,${cached}`).catch(() => speakBrowserTTSAsync(text));
         return;
       }
-
-      // If we were recently rate-limited, skip the API call entirely
       if (Date.now() < ttsRateLimitedUntilRef.current) {
         await speakBrowserTTSAsync(text);
         return;
       }
-
       try {
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-tts`,
@@ -393,37 +407,20 @@ export default function AoriChat() {
             body: JSON.stringify({ text }),
           }
         );
-
         if (response.status === 429) {
-          // Back off for 30 minutes when rate limited (free tier: 3600 TPD)
           ttsRateLimitedUntilRef.current = Date.now() + 30 * 60 * 1000;
-          console.warn("TTS rate limited — using browser fallback for 30 minutes");
           await speakBrowserTTSAsync(text);
           return;
         }
-
-        if (!response.ok) {
-          await speakBrowserTTSAsync(text);
-          return;
-        }
-
+        if (!response.ok) { await speakBrowserTTSAsync(text); return; }
         const data = await response.json();
-        if (!data?.audio) {
-          await speakBrowserTTSAsync(text);
-          return;
-        }
-
-        // Cache the audio for future use
+        if (!data?.audio) { await speakBrowserTTSAsync(text); return; }
         setCachedAudio(cacheKey, data.audio);
-
-        const audioSrc = `data:audio/wav;base64,${data.audio}`;
-        await playAudioAsync(audioSrc).catch(() => speakBrowserTTSAsync(text));
-      } catch (e) {
-        console.error("TTS fetch error:", e);
+        await playAudioAsync(`data:audio/wav;base64,${data.audio}`).catch(() => speakBrowserTTSAsync(text));
+      } catch {
         await speakBrowserTTSAsync(text);
       }
     };
-
     speechQueueRef.current.push(job);
     processQueue();
   }, [voiceEnabled, speakBrowserTTSAsync, getCachedAudio, setCachedAudio, playAudioAsync, processQueue]);
@@ -433,16 +430,12 @@ export default function AoriChat() {
     { text: "KYAA!! Kya hua?! Earthquake hai kya?! 🫨🫨", emotion: "shock" as AoriEmotion },
     { text: "H-HEY!! Mujhe hilana band karo, baka!! 😤🫨", emotion: "angry" as AoriEmotion },
     { text: "Nani?! Kya kar rahe ho?! I'm getting dizzy~! 🌀😵", emotion: "confused" as AoriEmotion },
-    { text: "AAAA!! Ruko ruko! Meri ribbon kharab ho jayegi!! 😱", emotion: "shock" as AoriEmotion },
-    { text: "Oi oi oi!! Itna mat hilao! I'll fall! 😤💢", emotion: "angry" as AoriEmotion },
   ];
 
-  // Track face-down orientation for shake gating
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       const beta = e.beta ?? 0;
       const gamma = e.gamma ?? 0;
-      // Face-down: beta near 0 and gamma near 0 (screen facing floor)
       isFaceDownRef.current = (beta > -30 && beta < 30 && Math.abs(gamma) < 30);
     };
     window.addEventListener('deviceorientation', handleOrientation);
@@ -456,7 +449,6 @@ export default function AoriChat() {
       if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
       const totalDelta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
       lastX = acc.x; lastY = acc.y; lastZ = acc.z;
-      // Only react to HARD shakes (threshold 50) AND only when phone is face-down
       if (totalDelta > 50 && isFaceDownRef.current) {
         const now = Date.now();
         if (now - lastShakeRef.current < 5000) return;
@@ -472,25 +464,101 @@ export default function AoriChat() {
     return () => window.removeEventListener('devicemotion', handleMotion);
   }, [changeEmotion, speakText]);
 
-  // Removed separate tilt/orientation reactions — Aori only reacts to face-down + hard shake now
+  // === Music Detection via Microphone ===
+  const toggleMusicDetection = useCallback(async () => {
+    if (musicStreamRef.current) {
+      // Stop music detection
+      musicStreamRef.current.getTracks().forEach(t => t.stop());
+      musicStreamRef.current = null;
+      musicAnalyserRef.current = null;
+      if (musicIntervalRef.current) { clearInterval(musicIntervalRef.current); musicIntervalRef.current = null; }
+      setMusicDetected(false);
+      toast("🎵 Music detection off", { duration: 2000 });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      musicStreamRef.current = stream;
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      musicAnalyserRef.current = analyser;
 
-  // Send a message programmatically (used by voice mode)
-  const sendMessageWithText = useCallback(async (text: string) => {
+      // Check for music every 3 seconds
+      musicIntervalRef.current = setInterval(() => {
+        if (!musicAnalyserRef.current) return;
+        const data = new Uint8Array(musicAnalyserRef.current.frequencyBinCount);
+        musicAnalyserRef.current.getByteFrequencyData(data);
+        // Calculate average energy and frequency variance
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        // Music typically has higher average energy and distributed frequencies
+        const hasEnergy = avg > 30;
+        // Check for frequency distribution (music has wider spread than speech)
+        const lowFreq = data.slice(0, 20).reduce((a, b) => a + b, 0) / 20;
+        const midFreq = data.slice(20, 60).reduce((a, b) => a + b, 0) / 40;
+        const highFreq = data.slice(60, 100).reduce((a, b) => a + b, 0) / 40;
+        const isMusic = hasEnergy && midFreq > 20 && highFreq > 10 && lowFreq > 15;
+        setMusicDetected(isMusic);
+      }, 3000);
+
+      toast("🎵 Music detection on — I can hear what you're playing~", { duration: 3000 });
+    } catch {
+      toast.error("Couldn't access microphone for music detection");
+    }
+  }, []);
+
+  // Cleanup music detection on unmount
+  useEffect(() => {
+    return () => {
+      musicStreamRef.current?.getTracks().forEach(t => t.stop());
+      if (musicIntervalRef.current) clearInterval(musicIntervalRef.current);
+    };
+  }, []);
+
+  // When music detected/stopped, send a reactive message
+  const lastMusicReactionRef = useRef(0);
+  useEffect(() => {
+    if (musicDetected && Date.now() - lastMusicReactionRef.current > 60000) {
+      lastMusicReactionRef.current = Date.now();
+      const reactions = [
+        { text: "Ooh~ I hear music! Kya sun rahe ho? Tell me tell me~! 🎵✨", emotion: "excited" as AoriEmotion },
+        { text: "Is that music?! *starts swaying* I love this vibe~ 🎶💙", emotion: "happy" as AoriEmotion },
+        { text: "Ara ara~ nice taste in music! *hums along* 🎵😏", emotion: "smirk" as AoriEmotion },
+      ];
+      const r = reactions[Math.floor(Math.random() * reactions.length)];
+      changeEmotion(r.emotion);
+      setLastAoriText(r.text);
+      setMessages(prev => [...prev, { id: Date.now(), text: r.text, sender: "aori", emotion: r.emotion }]);
+      speakText(r.text);
+    }
+  }, [musicDetected, changeEmotion, speakText]);
+
+  // === Send message (shared logic) ===
+  const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
     const userMsg: Message = { id: Date.now(), text, sender: "user" };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
-    // Only auto-open chat panel if NOT in voice mode
-    if (!chatOpen && !voiceModeRef.current) setChatOpen(true);
-    // Inject user's local time context into the latest message
+    if (!chatOpen && !fromVoice) setChatOpen(true);
+
     const localTime = new Date().toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, weekday: "short", month: "short", day: "numeric" });
     const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const contextMsg = { role: "user" as const, content: `[System context: User's local time is ${localTime} (${timezoneName})]\n${text}` };
     const newHistory: ChatMessage[] = [...chatHistory, contextMsg];
     setChatHistory(prev => [...prev, { role: "user", content: text }]);
     try {
-      const { data, error } = await supabase.functions.invoke("aori-chat", { body: { messages: newHistory } });
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: {
+          messages: newHistory,
+          userProfile,
+          knownFaces,
+          environmentMemories,
+          musicDetected,
+        },
+      });
       if (error) throw error;
       const emotion = (data.emotion || "smirk") as AoriEmotion;
       const responseText = data.text || "Hmm~ say that again? 😏";
@@ -503,93 +571,54 @@ export default function AoriChat() {
       console.error("Chat error:", e);
       toast.error("Aori couldn't respond right now. Try again!");
       setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry" }]);
-      // If voice mode, restart listening even on error
-      if (voiceModeRef.current) {
-        setTimeout(() => {
-          if (voiceModeRef.current) startListeningOnceRef.current();
-        }, 1000);
+      if (fromVoice && voiceModeRef.current) {
+        setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
       }
     } finally {
       setIsTyping(false);
     }
-  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping]);
+  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected]);
 
-  // Web Speech API recognition instance
+  const sendMessageWithText = useCallback((text: string) => sendMessageCore(text, true), [sendMessageCore]);
+  const sendMessage = useCallback(() => { sendMessageCore(input.trim(), false); }, [sendMessageCore, input]);
+
+  // Web Speech API
   const recognitionRef = useRef<any>(null);
-
-  // Start a single listening session using Web Speech API (free, no API tokens)
   const startListeningOnce = useCallback(() => {
     if (isTyping || isSpeakingRef.current) return;
-
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Speech recognition not supported in this browser!");
-      return;
-    }
-
+    if (!SpeechRecognition) { toast.error("Speech recognition not supported!"); return; }
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.continuous = false;
-
     recognition.onresult = (event: any) => {
       const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (transcript) {
-        sendMessageWithText(transcript);
-      } else {
-        toast("No speech detected. Try speaking louder!", { duration: 3000 });
-        if (voiceModeRef.current) {
-          setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
-        }
-      }
+      if (transcript) sendMessageWithText(transcript);
+      else if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
     };
-
     recognition.onerror = (event: any) => {
-      console.error("Speech recognition error:", event.error);
-      if (event.error === "no-speech") {
-        toast("No speech detected. Try again!", { duration: 2000 });
-      } else if (event.error !== "aborted") {
-        toast.error("Speech recognition error. Try again!");
-      }
       setIsListening(false);
-      if (voiceModeRef.current && event.error !== "aborted") {
-        setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
-      }
+      if (voiceModeRef.current && event.error !== "aborted") setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
     };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
+    recognition.onend = () => setIsListening(false);
     recognitionRef.current = recognition;
     recognition.start();
     setIsListening(true);
-
-    if (voiceModeRef.current) {
-      toast("🎤 Listening...", { duration: 2000 });
-    }
+    if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
   }, [isTyping, sendMessageWithText]);
 
-  // Keep the ref in sync
-  useEffect(() => {
-    startListeningOnceRef.current = startListeningOnce;
-  }, [startListeningOnce]);
+  useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
 
-  // Toggle voice mode on/off
   const toggleVoiceMode = useCallback(() => {
     if (voiceModeRef.current) {
-      // Turn off voice mode
       voiceModeRef.current = false;
       setVoiceModeActive(false);
-      if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch {}
-        recognitionRef.current = null;
-      }
+      if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch {} recognitionRef.current = null; }
       setIsListening(false);
       toast("🎤 Voice mode off", { duration: 2000 });
     } else {
-      // Turn on voice mode
       voiceModeRef.current = true;
       setVoiceModeActive(true);
       toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
@@ -597,18 +626,9 @@ export default function AoriChat() {
     }
   }, [startListeningOnce]);
 
-  const stopListening = useCallback(() => {
-    voiceModeRef.current = false;
-    setVoiceModeActive(false);
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-      recognitionRef.current = null;
-    }
-    setIsListening(false);
-  }, []);
-
-  const captureFrame = useCallback((): string | null => {
-    const video = videoRef.current;
+  // === Webcam (front) ===
+  const captureFrame = useCallback((videoEl?: HTMLVideoElement | null): string | null => {
+    const video = videoEl || videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) return null;
     canvas.width = 320; canvas.height = 240;
@@ -634,10 +654,8 @@ export default function AoriChat() {
       setLastAoriText(`👁️ ${responseText}`);
       setMessages((prev) => [...prev, { id: Date.now(), text: `👁️ ${responseText}`, sender: "aori", emotion }]);
       speakText(responseText);
-    } catch (e) {
-      console.error("Vision analysis failed:", e);
-    }
-  }, [captureFrame, speakText]);
+    } catch {}
+  }, [captureFrame, changeEmotion, speakText]);
 
   const toggleWebcam = useCallback(async () => {
     if (webcamEnabled) {
@@ -645,44 +663,111 @@ export default function AoriChat() {
       setWebcamStream(null);
       setWebcamEnabled(false);
       if (webcamIntervalRef.current) { clearInterval(webcamIntervalRef.current); webcamIntervalRef.current = null; }
-      const msg = "Hmph... fine, I won't look at you then. *pouts* 😤";
-      setLastAoriText(msg);
-      setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "angry" }]);
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: "user" } 
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: "user" } });
       setWebcamStream(stream);
       setWebcamEnabled(true);
-      
-      // Set up video element immediately
       const video = videoRef.current;
       if (video) {
         video.srcObject = stream;
         await video.play().catch(() => {});
-        
-        // Wait for video to be ready before first analysis
         const waitForVideo = () => {
-          if (video.readyState >= 2) {
-            setTimeout(() => analyzeFrame(), 1000);
-          } else {
-            video.addEventListener('loadeddata', () => {
-              setTimeout(() => analyzeFrame(), 1000);
-            }, { once: true });
-          }
+          if (video.readyState >= 2) setTimeout(() => analyzeFrame(), 1000);
+          else video.addEventListener('loadeddata', () => setTimeout(() => analyzeFrame(), 1000), { once: true });
         };
         waitForVideo();
       }
       webcamIntervalRef.current = setInterval(() => analyzeFrame(), 60000);
-      const msg = "Ara ara~ now I can see you! Don't do anything weird, baka~ 😏👁️";
+      const msg = `Ara ara~ now I can see you, ${userName}! Don't do anything weird, baka~ 😏👁️`;
       setLastAoriText(msg);
       setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "smirk" }]);
+    } catch { toast.error("Couldn't access your camera."); }
+  }, [webcamEnabled, webcamStream, analyzeFrame, userName]);
+
+  // === Face save/identify ===
+  const saveFace = useCallback(async () => {
+    const image = captureFrame();
+    if (!image) { toast.error("Camera not active!"); return; }
+    const name = prompt("What's this person's name?");
+    if (!name?.trim()) return;
+    try {
+      toast("Analyzing face...", { duration: 2000 });
+      const { data, error } = await supabase.functions.invoke("aori-face", { body: { image, action: "save" } });
+      if (error) throw error;
+      const description = data.description || "No description";
+      const { error: dbError } = await supabase.from("known_faces").insert({ device_id: deviceId, name: name.trim(), description });
+      if (dbError) throw dbError;
+      setKnownFaces(prev => [...prev, { id: crypto.randomUUID(), name: name.trim(), description }]);
+      const msg = `Hmph, so that's ${name.trim()}? Fine, I'll remember their face... but you better not like them more than me! 😤`;
+      setLastAoriText(msg);
+      setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "jealous" }]);
+      speakText(msg);
     } catch (e) {
-      toast.error("Couldn't access your camera. Check permissions!");
+      console.error("Save face error:", e);
+      toast.error("Couldn't save face. Try again!");
     }
-  }, [webcamEnabled, webcamStream, analyzeFrame]);
+  }, [captureFrame, deviceId, speakText]);
+
+  // === Back camera for environment ===
+  const backCamIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const analyzeEnvironment = useCallback(async () => {
+    const image = captureFrame(backVideoRef.current);
+    if (!image) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("aori-environment", {
+        body: { image, previousMemories: environmentMemories },
+      });
+      if (error) return;
+      if (data.description) {
+        const { data: inserted } = await supabase.from("environment_memories").insert({
+          device_id: deviceId,
+          description: data.description,
+          location_label: data.location_label || null,
+        }).select().single();
+        if (inserted) {
+          setEnvironmentMemories(prev => [...prev, { id: inserted.id, description: data.description, location_label: data.location_label }]);
+        }
+        const label = data.location_label || "this place";
+        const msg = data.is_new
+          ? `Ooh~ so this is your ${label}? *looks around* I'll remember this place~ 📸✨`
+          : `I remember this ${label}! Same messy spot, huh~ 😏`;
+        changeEmotion(data.is_new ? "excited" : "smirk");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: data.is_new ? "excited" : "smirk" }]);
+        speakText(msg);
+      }
+    } catch {}
+  }, [captureFrame, environmentMemories, deviceId, changeEmotion, speakText]);
+
+  const toggleBackCam = useCallback(async () => {
+    if (backCamEnabled) {
+      backCamStream?.getTracks().forEach(t => t.stop());
+      setBackCamStream(null);
+      setBackCamEnabled(false);
+      if (backCamIntervalRef.current) { clearInterval(backCamIntervalRef.current); backCamIntervalRef.current = null; }
+      toast("📷 Back camera off", { duration: 2000 });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
+      setBackCamStream(stream);
+      setBackCamEnabled(true);
+      if (backVideoRef.current) {
+        backVideoRef.current.srcObject = stream;
+        await backVideoRef.current.play().catch(() => {});
+        // Analyze once after a short delay
+        setTimeout(() => analyzeEnvironment(), 2000);
+      }
+      // Re-analyze every 2 minutes
+      backCamIntervalRef.current = setInterval(() => analyzeEnvironment(), 120000);
+      toast("📷 Back camera on — showing Aori your world~", { duration: 3000 });
+    } catch {
+      toast.error("Couldn't access back camera. Are you on a mobile device?");
+    }
+  }, [backCamEnabled, backCamStream, analyzeEnvironment]);
 
   useEffect(() => {
     if (videoRef.current && webcamStream) videoRef.current.srcObject = webcamStream;
@@ -691,7 +776,9 @@ export default function AoriChat() {
   useEffect(() => {
     return () => {
       webcamStream?.getTracks().forEach((t) => t.stop());
+      backCamStream?.getTracks().forEach((t) => t.stop());
       if (webcamIntervalRef.current) clearInterval(webcamIntervalRef.current);
+      if (backCamIntervalRef.current) clearInterval(backCamIntervalRef.current);
     };
   }, []);
 
@@ -699,68 +786,37 @@ export default function AoriChat() {
     if (chatOpen) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping, chatOpen]);
 
-  const sendMessage = async () => {
-    const text = input.trim();
-    if (!text || isTyping) return;
-    const userMsg: Message = { id: Date.now(), text, sender: "user" };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsTyping(true);
-    const localTime = new Date().toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, weekday: "short", month: "short", day: "numeric" });
-    const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const contextMsg = { role: "user" as const, content: `[System context: User's local time is ${localTime} (${timezoneName})]\n${text}` };
-    const newHistory: ChatMessage[] = [...chatHistory, contextMsg];
-    setChatHistory(prev => [...prev, { role: "user", content: text }]);
-    try {
-      const { data, error } = await supabase.functions.invoke("aori-chat", { body: { messages: newHistory } });
-      if (error) throw error;
-      const emotion = (data.emotion || "smirk") as AoriEmotion;
-      const responseText = data.text || "Hmm~ say that again? 😏";
-      changeEmotion(emotion);
-      setLastAoriText(responseText);
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion }]);
-      setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
-      speakText(responseText);
-    } catch (e) {
-      console.error("Chat error:", e);
-      toast.error("Aori couldn't respond right now. Try again!");
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry" }]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      {/* Scene background (full screen, covers everything) */}
+      {/* Scene background */}
       <div className="absolute inset-0 z-0">
-        {/* Previous scene (fading out) */}
         {isTransitioning && previousEmotion && (
-          <img
-            src={emotionImages[previousEmotion]}
-            alt={`Background ${previousEmotion}`}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-0"
-          />
+          <img src={emotionImages[previousEmotion]} alt={`Background ${previousEmotion}`} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-0" />
         )}
-        {/* Current scene (fading in) */}
         <img
           key={currentEmotion}
           src={emotionImages[currentEmotion]}
           alt={`Background ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-100"
-          style={{
-            animation: isTransitioning ? "fade-in-scene 0.5s ease-in-out" : undefined
-          }}
+          style={{ animation: isTransitioning ? "fade-in-scene 0.5s ease-in-out" : undefined }}
         />
-        {/* Dark overlay for readability */}
         <div className="absolute inset-0 bg-black/20 pointer-events-none" />
       </div>
 
-      {/* Hidden webcam elements */}
+      {/* Hidden video elements */}
       <video ref={videoRef} autoPlay playsInline muted style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }} />
+      <video ref={backVideoRef} autoPlay playsInline muted style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }} />
       <canvas ref={canvasRef} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }} />
 
-      {/* Draggable & Resizable Aori Avatar */}
+      {/* Music detection indicator */}
+      {musicDetected && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-primary/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-primary/30">
+          <Music className="w-3.5 h-3.5 text-primary animate-pulse" />
+          <span className="text-xs text-primary font-medium">Vibing~ 🎵</span>
+        </div>
+      )}
+
+      {/* Draggable Aori Avatar */}
       <div
         className="absolute z-10 cursor-grab active:cursor-grabbing select-none"
         style={{
@@ -769,22 +825,26 @@ export default function AoriChat() {
           width: avatarSize,
           height: avatarSize,
           touchAction: "none",
-          animation: "breathe 4s ease-in-out infinite",
+          animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
         }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
-        {/* Glowing aura behind Aori — scales up when speaking */}
+        {/* Glowing aura — scales with speaking, pulses faster with music */}
         <div
           className="absolute inset-0 pointer-events-none transition-transform duration-300 ease-in-out"
           style={{
             background: isSpeakingState
               ? "radial-gradient(ellipse 70% 80% at 50% 55%, hsl(175 70% 45% / 0.35) 0%, hsl(215 80% 55% / 0.2) 40%, transparent 70%)"
+              : musicDetected
+              ? "radial-gradient(ellipse 65% 75% at 50% 55%, hsl(280 70% 55% / 0.25) 0%, hsl(215 80% 55% / 0.15) 40%, transparent 70%)"
               : "radial-gradient(ellipse 60% 70% at 50% 55%, hsl(175 70% 45% / 0.15) 0%, hsl(215 80% 55% / 0.08) 40%, transparent 70%)",
             filter: isSpeakingState ? "blur(25px)" : "blur(20px)",
-            transform: isSpeakingState ? "scale(1.25)" : "scale(1)",
+            transform: isSpeakingState ? "scale(1.25)" : musicDetected ? "scale(1.1)" : "scale(1)",
             animation: isSpeakingState
               ? "pulse-glow-aura 1s ease-in-out infinite"
+              : musicDetected
+              ? "pulse-glow-aura 1.5s ease-in-out infinite"
               : "pulse-glow-aura 3s ease-in-out infinite",
           }}
         />
@@ -799,34 +859,26 @@ export default function AoriChat() {
             <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </div>
-        {/* Previous emotion (fading out) */}
         {isTransitioning && previousEmotion && (
           <img
             src={emotionCutouts[previousEmotion]}
             alt={`Aori ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-            style={{
-              filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))",
-              animation: "avatar-fade-out 0.5s ease-in-out forwards",
-            }}
+            style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
             draggable={false}
           />
         )}
-        {/* Current emotion (fading in) */}
         <img
           key={currentEmotion}
           src={emotionCutouts[currentEmotion]}
           alt={`Aori ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-          style={{
-            filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))",
-            animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
-          }}
+          style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
         />
       </div>
 
-      {/* Webcam preview (top-left, small) */}
+      {/* Webcam preview */}
       {webcamEnabled && webcamStream && (
         <div className="absolute top-4 left-4 w-20 h-16 rounded-xl overflow-hidden ring-2 ring-white/20 shadow-2xl z-20">
           <video
@@ -844,64 +896,69 @@ export default function AoriChat() {
         </div>
       )}
 
-      {/* Right side buttons — vertical stack */}
+      {/* Back camera preview */}
+      {backCamEnabled && backCamStream && (
+        <div className="absolute top-4 left-28 w-20 h-16 rounded-xl overflow-hidden ring-2 ring-accent/30 shadow-2xl z-20">
+          <video
+            ref={(el) => { if (el && backCamStream) el.srcObject = backCamStream; }}
+            autoPlay playsInline muted
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute top-1 left-1">
+            <MapPin className="w-3 h-3 text-accent" />
+          </div>
+        </div>
+      )}
+
+      {/* Right side buttons */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2.5 z-20">
-        {/* Info / latest message */}
-        <button
-          onClick={() => {
-            if (lastAoriText) toast(lastAoriText, { duration: 4000 });
-          }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all"
-          title="Latest message"
-        >
+        <button onClick={() => { if (lastAoriText) toast(lastAoriText, { duration: 4000 }); }}
+          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Latest message">
           <Info className="w-5 h-5" />
         </button>
 
-        {/* Mic */}
-        <button
-          onClick={toggleVoiceMode}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${
-            voiceModeActive
-              ? "bg-destructive/30 border-destructive/40 text-destructive animate-pulse"
-              : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"
-          }`}
-          title={voiceModeActive ? "Stop voice mode" : "Voice mode"}
-        >
+        <button onClick={toggleVoiceMode}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${voiceModeActive ? "bg-destructive/30 border-destructive/40 text-destructive animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          title={voiceModeActive ? "Stop voice mode" : "Voice mode"}>
           {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
 
-        {/* Volume */}
-        <button
-          onClick={() => setVoiceEnabled(!voiceEnabled)}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border border-white/[0.08] flex items-center justify-center transition-all ${
-            voiceEnabled
-              ? "bg-white/[0.08] text-primary hover:bg-white/[0.15]"
-              : "bg-white/[0.08] text-white/40 hover:bg-white/[0.15]"
-          }`}
-          title={voiceEnabled ? "Mute" : "Unmute"}
-        >
+        <button onClick={() => setVoiceEnabled(!voiceEnabled)}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border border-white/[0.08] flex items-center justify-center transition-all ${voiceEnabled ? "bg-white/[0.08] text-primary hover:bg-white/[0.15]" : "bg-white/[0.08] text-white/40 hover:bg-white/[0.15]"}`}
+          title={voiceEnabled ? "Mute" : "Unmute"}>
           {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
         </button>
 
-        {/* Camera */}
-        <button
-          onClick={toggleWebcam}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${
-            webcamEnabled
-              ? "bg-primary/20 border-primary/30 text-primary animate-pulse"
-              : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"
-          }`}
-          title={webcamEnabled ? "Stop webcam" : "Let Aori see you"}
-        >
+        <button onClick={toggleWebcam}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${webcamEnabled ? "bg-primary/20 border-primary/30 text-primary animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          title={webcamEnabled ? "Stop webcam" : "Front camera"}>
           {webcamEnabled ? <Eye className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
         </button>
 
-        {/* Chat history */}
-        <button
-          onClick={() => setChatOpen(true)}
+        {/* Save face button (only when webcam active) */}
+        {webcamEnabled && (
+          <button onClick={saveFace}
+            className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-accent hover:bg-white/[0.15] transition-all"
+            title="Save this face">
+            <UserPlus className="w-5 h-5" />
+          </button>
+        )}
+
+        <button onClick={toggleBackCam}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${backCamEnabled ? "bg-accent/20 border-accent/30 text-accent animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          title={backCamEnabled ? "Stop back camera" : "Back camera"}>
+          <MapPin className="w-5 h-5" />
+        </button>
+
+        <button onClick={toggleMusicDetection}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-purple-500/20 border-purple-500/30 text-purple-400 animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          title={musicStreamRef.current ? "Stop music detection" : "Detect music"}>
+          <Music className="w-5 h-5" />
+        </button>
+
+        <button onClick={() => setChatOpen(true)}
           className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all relative"
-          title="Chat history"
-        >
+          title="Chat history">
           <MessageCircle className="w-5 h-5" />
           {messages.length > 1 && (
             <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center font-bold">
@@ -913,22 +970,16 @@ export default function AoriChat() {
 
       {/* Bottom input bar */}
       <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
-        <form
-          onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
-          className="flex gap-2 items-center"
-        >
+        <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-center">
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Say something..."
+            placeholder={`Say something, ${userName}...`}
             className="flex-1 bg-white/[0.08] backdrop-blur-md border border-white/[0.1] rounded-full px-5 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
           />
           {input.trim() && (
-            <button
-              type="submit"
-              className="p-3 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity shrink-0"
-            >
+            <button type="submit" className="p-3 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity shrink-0">
               <Send className="w-4 h-4" />
             </button>
           )}
@@ -937,52 +988,34 @@ export default function AoriChat() {
 
       {/* Chat overlay panel */}
       {chatOpen && (
-        <div
-          className="absolute inset-0 z-40 flex flex-col bg-[hsl(220,25%,6%)]/95 backdrop-blur-xl"
-          style={{ animation: "slide-up 0.25s ease-out" }}
-        >
-          {/* Chat header */}
+        <div className="absolute inset-0 z-40 flex flex-col bg-[hsl(220,25%,6%)]/95 backdrop-blur-xl" style={{ animation: "slide-up 0.25s ease-out" }}>
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
-            <img
-              src={emotionCutouts[currentEmotion]}
-              alt="Aori"
-              className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40 bg-white/10"
-            />
+            <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40 bg-white/10" />
             <div className="flex-1 min-w-0">
               <h2 className="font-display font-bold text-white text-sm">Aori Tatsumi</h2>
               <p className="text-xs text-white/40">
-                {isTyping ? "typing..." : "Your stubborn AI companion 💙"}
+                {isTyping ? "typing..." : `Your stubborn companion, ${userName} 💙`}
               </p>
             </div>
             <button
               onClick={() => {
                 localStorage.removeItem("aori-messages");
                 localStorage.removeItem("aori-chat-history");
-                localStorage.removeItem("aori-tts-cache");
                 setMessages([firstTimeGreeting]);
                 setChatHistory([]);
                 setCurrentEmotion("smirk");
                 setLastAoriText(firstTimeGreeting.text);
                 toast("Conversation reset! Starting fresh~ 💙");
               }}
-              className="p-2 rounded-full hover:bg-white/[0.08] transition-colors"
-              title="Reset conversation"
-            >
+              className="p-2 rounded-full hover:bg-white/[0.08] transition-colors" title="Reset conversation">
               <Trash2 className="w-4 h-4 text-white/50 hover:text-destructive/80" />
             </button>
-            <button
-              onClick={() => setChatOpen(false)}
-              className="p-2 rounded-full hover:bg-white/[0.08] transition-colors"
-            >
+            <button onClick={() => setChatOpen(false)} className="p-2 rounded-full hover:bg-white/[0.08] transition-colors">
               <X className="w-5 h-5 text-white/50" />
             </button>
           </div>
-
-          {/* Scrollable messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.map((msg) => (
-              <ChatBubble key={msg.id} message={msg} />
-            ))}
+            {messages.map((msg) => <ChatBubble key={msg.id} message={msg} />)}
             {isTyping && (
               <div className="flex gap-2 items-end" style={{ animation: "slide-up 0.3s ease-out" }}>
                 <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
@@ -996,20 +1029,10 @@ export default function AoriChat() {
               </div>
             )}
           </div>
-
-          {/* Chat input */}
           <div className="px-3 py-3 border-t border-white/[0.06] shrink-0">
-            <form
-              onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
-              className="flex gap-2 items-center"
-            >
-              <button
-                type="button"
-                onClick={toggleVoiceMode}
-                className={`p-2 rounded-full transition-colors ${
-                  voiceModeActive ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"
-                }`}
-              >
+            <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-center">
+              <button type="button" onClick={toggleVoiceMode}
+                className={`p-2 rounded-full transition-colors ${voiceModeActive ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"}`}>
                 {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
               <input
@@ -1019,11 +1042,7 @@ export default function AoriChat() {
                 className="flex-1 bg-white/[0.06] rounded-full px-4 py-2.5 text-sm text-white placeholder:text-white/25 outline-none focus:ring-1 focus:ring-primary/40 transition-all"
                 autoFocus
               />
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                className="p-2.5 rounded-full bg-primary text-primary-foreground disabled:opacity-30 hover:opacity-90 transition-opacity"
-              >
+              <button type="submit" disabled={!input.trim()} className="p-2.5 rounded-full bg-primary text-primary-foreground disabled:opacity-30 hover:opacity-90 transition-opacity">
                 <Send className="w-4 h-4" />
               </button>
             </form>
