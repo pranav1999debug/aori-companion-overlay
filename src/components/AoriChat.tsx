@@ -546,7 +546,7 @@ export default function AoriChat() {
 
     const localTime = new Date().toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, weekday: "short", month: "short", day: "numeric" });
     const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const contextMsg = { role: "user" as const, content: `[System context: User's local time is ${localTime} (${timezoneName})]\n${text}` };
+    const contextMsg = { role: "user" as const, content: text };
     const newHistory: ChatMessage[] = [...chatHistory, contextMsg];
     setChatHistory(prev => [...prev, { role: "user", content: text }]);
     try {
@@ -557,6 +557,8 @@ export default function AoriChat() {
           knownFaces,
           environmentMemories,
           musicDetected,
+          userLocalTime: localTime,
+          userTimezone: timezoneName,
         },
       });
       if (error) throw error;
