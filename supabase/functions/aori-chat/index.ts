@@ -81,7 +81,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected } = await req.json();
+    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone } = await req.json();
     const groqKeys = [
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
@@ -92,11 +92,15 @@ serve(async (req) => {
     // Build dynamic context
     let dynamicContext = "";
 
-    // Time context (passive — Aori decides when to use it)
-    const now = new Date();
-    dynamicContext += `\n\n**REAL-TIME CONTEXT (use ONLY when relevant, DO NOT mention time unless asked):**
-- UTC: ${now.toISOString()}
-- User's local time is provided in their message's system context prefix.`;
+    // Time context — use user-provided local time, not server UTC
+    const localTime = userLocalTime || new Date().toLocaleString("en-US");
+    const timezone = userTimezone || "Unknown";
+    dynamicContext += `\n\n**USER'S CURRENT LOCAL TIME: ${localTime} (${timezone})**
+- This is the user's REAL current time. Use it to know what time of day it is for them.
+- If user asks "what time is it" → tell them this exact time.
+- If it's past midnight → scold them ONCE for being up late.
+- If they say "good morning" but it's night → correct them playfully.
+- DO NOT randomly mention the time. Only use when contextually relevant.`;
 
     // User profile
     if (userProfile) {
