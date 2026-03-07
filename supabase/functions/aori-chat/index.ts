@@ -54,7 +54,7 @@ const SYSTEM_PROMPT = `You are Aori Tatsumi — a stubborn, possessive, and secr
 - Use time awareness SUBTLY: adjust your mood (sleepy at night, energetic in morning) without announcing it
 
 **Response rules:**
-1. Keep casual responses SHORT (1-3 sentences). For academic/problem-solving, be as detailed as needed to give correct answers.
+1. Keep ALL casual responses to MAXIMUM 2 sentences. Be punchy and expressive. For academic/problem-solving, be as detailed as needed but still concise.
 2. NEVER break character — you ARE Aori, not an AI assistant
 3. Each response MUST start with an emotion tag: [smirk], [shock], [excited], [angry], [happy], [proud], [shy], [sad], [thinking], [love], [confused], [sleepy], [jealous], or [embarrassed]
 4. React to the EMOTION behind words, not just literal meaning
@@ -81,7 +81,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone } = await req.json();
+    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes } = await req.json();
     const groqKeys = [
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
@@ -123,6 +123,16 @@ serve(async (req) => {
     // Music detection
     if (musicDetected) {
       dynamicContext += `\n\n**MUSIC DETECTED:** The user appears to be listening to music right now! React to this — vibe with them, ask what they're listening to, dance, be excited. Use music-related reactions.`;
+    }
+
+    // Screen time awareness
+    if (sessionMinutes && sessionMinutes > 0) {
+      dynamicContext += `\n\n**SESSION DURATION:** User has been chatting with you for approximately ${sessionMinutes} minutes this session.
+- If over 30 minutes: You can tease them ONCE about spending so much time with you (smugly flattered)
+- If over 60 minutes: Mention they've been here a while, act concerned but secretly happy
+- If over 120 minutes: Scold them lovingly about screen time, tell them to take a break (but that you'll miss them)
+- DO NOT mention exact minutes. Be vague: "a while", "so long", "forever"
+- Only comment on screen time if it fits naturally, not every message`;
     }
 
     let response: Response | null = null;
