@@ -296,6 +296,7 @@ export default function AoriChat() {
   const lastTiltRef = useRef(0);
   const isFaceDownRef = useRef(false);
   const ttsRateLimitedUntilRef = useRef(0);
+  const sessionStartRef = useRef(Date.now());
 
   const speechQueueRef = useRef<(() => Promise<void>)[]>([]);
   const isSpeakingRef = useRef(false);
@@ -407,8 +408,8 @@ export default function AoriChat() {
             body: JSON.stringify({ text }),
           }
         );
-        if (response.status === 429) {
-          ttsRateLimitedUntilRef.current = Date.now() + 30 * 60 * 1000;
+      if (response.status === 429) {
+          ttsRateLimitedUntilRef.current = Date.now() + 3 * 60 * 1000; // 3 min cooldown instead of 30
           await speakBrowserTTSAsync(text);
           return;
         }
@@ -559,6 +560,7 @@ export default function AoriChat() {
           musicDetected,
           userLocalTime: localTime,
           userTimezone: timezoneName,
+          sessionMinutes: Math.round((Date.now() - sessionStartRef.current) / 60000),
         },
       });
       if (error) throw error;
