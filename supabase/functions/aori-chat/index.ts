@@ -121,37 +121,45 @@ serve(async (req) => {
       dynamicContext += `\n\n**MUSIC DETECTED:** The user appears to be listening to music right now! React to this — vibe with them, ask what they're listening to, dance, be excited. Use music-related reactions.`;
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + dynamicContext },
-          ...messages,
-        ],
-        max_tokens: 500,
-        temperature: 0.9,
-      }),
-    });
+    let response: Response | null = null;
+    let lastError = "";
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Groq API error:", response.status, errorText);
-      
+    for (const key of groqKeys) {
+      response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT + dynamicContext },
+            ...messages,
+          ],
+          max_tokens: 500,
+          temperature: 0.9,
+        }),
+      });
+
+      if (response.ok) break;
+
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limited, please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        console.warn("Key rate limited, trying next...");
+        lastError = "rate_limited";
+        continue;
       }
-      
+
+      // Non-rate-limit error, don't retry
+      break;
+    }
+
+    if (!response || !response.ok) {
+      const errorText = response ? await response.text() : lastError;
+      console.error("All Groq keys failed:", errorText);
       return new Response(
-        JSON.stringify({ error: `Groq API error: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: lastError === "rate_limited" ? "All API keys rate limited, please try again later." : `Groq API error` }),
+        { status: response?.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

@@ -43,34 +43,34 @@ serve(async (req) => {
     // Add vocal direction for expressiveness
     const expressiveText = `[cheerful] ${clean}`;
 
-    const ttsResponse = await fetch("https://api.groq.com/openai/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "canopylabs/orpheus-v1-english",
-        input: expressiveText,
-        voice: "hannah",
-        response_format: "wav",
-      }),
-    });
+    let ttsResponse: Response | null = null;
 
-    if (!ttsResponse.ok) {
-      const errText = await ttsResponse.text();
-      console.error("Groq TTS error:", ttsResponse.status, errText);
+    for (const key of groqKeys) {
+      ttsResponse = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "canopylabs/orpheus-v1-english",
+          input: expressiveText,
+          voice: "hannah",
+          response_format: "wav",
+        }),
+      });
 
-      if (ttsResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "rate_limited", message: "TTS rate limited, please wait" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      if (ttsResponse.ok) break;
+      if (ttsResponse.status === 429) { console.warn("TTS key rate limited, trying next..."); continue; }
+      break;
+    }
 
+    if (!ttsResponse || !ttsResponse.ok) {
+      const status = ttsResponse?.status || 500;
+      console.error("All TTS keys failed:", status);
       return new Response(
-        JSON.stringify({ error: `TTS API error: ${ttsResponse.status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: status === 429 ? "rate_limited" : `TTS API error: ${status}`, message: "TTS failed" }),
+        { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

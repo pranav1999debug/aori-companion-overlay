@@ -43,28 +43,26 @@ serve(async (req) => {
     formData.append("language", "en");
     formData.append("response_format", "json");
 
-    const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: formData,
-    });
+    let response: Response | null = null;
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Groq STT error:", response.status, errText);
+    for (const key of groqKeys) {
+      response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+        body: formData,
+      });
 
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limited, please try again" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      if (response.ok) break;
+      if (response.status === 429) { console.warn("STT key rate limited, trying next..."); continue; }
+      break;
+    }
 
+    if (!response || !response.ok) {
+      const status = response?.status || 500;
+      console.error("All STT keys failed:", status);
       return new Response(
-        JSON.stringify({ error: `STT API error: ${response.status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: status === 429 ? "Rate limited on all keys" : `STT API error: ${status}` }),
+        { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
