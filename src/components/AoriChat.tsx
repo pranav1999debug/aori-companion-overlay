@@ -588,6 +588,10 @@ export default function AoriChat() {
 
   // Web Speech API
   const recognitionRef = useRef<any>(null);
+  const voiceMusicAnalyserRef = useRef<AnalyserNode | null>(null);
+  const voiceMusicIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceAudioCtxRef = useRef<AudioContext | null>(null);
+
   const startListeningOnce = useCallback(() => {
     if (isTyping || isSpeakingRef.current) return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -615,20 +619,54 @@ export default function AoriChat() {
 
   useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
 
+  const startVoiceMusicDetection = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioCtx = new AudioContext();
+      voiceAudioCtxRef.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      voiceMusicAnalyserRef.current = analyser;
+      
+      voiceMusicIntervalRef.current = setInterval(() => {
+        if (!voiceMusicAnalyserRef.current) return;
+        const data = new Uint8Array(voiceMusicAnalyserRef.current.frequencyBinCount);
+        voiceMusicAnalyserRef.current.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        const lowFreq = data.slice(0, 20).reduce((a, b) => a + b, 0) / 20;
+        const midFreq = data.slice(20, 60).reduce((a, b) => a + b, 0) / 40;
+        const highFreq = data.slice(60, 100).reduce((a, b) => a + b, 0) / 40;
+        const isMusic = avg > 30 && midFreq > 20 && highFreq > 10 && lowFreq > 15;
+        setMusicDetected(isMusic);
+      }, 3000);
+    } catch {}
+  }, []);
+
+  const stopVoiceMusicDetection = useCallback(() => {
+    if (voiceMusicIntervalRef.current) { clearInterval(voiceMusicIntervalRef.current); voiceMusicIntervalRef.current = null; }
+    voiceMusicAnalyserRef.current = null;
+    if (voiceAudioCtxRef.current) { voiceAudioCtxRef.current.close().catch(() => {}); voiceAudioCtxRef.current = null; }
+    setMusicDetected(false);
+  }, []);
+
   const toggleVoiceMode = useCallback(() => {
     if (voiceModeRef.current) {
       voiceModeRef.current = false;
       setVoiceModeActive(false);
       if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch {} recognitionRef.current = null; }
       setIsListening(false);
+      stopVoiceMusicDetection();
       toast("🎤 Voice mode off", { duration: 2000 });
     } else {
       voiceModeRef.current = true;
       setVoiceModeActive(true);
-      toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
+      toast("🎤 Voice mode on — speak freely! 🎵 Music detection active~", { duration: 2000 });
       startListeningOnce();
+      startVoiceMusicDetection();
     }
-  }, [startListeningOnce]);
+  }, [startListeningOnce, startVoiceMusicDetection, stopVoiceMusicDetection]);
 
   // === Webcam (front) ===
   const captureFrame = useCallback((videoEl?: HTMLVideoElement | null): string | null => {
