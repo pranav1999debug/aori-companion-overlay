@@ -619,9 +619,12 @@ export default function AoriChat() {
 
   useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
 
+  const voiceMicStreamRef = useRef<MediaStream | null>(null);
+
   const startVoiceMusicDetection = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceMicStreamRef.current = stream;
       const audioCtx = new AudioContext();
       voiceAudioCtxRef.current = audioCtx;
       const source = audioCtx.createMediaStreamSource(stream);
