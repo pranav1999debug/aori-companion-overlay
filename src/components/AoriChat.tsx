@@ -1218,7 +1218,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         });
         if (error) throw error;
         const emotion = (data.emotion || "thinking") as AoriEmotion;
-        const responseText = data.text || "Hmm~ I can't quite see that... try again? 🤔";
+        const responseText = cleanResponseText(data.text || "Hmm~ I can't quite see that... try again? 🤔");
         changeEmotion(emotion);
         setLastAoriText(responseText);
         const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
