@@ -956,6 +956,26 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         }
       }
 
+      // Build contacts summary for the AI (top matches if message mentions messaging/WhatsApp)
+      const msgLower = text.toLowerCase();
+      let contactsSummary: string | null = null;
+      if (contacts.length > 0 && /\b(send|message|text|whatsapp|call|msg|contact)\b/i.test(msgLower)) {
+        // Extract potential name from the message and search
+        const nameMatch = msgLower.match(/(?:to|message|text|call|send.*to)\s+(\w+(?:\s+\w+)?)/i);
+        if (nameMatch) {
+          const matches = searchContacts(nameMatch[1]);
+          if (matches.length > 0) {
+            contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}":\n` +
+              matches.slice(0, 10).map((c, i) => `${i + 1}. ${c.name} — ${c.phone_numbers.join(", ")}`).join("\n") +
+              (matches.length > 1 ? `\n\nThere are ${matches.length} matches. If ambiguous, ask the user which one (e.g., "first one" or "second one"). Once they pick, use that contact's phone number in the WhatsApp action.` : "");
+          }
+        }
+        if (!contactsSummary) {
+          // Provide full list summary for context
+          contactsSummary = `User has ${contacts.length} contacts synced. If they mention a name, search for it.`;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("aori-chat", {
         body: {
           messages: newHistory,
@@ -969,6 +989,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           gmailSummary,
           calendarSummary,
           youtubeSummary,
+          contactsSummary,
         },
       });
       if (error) throw error;
