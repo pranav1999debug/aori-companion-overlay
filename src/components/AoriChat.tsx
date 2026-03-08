@@ -781,6 +781,25 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       return;
     }
 
+    // Bare YouTube link with no other intent — ask if they want a summary
+    if (ytMatch && !hasSummarizeIntent && text.trim().replace(YOUTUBE_URL_REGEX, "").trim().length < 10) {
+      setIsTyping(false);
+      const ytUrl = ytMatch[0];
+      const askMsg: Message = {
+        id: Date.now() + 1,
+        text: "Ooh, a video link! Want me to summarize it and give you a PDF report? 📄✨",
+        sender: "aori",
+        timestamp: Date.now(),
+        quickReplies: [
+          { label: "Yes, summarize it!", action: () => handleLectureSummary(ytUrl, "summarize this") },
+          { label: "No, just sharing", action: () => {} },
+        ],
+      };
+      setMessages(prev => [...prev, askMsg]);
+      changeEmotion("excited");
+      return;
+    }
+
     // Check for follow-up summary request referencing a recent YouTube URL
     if (!ytMatch && (hasSummarizeIntent || hasFollowUpSummaryIntent)) {
       // Look back through recent messages for a YouTube URL
