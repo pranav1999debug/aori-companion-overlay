@@ -16,6 +16,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/youtube.readonly",
+  "https://www.googleapis.com/auth/contacts.readonly",
 ].join(" ");
 
 serve(async (req) => {
