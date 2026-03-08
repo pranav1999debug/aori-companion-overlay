@@ -21,7 +21,7 @@ export function usePhoneControls() {
     if (!flashlightModuleRef.current) {
       try {
         const mod = await import("@capgo/capacitor-flash");
-        flashlightModuleRef.current = mod.Flash || mod.CapacitorFlash || mod.default;
+        flashlightModuleRef.current = mod.CapacitorFlash;
       } catch {
         return null;
       }
