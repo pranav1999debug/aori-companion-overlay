@@ -1098,7 +1098,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   }, []);
 
   const processSTTResult = useCallback(async (audioBlob: Blob) => {
-    if (audioBlob.size < 1000) {
+    if (audioBlob.size < 5000) {
       // Too small, likely silence — restart listening
       if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
       return;
