@@ -105,7 +105,7 @@ serve(async (req) => {
     const isAcademic = ACADEMIC_REGEX.test(lastUserMsg);
 
     // Detect phone control intents
-    const PHONE_CONTROL_REGEX = /\b(turn on|turn off|switch on|switch off|toggle|enable|disable|open|launch|start|set|create|make)\b.*\b(flashlight|torch|light|volume|sound|alarm|timer|countdown|camera|settings|browser|chrome|maps|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|dialer|gmail|twitter|telegram|tiktok|facebook|notes|music|app)\b|\b(flashlight|torch|light|volume|alarm|timer)\b.*\b(on|off|up|down|mute|unmute|loud|quiet|set|start)\b|\b(open|launch|start)\b.*\b(app|application)\b/i;
+    const PHONE_CONTROL_REGEX = /\b(turn on|turn off|switch on|switch off|toggle|enable|disable|open|launch|start|set|create|make)\b.*\b(flashlight|torch|light|volume|sound|alarm|timer|countdown|camera|settings|browser|chrome|maps|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|dialer|gmail|twitter|telegram|tiktok|facebook|notes|music|app)\b|\b(flashlight|torch|light|volume|alarm|timer)\b.*\b(on|off|up|down|mute|unmute|loud|quiet|set|start)\b|\b(open|launch|start)\b.*\b(app|application)\b|\b(send|message|text|msg|whatsapp)\b.*\b(whatsapp|message|send|to)\b/i;
     const isPhoneControl = PHONE_CONTROL_REGEX.test(lastUserMsg);
 
     // Build dynamic context
