@@ -965,13 +965,21 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         if (nameMatch) {
           const matches = searchContacts(nameMatch[1]);
           if (matches.length > 0) {
-            contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}":\n` +
-              matches.slice(0, 10).map((c, i) => `${i + 1}. ${c.name} — ${c.phone_numbers.join(", ")}`).join("\n") +
-              (matches.length > 1 ? `\n\nThere are ${matches.length} matches. If ambiguous, ask the user which one (e.g., "first one" or "second one"). Once they pick, use that contact's phone number in the WhatsApp action.` : "");
+            // Check which contacts have phone numbers
+            const withPhone = matches.filter(c => c.phone_numbers.length > 0 && c.phone_numbers.some(p => p.length >= 5));
+            if (withPhone.length > 0) {
+              contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}":\n` +
+                withPhone.slice(0, 10).map((c, i) => `${i + 1}. ${c.name} — ${c.phone_numbers.join(", ")}`).join("\n") +
+                (withPhone.length > 1 ? `\n\nThere are ${withPhone.length} matches. If ambiguous, ask the user which one.` : "");
+            } else {
+              // Found contacts but none have phone numbers
+              contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}": Found ${matches.length} contact(s) named "${nameMatch[1]}" but NONE have a phone number saved. You CANNOT open WhatsApp for them. Tell the user you found "${matches[0].name}" but they don't have a WhatsApp number saved in their contacts.`;
+            }
+          } else {
+            contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}": NO CONTACTS FOUND with that name. Tell the user you couldn't find anyone named "${nameMatch[1]}" in their contacts.`;
           }
         }
         if (!contactsSummary) {
-          // Provide full list summary for context
           contactsSummary = `User has ${contacts.length} contacts synced. If they mention a name, search for it.`;
         }
       }
