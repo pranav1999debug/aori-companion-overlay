@@ -121,7 +121,7 @@ export default function AoriChat() {
     { text: `Hmph. You left me alone for so long... *pouts* but I forgive you. This time. 💙`, emotion: "shy" },
   ];
 
-  const firstTimeGreeting: Message = { id: 0, text: `Hey~! ${userName}, you finally opened me! About time, baka~ 💙`, sender: "aori", emotion: "smirk" };
+  const firstTimeGreeting: Message = { id: 0, text: `Hey~! ${userName}, you finally opened me! About time, baka~ 💙`, sender: "aori", emotion: "smirk", timestamp: Date.now() };
 
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
