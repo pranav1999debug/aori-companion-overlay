@@ -946,7 +946,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
       if (voiceModeRef.current) {
-        setVoiceEntries(prev => [...prev.slice(-8), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
+        setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
       }
       speakText(responseText);
     } catch (e) {
@@ -1149,7 +1149,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         changeEmotion(emotion);
         setLastAoriText(reaction);
         setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
-        setVoiceEntries(prev => [...prev.slice(-8),
+        setVoiceEntries(prev => [...prev.slice(-3),
           { id: Date.now() - 1, text: transcript, sender: "user", timestamp: Date.now() },
           { id: Date.now(), text: reaction, sender: "aori", timestamp: Date.now() },
         ]);
@@ -1249,7 +1249,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       // Add to voice transcript overlay
       if (voiceModeRef.current) {
-        setVoiceEntries(prev => [...prev.slice(-8), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
+        setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
       }
       sendMessageWithText(transcript);
     } catch (e) {
