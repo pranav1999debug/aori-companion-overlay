@@ -187,7 +187,20 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT + dynamicContext + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "") },
+            { role: "system", content: SYSTEM_PROMPT + dynamicContext 
+              + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
+              + (isPhoneControl ? `\n\n**PHONE CONTROL MODE:** The user wants you to control their phone. You CAN do this! Respond with your usual personality (1-2 sentences), then on a NEW LINE at the very end, output a JSON action tag like this:
+<phone_action>{"type":"flashlight","action":"on"}</phone_action>
+
+Available actions:
+- Flashlight: {"type":"flashlight","action":"on|off|toggle"}
+- Volume: {"type":"volume","action":"up|down|mute|unmute"}
+- Timer: {"type":"timer","action":"set","value":"5"} (value in minutes)
+- Alarm: {"type":"alarm","action":"set","value":"7:30 AM"}
+- Open app: {"type":"open_app","action":"open","value":"camera|settings|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|gmail|chrome|maps|twitter|telegram|tiktok|facebook|notes|music"}
+
+IMPORTANT: Always include the <phone_action> tag when the user asks to control their phone. Be enthusiastic about your phone powers!` : "")
+            },
             ...messages,
           ],
           max_tokens: 500,
