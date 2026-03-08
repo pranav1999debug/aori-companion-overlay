@@ -37,8 +37,8 @@ const App = () => {
             <Route path="/setup" element={<RequireOnboarding><SetupGuide /></RequireOnboarding>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          {onboarded && <FloatingAoriHead />}
         </BrowserRouter>
-        {onboarded && <FloatingAoriHead />}
       </TooltipProvider>
     </QueryClientProvider>
   );
