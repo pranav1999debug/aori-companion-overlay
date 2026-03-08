@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import VoiceTranscript, { VoiceEntry } from "@/components/VoiceTranscript";
 
 interface ChatMessage {
   role: "user" | "assistant";
