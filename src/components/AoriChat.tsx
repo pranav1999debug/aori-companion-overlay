@@ -37,29 +37,42 @@ interface EnvironmentMemory {
   location_label?: string;
 }
 
+const formatTimestamp = (ts?: number) => {
+  if (!ts) return null;
+  const d = new Date(ts);
+  return d.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, month: "short", day: "numeric" });
+};
+
 const ChatBubble = ({ message }: { message: Message }) => {
   const isUser = message.sender === "user";
   return (
     <div
-      className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"} items-end`}
+      className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
       style={{ animation: "slide-up 0.3s ease-out" }}
     >
-      {!isUser && message.emotion && (
-        <img
-          src={emotionCutouts[message.emotion]}
-          alt="Aori"
-          className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30 shrink-0"
-        />
-      )}
-      <div
-        className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
-          isUser
-            ? "bg-primary text-primary-foreground rounded-br-md"
-            : "bg-card/90 text-foreground rounded-bl-md backdrop-blur-sm"
-        }`}
-      >
-        {message.text}
+      <div className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"} items-end`}>
+        {!isUser && message.emotion && (
+          <img
+            src={emotionCutouts[message.emotion]}
+            alt="Aori"
+            className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30 shrink-0"
+          />
+        )}
+        <div
+          className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
+            isUser
+              ? "bg-primary text-primary-foreground rounded-br-md"
+              : "bg-card/90 text-foreground rounded-bl-md backdrop-blur-sm"
+          }`}
+        >
+          {message.text}
+        </div>
       </div>
+      {message.timestamp && (
+        <span className={`text-[10px] text-muted-foreground/60 mt-0.5 ${isUser ? "mr-1" : "ml-9"}`}>
+          {formatTimestamp(message.timestamp)}
+        </span>
+      )}
     </div>
   );
 };
