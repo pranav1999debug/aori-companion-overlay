@@ -655,26 +655,20 @@ export default function AoriChat() {
     setMusicDetected(false);
   }, []);
 
-  const toggleVoiceMode = useCallback(async () => {
+  const toggleVoiceMode = useCallback(() => {
     if (voiceModeRef.current) {
       voiceModeRef.current = false;
       setVoiceModeActive(false);
       if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch {} recognitionRef.current = null; }
       setIsListening(false);
-      stopVoiceMusicDetection();
       toast("🎤 Voice mode off", { duration: 2000 });
     } else {
       voiceModeRef.current = true;
       setVoiceModeActive(true);
-      toast("🎤 Voice mode on — speak freely! 🎵 Music detection active~", { duration: 2000 });
-      // Start music detection first, then speech recognition after mic is acquired
-      await startVoiceMusicDetection();
-      // Small delay to let mic settle before SpeechRecognition grabs it too
-      setTimeout(() => {
-        if (voiceModeRef.current) startListeningOnce();
-      }, 300);
+      toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
+      startListeningOnce();
     }
-  }, [startListeningOnce, startVoiceMusicDetection, stopVoiceMusicDetection]);
+  }, [startListeningOnce]);
 
   // === Webcam (front) ===
   const captureFrame = useCallback((videoEl?: HTMLVideoElement | null): string | null => {
