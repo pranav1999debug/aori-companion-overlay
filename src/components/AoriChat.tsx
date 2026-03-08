@@ -1098,7 +1098,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   }, []);
 
   const processSTTResult = useCallback(async (audioBlob: Blob) => {
-    if (audioBlob.size < 1000) {
+    if (audioBlob.size < 5000) {
       // Too small, likely silence — restart listening
       if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
       return;
@@ -1311,9 +1311,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       let speechDetected = false;
+      let speechStartTime = 0;
       let silenceStart = 0;
-      const SILENCE_THRESHOLD = 15;
-      const SILENCE_DURATION = 1500; // 1.5s of silence after speech = stop
+      const SILENCE_THRESHOLD = 25;
+      const MIN_SPEECH_DURATION = 500; // at least 0.5s of speech before we consider stopping
+      const SILENCE_DURATION = 1800; // 1.8s of silence after speech = stop
       const MAX_RECORD_TIME = 15000; // 15s max
 
       const startTime = Date.now();
@@ -1332,9 +1334,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
 
         if (avg > SILENCE_THRESHOLD) {
-          speechDetected = true;
+          if (!speechDetected) {
+            speechDetected = true;
+            speechStartTime = Date.now();
+          }
           silenceStart = 0;
-        } else if (speechDetected) {
+        } else if (speechDetected && (Date.now() - speechStartTime > MIN_SPEECH_DURATION)) {
           if (!silenceStart) silenceStart = Date.now();
           else if (Date.now() - silenceStart > SILENCE_DURATION) {
             recorder.stop();
