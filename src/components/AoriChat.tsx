@@ -693,7 +693,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     recognition.start();
     setIsListening(true);
     if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
-  }, [isTyping, sendMessageWithText]);
+  }, [isTyping, sendMessageWithText, stopSpeaking, changeEmotion]);
 
   useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
 
