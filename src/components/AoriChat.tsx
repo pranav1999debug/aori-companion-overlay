@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import VoiceTranscript, { VoiceEntry } from "@/components/VoiceTranscript";
 import { usePhoneControls } from "@/hooks/usePhoneControls";
+import { useContacts } from "@/hooks/useContacts";
 
 interface ChatMessage {
   role: "user" | "assistant";
