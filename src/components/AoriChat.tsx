@@ -808,8 +808,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
 
     // Bare YouTube link with no other intent — ask if they want a summary
-    // Strip the full URL (including query params like ?si=...) not just the regex match
-    const fullUrlRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?[^\s]*|embed\/[^\s]*|shorts\/[^\s]*)|youtu\.be\/[^\s]*)/i;
+    const textWithoutUrl = ytMatch ? text.trim().replace(fullUrlRegex, "").trim() : text;
     const textWithoutUrl = ytMatch ? text.trim().replace(fullUrlRegex, "").trim() : text;
     if (ytMatch && !hasSummarizeIntent && textWithoutUrl.length < 10) {
       setIsTyping(false);
