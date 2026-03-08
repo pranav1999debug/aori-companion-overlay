@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Onboarding from "./pages/Onboarding";
+import SetupGuide from "./pages/SetupGuide";
 import NotFound from "./pages/NotFound";
 import FloatingAoriHead from "./components/FloatingAoriHead";
 
@@ -33,6 +34,7 @@ const App = () => {
           <Routes>
             <Route path="/onboarding" element={<RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded>} />
             <Route path="/" element={<RequireOnboarding><div className="h-screen w-screen" /></RequireOnboarding>} />
+            <Route path="/setup" element={<RequireOnboarding><SetupGuide /></RequireOnboarding>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

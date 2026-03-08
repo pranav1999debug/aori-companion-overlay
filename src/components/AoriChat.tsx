@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings } from "lucide-react";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getDeviceId } from "@/pages/Onboarding";
 
@@ -85,6 +86,7 @@ interface AoriChatProps {
 
 export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const deviceId = getDeviceId();
+  const navigate = useNavigate();
 
   // User profile & contextual data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -1137,6 +1139,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-purple-500/20 border-purple-500/30 text-purple-400 animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
           title={musicStreamRef.current ? "Stop music detection" : "Detect music"}>
           <Music className="w-5 h-5" />
+        </button>
+
+        <button onClick={() => { if (onClose) onClose(); navigate("/setup"); }}
+          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all"
+          title="Integrations Setup">
+          <Settings className="w-5 h-5" />
         </button>
 
         <button onClick={() => setChatOpen(true)}
