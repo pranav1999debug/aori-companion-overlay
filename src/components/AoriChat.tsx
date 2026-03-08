@@ -77,7 +77,12 @@ const ChatBubble = ({ message }: { message: Message }) => {
   );
 };
 
-export default function AoriChat() {
+interface AoriChatProps {
+  onClose?: () => void;
+  autoVoiceMode?: boolean;
+}
+
+export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const deviceId = getDeviceId();
 
   // User profile & contextual data
