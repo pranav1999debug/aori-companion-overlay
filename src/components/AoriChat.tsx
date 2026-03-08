@@ -1865,7 +1865,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (error || !data?.suggestedActions?.length) return;
 
       const emotion = (data.emotion || "thinking") as AoriEmotion;
-      const responseText = data.text || "";
+      const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
 
       const quickReplies: QuickReply[] = data.suggestedActions.map((sa: any) => ({
