@@ -3,6 +3,7 @@ import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Inf
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getDeviceId } from "@/pages/Onboarding";
 
