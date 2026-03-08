@@ -18,6 +18,7 @@ interface Message {
   sender: "user" | "aori";
   emotion?: AoriEmotion;
   timestamp?: number;
+  imageUrl?: string;
 }
 
 interface UserProfile {
