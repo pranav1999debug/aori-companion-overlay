@@ -133,11 +133,11 @@ const ChatBubble = ({ message, onDismissQuickReplies }: { message: Message; onDi
           {message.text}
           {message.summaryMarkdown && (
             <button
-              onClick={() => downloadMarkdownAsPdf(message.summaryMarkdown!, "Lecture_Summary")}
+              onClick={() => downloadMarkdownAsPdf(message.summaryMarkdown!, message.imageUrl ? "Aori_Solution" : "Lecture_Summary")}
               className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors w-full justify-center"
             >
               <Download className="w-3.5 h-3.5" />
-              Download Summary PDF
+              {message.imageUrl ? "📄 Download Solution PDF" : "Download Summary PDF"}
             </button>
           )}
           {message.quickReplies && message.quickReplies.length > 0 && (
