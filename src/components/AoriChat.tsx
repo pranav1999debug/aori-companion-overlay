@@ -1152,7 +1152,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
         if (backCamEnabled) {
-          toggleBackCam();
+          toggleBackCamRef.current();
           const msg = "Back camera off~ I'll stop snooping around 😏";
           changeEmotion("smirk");
           setLastAoriText(msg);
