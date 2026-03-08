@@ -146,7 +146,7 @@ function AppRoutes() {
         } />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      {user && onboarded && <FloatingAoriHead />}
+      
     </>
   );
 }
