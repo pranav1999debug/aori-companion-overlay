@@ -13,13 +13,11 @@ import GoogleCallback from "./pages/GoogleCallback";
 import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
 import AoriChat from "./components/AoriChat";
-import DraggableCutout from "./components/DraggableCutout";
 
 function AoriChatDashboard() {
   return (
     <div className="h-screen w-screen relative">
       <AoriChat />
-      <DraggableCutout />
     </div>
   );
 }
