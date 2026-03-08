@@ -68,6 +68,9 @@ const ChatBubble = ({ message }: { message: Message }) => {
               : "bg-card/90 text-foreground rounded-bl-md backdrop-blur-sm"
           }`}
         >
+          {message.imageUrl && (
+            <img src={message.imageUrl} alt="Uploaded" className="max-w-full max-h-48 rounded-lg mb-1.5 object-contain" />
+          )}
           {message.text}
         </div>
       </div>
