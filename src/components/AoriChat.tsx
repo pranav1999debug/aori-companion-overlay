@@ -1082,12 +1082,103 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         return;
       }
 
+      // Voice command detection
+      const lowerTranscript = transcript.toLowerCase();
+
+      // Camera commands
+      const openFrontCam = /\b(open|turn on|start|enable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
+      const closeFrontCam = /\b(close|turn off|stop|disable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
+      const openBackCam = /\b(open|turn on|start|enable)\b.*back\s*camera\b/i.test(transcript);
+      const closeBackCam = /\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(transcript);
+      const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha?|kya\s*ho\s*raha))\b/i.test(transcript);
+
+      if (openFrontCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (!webcamEnabled) {
+          toggleWebcam();
+        } else {
+          const msg = "Baka, the camera is already on! I can see you~ 😏";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (closeFrontCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (webcamEnabled) {
+          toggleWebcam();
+          const msg = "Fine~ I'll stop watching you... for now 😏";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        } else {
+          const msg = "The camera is already off, silly~ 😅";
+          changeEmotion("happy");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (openBackCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (!backCamEnabled) {
+          toggleBackCam();
+        } else {
+          const msg = "The back camera is already running! I can see your surroundings~ 📷";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (closeBackCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (backCamEnabled) {
+          toggleBackCam();
+          const msg = "Back camera off~ I'll stop snooping around 😏";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        } else {
+          const msg = "Back camera is already off~ 📷";
+          changeEmotion("happy");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (whatAmIDoing) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        analyzeFullContext();
+        return;
+      }
+
       sendMessageWithText(transcript);
     } catch (e) {
       console.error("STT processing error:", e);
       if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
     }
-  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction]);
+  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled, toggleWebcam, toggleBackCam, analyzeFullContext]);
 
   const startListeningOnce = useCallback(async () => {
     if (isTyping || isSpeakingRef.current) return;
