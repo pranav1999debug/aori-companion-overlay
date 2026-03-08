@@ -956,86 +956,94 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         }
       }
 
-      // Build contacts summary for the AI — check current AND recent messages for WhatsApp/messaging intent
+      // Build contacts summary for the AI — smart multi-turn WhatsApp flow
       const msgLower = text.toLowerCase();
       let contactsSummary: string | null = null;
 
       const WHATSAPP_INTENT = /\b(send|message|text|whatsapp|call|msg|contact|sms)\b/i;
-      const NAME_PATTERNS = [
-        /(?:to|message|text|call|send.*?to|whatsapp)\s+(\w+(?:\s+\w+)?)/i,
-        /^(\w+(?:\s+\w+)?)$/i, // bare name like "mom" or "John Smith"
-      ];
+      const ORDINAL_REGEX = /\b(1st|2nd|3rd|first|second|third|one|two|three|1|2|3)\b/i;
       const STOP_WORDS = new Set(["saying", "that", "about", "with", "and", "on", "hi", "hello", "hey",
         "please", "tell", "asking", "message", "msg", "send", "whatsapp", "a", "the", "say",
         "text", "call", "via", "through", "im", "i'm", "how", "are", "you", "is", "it",
-        "ok", "okay", "fine", "good", "doing", "will", "can", "now", "aori", "hey"]);
+        "ok", "okay", "fine", "good", "doing", "will", "can", "now", "aori", "hey", "her",
+        "him", "them", "she", "he", "to", "for", "my", "i", "me", "its", "it's"]);
 
-      // Check if there's an active WhatsApp conversation in recent messages (last 6)
-      const recentHistory = newHistory.slice(-6);
+      // Check recent 8 messages (user + assistant) for WhatsApp context
+      const recentHistory = newHistory.slice(-8);
       const hasRecentWhatsAppIntent = recentHistory.some(m => WHATSAPP_INTENT.test(m.content));
       const currentHasIntent = WHATSAPP_INTENT.test(msgLower);
+      const isInWhatsAppFlow = currentHasIntent || hasRecentWhatsAppIntent;
 
-      if (contacts.length > 0 && (currentHasIntent || hasRecentWhatsAppIntent)) {
-        // Collect potential names from current message + recent history
-        const nameCandidates: string[] = [];
+      if (contacts.length > 0 && isInWhatsAppFlow) {
+        // Try to extract a contact name from the current message
+        const namePatterns = [
+          /(?:to|message|text|call|send.*?to|whatsapp)\s+(\w+(?:\s+\w+)?)/i,
+          /^(?:to\s+)?(\w+(?:\s+\w+)?)$/i, // bare name like "mom", "to mom"
+        ];
 
-        // Extract from current message
-        for (const pattern of NAME_PATTERNS) {
+        let searchName = "";
+        for (const pattern of namePatterns) {
           const match = msgLower.match(pattern);
           if (match) {
             const words = match[1].split(/\s+/).filter(w => !STOP_WORDS.has(w) && w.length > 1);
-            if (words.length > 0) nameCandidates.push(words.slice(0, 2).join(" "));
-          }
-        }
-
-        // If no name found in current message, check recent user messages for names
-        if (nameCandidates.length === 0 && hasRecentWhatsAppIntent && !currentHasIntent) {
-          // Current message might BE the name (e.g., user just said "mom" or "to mom")
-          const bareWords = msgLower.replace(/^(to|for)\s+/i, "").split(/\s+/).filter(w => !STOP_WORDS.has(w) && w.length > 1);
-          if (bareWords.length > 0 && bareWords.length <= 3) {
-            nameCandidates.push(bareWords.slice(0, 2).join(" "));
-          }
-        }
-
-        // Search contacts with all candidates
-        let bestMatches: typeof contacts = [];
-        let usedName = "";
-        for (const name of nameCandidates) {
-          if (!name) continue;
-          let matches = searchContacts(name);
-          // If no match and multi-word, try individual words
-          if (matches.length === 0 && name.includes(" ")) {
-            for (const word of name.split(" ")) {
-              matches = searchContacts(word);
-              if (matches.length > 0) { usedName = word; break; }
+            if (words.length > 0) {
+              searchName = words.slice(0, 2).join(" ");
+              break;
             }
           }
-          if (matches.length > 0) {
-            bestMatches = matches;
-            usedName = usedName || name;
-            break;
+        }
+
+        // Search contacts if we have a name
+        let matchedContacts: typeof contacts = [];
+        if (searchName) {
+          matchedContacts = searchContacts(searchName);
+          if (matchedContacts.length === 0 && searchName.includes(" ")) {
+            for (const word of searchName.split(" ")) {
+              matchedContacts = searchContacts(word);
+              if (matchedContacts.length > 0) { searchName = word; break; }
+            }
           }
         }
 
-        if (bestMatches.length > 0) {
-          const withPhone = bestMatches.filter(c => c.phone_numbers.length > 0 && c.phone_numbers.some(p => p.length >= 5));
-          if (withPhone.length > 0) {
-            contactsSummary = `CONTACT SEARCH for "${usedName}":\n` +
-              withPhone.slice(0, 10).map((c, i) => `${i + 1}. ${c.name} — Phone: ${c.phone_numbers.join(", ")}`).join("\n") +
-              (withPhone.length === 1
-                ? `\n\nEXACTLY ONE MATCH. Use this phone number DIRECTLY in <phone_action>. DO NOT ask for the number.`
-                : `\n\nMultiple matches. Ask which one.`);
+        // Filter to contacts with valid phone numbers
+        const withPhone = matchedContacts.filter(c =>
+          c.phone_numbers.length > 0 && c.phone_numbers.some(p => p.replace(/\D/g, "").length >= 5)
+        );
+
+        if (searchName && withPhone.length > 0) {
+          if (withPhone.length === 1) {
+            contactsSummary = `CONTACT FOUND for "${searchName}":\n` +
+              `• ${withPhone[0].name} — Phone: ${withPhone[0].phone_numbers.join(", ")}\n\n` +
+              `EXACTLY ONE MATCH. Use this phone number DIRECTLY. DO NOT ask for the number.\n` +
+              `If user already provided the message content, send it NOW with <phone_action>.`;
           } else {
-            contactsSummary = `CONTACT SEARCH for "${usedName}": Found "${bestMatches[0].name}" but they have NO phone number saved. Tell the user this contact doesn't have a WhatsApp number.`;
+            contactsSummary = `CONTACT SEARCH for "${searchName}" — ${withPhone.length} contacts found with WhatsApp numbers:\n` +
+              withPhone.slice(0, 5).map((c, i) => `${i + 1}. ${c.name} — Phone: ${c.phone_numbers.join(", ")}`).join("\n") +
+              `\n\nList these contacts NUMBERED and ask the user to pick one (e.g., "1st", "2nd", "3rd").`;
           }
-        } else if (nameCandidates.length > 0) {
-          contactsSummary = `CONTACT SEARCH for "${nameCandidates[0]}": NO CONTACTS FOUND. Tell the user you couldn't find that person.`;
+        } else if (searchName && matchedContacts.length > 0) {
+          contactsSummary = `CONTACT SEARCH for "${searchName}": Found "${matchedContacts[0].name}" but NO phone number. Tell user this contact doesn't have WhatsApp.`;
+        } else if (searchName) {
+          contactsSummary = `CONTACT SEARCH for "${searchName}": NO CONTACTS FOUND. Tell user you couldn't find that person.`;
         }
 
-        // Always provide contacts context during WhatsApp conversations
+        // Check if user is selecting from a previously shown list (ordinal selection)
+        if (!contactsSummary && ORDINAL_REGEX.test(msgLower)) {
+          const allWithPhone = contacts.filter(c => c.phone_numbers.length > 0 && c.phone_numbers.some(p => p.replace(/\D/g, "").length >= 5));
+          const topContacts = allWithPhone.slice(0, 30).map((c, i) => `${i + 1}. ${c.name} — Phone: ${c.phone_numbers.join(", ")}`).join("\n");
+          contactsSummary = `USER IS SELECTING from your previous list. Their pick: "${text}"\n` +
+            `Look at YOUR last message to see which contacts you numbered, then use that contact's phone number.\n` +
+            `If user also provided the message content earlier, include it and send NOW.\n\n` +
+            `All contacts:\n${topContacts}`;
+        }
+
+        // Fallback: provide contacts context
         if (!contactsSummary) {
-          const topContacts = contacts.slice(0, 20).map(c => `${c.name}: ${c.phone_numbers.join(", ")}`).join("\n");
-          contactsSummary = `Active WhatsApp conversation. User has ${contacts.length} contacts. Top contacts:\n${topContacts}\n\nIf user mentions a name, find the matching contact and use their number.`;
+          const allWithPhone = contacts.filter(c => c.phone_numbers.length > 0 && c.phone_numbers.some(p => p.replace(/\D/g, "").length >= 5));
+          const topContacts = allWithPhone.slice(0, 30).map((c, i) => `${c.name}: ${c.phone_numbers.join(", ")}`).join("\n");
+          contactsSummary = `Active WhatsApp flow. ${allWithPhone.length} contacts with phone numbers.\n` +
+            `Contacts:\n${topContacts}\n\n` +
+            `If user hasn't named anyone yet, ask "To whom?". If the message looks like content to send (not a name), check conversation history for the selected contact and send it.`;
         }
       }
 
