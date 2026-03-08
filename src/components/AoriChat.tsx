@@ -709,6 +709,55 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, [chatOpen, changeEmotion, speakText, userId]);
 
+  // === PDF lecture summary handler ===
+  const handlePdfSummary = useCallback(async (source: { base64?: string; url?: string; fileName: string }) => {
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+
+    const startMsg = `Ooh~ lecture slides? *adjusts glasses* Let me read through "${source.fileName}" and take notes for you~ This might take a moment! 📝✨`;
+    changeEmotion("thinking");
+    setLastAoriText(startMsg);
+    setMessages(prev => [...prev, { id: Date.now(), text: startMsg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+    speakText(startMsg);
+
+    try {
+      const body: Record<string, string> = { fileName: source.fileName };
+      if (source.base64) body.pdfBase64 = source.base64;
+      if (source.url) body.pdfUrl = source.url;
+
+      const { data, error } = await supabase.functions.invoke("aori-pdf-summary", { body });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const summaryPreview = data.summary.substring(0, 200) + "...";
+      const responseText = `Yatta~! I finished your notes! 📚✨ Here's the summary for "${data.fileName}":\n\n${summaryPreview}\n\nTap the button below to download the full report~! ☝️`;
+
+      changeEmotion("proud");
+      setLastAoriText(responseText);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        text: responseText,
+        sender: "aori",
+        emotion: "proud",
+        timestamp: Date.now(),
+        summaryMarkdown: data.summary,
+      }]);
+      speakText(`Done! I finished summarizing ${data.fileName}. Tap download for the full report!`);
+    } catch (e: any) {
+      console.error("PDF summary error:", e);
+      const errMsg = e?.message?.includes("rate limit")
+        ? "Mou! Too many requests right now. Wait a minute and try again~ 😤"
+        : `Mou! Something went wrong with the summary... ${e?.message || "try again later"} 😤`;
+      changeEmotion("angry");
+      setLastAoriText(errMsg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      speakText(errMsg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, changeEmotion, speakText]);
+
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
