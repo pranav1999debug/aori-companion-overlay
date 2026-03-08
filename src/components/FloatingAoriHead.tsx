@@ -167,7 +167,10 @@ export default function FloatingAoriHead() {
             }}
           />
           {/* Avatar circle */}
-          <div className="w-full h-full rounded-full overflow-hidden ring-2 ring-primary/60 shadow-lg shadow-primary/20 bg-card">
+          <div
+            className="w-full h-full rounded-full overflow-hidden ring-2 ring-primary/60 shadow-lg shadow-primary/20 bg-card"
+            style={{ animation: "aori-breathe 2.5s ease-in-out infinite" }}
+          >
             <img
               src={emotionCutouts.smirk}
               alt="Aori"
