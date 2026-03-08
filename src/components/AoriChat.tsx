@@ -101,10 +101,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   // Load profile and contextual data on mount
   useEffect(() => {
     const loadData = async () => {
+      if (!userId) return;
       const [profileRes, facesRes, envRes] = await Promise.all([
-        supabase.from("user_profiles").select("*").eq("device_id", deviceId).single(),
-        supabase.from("known_faces").select("*").eq("device_id", deviceId),
-        supabase.from("environment_memories").select("*").eq("device_id", deviceId),
+        supabase.from("user_profiles").select("*").eq("user_id", userId).single(),
+        supabase.from("known_faces").select("*").eq("user_id", userId),
+        supabase.from("environment_memories").select("*").eq("user_id", userId),
       ]);
       if (profileRes.data) {
         setUserProfile({
@@ -118,7 +119,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (envRes.data) setEnvironmentMemories(envRes.data.map((e: any) => ({ id: e.id, description: e.description, location_label: e.location_label })));
     };
     loadData();
-  }, [deviceId]);
+  }, [userId]);
 
   const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
 
