@@ -104,6 +104,10 @@ serve(async (req) => {
     const ACADEMIC_REGEX = /\b(solve|simplify|calculate|find the value|integrate|differentiate|derivative|equation|prove|evaluate|factori[sz]e|compute|area of|volume of|probability|permutation|combination|quadratic|polynomial|trigonometr|logarithm|matrix|determinant|limit of|sum of|product of|remainder|divisible|GCD|LCM|HCF|mean|median|mode|variance|standard deviation|binomial|newton|pythagoras|theorem|formula|convert.*to|how many|what percent|ratio|proportion|velocity|acceleration|force|momentum|energy|work done|power|resistance|current|voltage|capacit|frequency|wavelength|molarity|oxidation|reduction|pH|enthalpy|entropy|equilibrium|reaction|compound|element|atomic|molecular|electron|proton|neutron|gravitational|centripetal|angular|displacement|kinematics|dynamics|thermodynamics|optics|refraction|diffraction)\b/i;
     const isAcademic = ACADEMIC_REGEX.test(lastUserMsg);
 
+    // Detect phone control intents
+    const PHONE_CONTROL_REGEX = /\b(turn on|turn off|switch on|switch off|toggle|enable|disable|open|launch|start|set|create|make)\b.*\b(flashlight|torch|light|volume|sound|alarm|timer|countdown|camera|settings|browser|chrome|maps|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|dialer|gmail|twitter|telegram|tiktok|facebook|notes|music|app)\b|\b(flashlight|torch|light|volume|alarm|timer)\b.*\b(on|off|up|down|mute|unmute|loud|quiet|set|start)\b|\b(open|launch|start)\b.*\b(app|application)\b/i;
+    const isPhoneControl = PHONE_CONTROL_REGEX.test(lastUserMsg);
+
     // Build dynamic context
     let dynamicContext = "";
 
