@@ -104,7 +104,7 @@ const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   setTimeout(() => printWindow.print(), 500);
 };
 
-const ChatBubble = ({ message }: { message: Message }) => {
+const ChatBubble = ({ message, onDismissQuickReplies }: { message: Message; onDismissQuickReplies?: (id: number) => void }) => {
   const isUser = message.sender === "user";
   return (
     <div
