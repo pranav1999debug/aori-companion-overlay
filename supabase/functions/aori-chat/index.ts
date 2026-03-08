@@ -84,7 +84,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary } = await req.json();
+    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext } = await req.json();
     const groqKeys = [
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
