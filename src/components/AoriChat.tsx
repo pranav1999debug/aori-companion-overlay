@@ -553,7 +553,7 @@ export default function AoriChat() {
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
-    const userMsg: Message = { id: Date.now(), text, sender: "user" };
+    const userMsg: Message = { id: Date.now(), text, sender: "user", timestamp: Date.now() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
