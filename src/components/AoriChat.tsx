@@ -945,6 +945,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       setLastAoriText(responseText);
       setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+      if (voiceModeRef.current) {
+        setVoiceEntries(prev => [...prev.slice(-8), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
+      }
       speakText(responseText);
     } catch (e) {
       console.error("Chat error:", e);
