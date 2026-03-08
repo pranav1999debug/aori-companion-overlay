@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2 } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square } from "lucide-react";
+
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -1095,6 +1096,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           title={voiceModeActive ? "Stop voice mode" : "Voice mode"}>
           {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
+
+        {/* Stop speaking button — only visible while Aori is talking */}
+        {isSpeakingState && (
+          <button onClick={() => { stopSpeaking(); interruptCountRef.current += 1; changeEmotion("shock"); const r = "O-okay! I stopped! Happy now?! 😤"; setLastAoriText(r); setMessages(prev => [...prev, { id: Date.now(), text: r, sender: "aori" as const, emotion: "shock" as AoriEmotion, timestamp: Date.now() }]); }}
+            className="w-11 h-11 rounded-full backdrop-blur-sm border border-destructive/40 bg-destructive/20 flex items-center justify-center text-destructive hover:bg-destructive/30 transition-all animate-pulse"
+            title="Stop Aori">
+            <Square className="w-4 h-4 fill-current" />
+          </button>
+        )}
 
         <button onClick={() => setVoiceEnabled(!voiceEnabled)}
           className={`w-11 h-11 rounded-full backdrop-blur-sm border border-white/[0.08] flex items-center justify-center transition-all ${voiceEnabled ? "bg-white/[0.08] text-primary hover:bg-white/[0.15]" : "bg-white/[0.08] text-white/40 hover:bg-white/[0.15]"}`}
