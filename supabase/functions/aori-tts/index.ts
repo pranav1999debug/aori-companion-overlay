@@ -76,7 +76,7 @@ serve(async (req) => {
 
     if (!ttsResponse || !ttsResponse.ok) {
       const status = ttsResponse?.status || 500;
-      console.error("All TTS keys failed:", status);
+      console.error(`[${new Date().toISOString()}] All TTS keys exhausted | Final status: ${status}`);
       return new Response(
         JSON.stringify({ error: status === 429 ? "rate_limited" : `TTS API error: ${status}`, message: "TTS failed" }),
         { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
