@@ -1136,7 +1136,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
         if (!backCamEnabled) {
-          toggleBackCam();
+          toggleBackCamRef.current();
         } else {
           const msg = "The back camera is already running! I can see your surroundings~ 📷";
           changeEmotion("smirk");
