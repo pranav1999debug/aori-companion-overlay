@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import VoiceTranscript, { VoiceEntry } from "@/components/VoiceTranscript";
+import { usePhoneControls } from "@/hooks/usePhoneControls";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -204,6 +205,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const { user } = useAuth();
   const userId = user?.id || "";
   const navigate = useNavigate();
+  const { executeAction, flashlightOn } = usePhoneControls();
 
   // User profile & contextual data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -978,6 +980,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
       }
       speakText(responseText);
+      // Execute phone action if present
+      if (data.phoneAction) {
+        try {
+          const success = await executeAction(data.phoneAction);
+          if (success) {
+            console.log("Phone action executed:", data.phoneAction);
+          }
+        } catch (e) {
+          console.error("Phone action failed:", e);
+        }
+      }
     } catch (e) {
       console.error("Chat error:", e);
       toast.error("Aori couldn't respond right now. Try again!");

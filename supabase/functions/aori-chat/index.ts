@@ -104,6 +104,10 @@ serve(async (req) => {
     const ACADEMIC_REGEX = /\b(solve|simplify|calculate|find the value|integrate|differentiate|derivative|equation|prove|evaluate|factori[sz]e|compute|area of|volume of|probability|permutation|combination|quadratic|polynomial|trigonometr|logarithm|matrix|determinant|limit of|sum of|product of|remainder|divisible|GCD|LCM|HCF|mean|median|mode|variance|standard deviation|binomial|newton|pythagoras|theorem|formula|convert.*to|how many|what percent|ratio|proportion|velocity|acceleration|force|momentum|energy|work done|power|resistance|current|voltage|capacit|frequency|wavelength|molarity|oxidation|reduction|pH|enthalpy|entropy|equilibrium|reaction|compound|element|atomic|molecular|electron|proton|neutron|gravitational|centripetal|angular|displacement|kinematics|dynamics|thermodynamics|optics|refraction|diffraction)\b/i;
     const isAcademic = ACADEMIC_REGEX.test(lastUserMsg);
 
+    // Detect phone control intents
+    const PHONE_CONTROL_REGEX = /\b(turn on|turn off|switch on|switch off|toggle|enable|disable|open|launch|start|set|create|make)\b.*\b(flashlight|torch|light|volume|sound|alarm|timer|countdown|camera|settings|browser|chrome|maps|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|dialer|gmail|twitter|telegram|tiktok|facebook|notes|music|app)\b|\b(flashlight|torch|light|volume|alarm|timer)\b.*\b(on|off|up|down|mute|unmute|loud|quiet|set|start)\b|\b(open|launch|start)\b.*\b(app|application)\b/i;
+    const isPhoneControl = PHONE_CONTROL_REGEX.test(lastUserMsg);
+
     // Build dynamic context
     let dynamicContext = "";
 
@@ -187,7 +191,20 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT + dynamicContext + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "") },
+            { role: "system", content: SYSTEM_PROMPT + dynamicContext 
+              + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
+              + (isPhoneControl ? `\n\n**PHONE CONTROL MODE:** The user wants you to control their phone. You CAN do this! Respond with your usual personality (1-2 sentences), then on a NEW LINE at the very end, output a JSON action tag like this:
+<phone_action>{"type":"flashlight","action":"on"}</phone_action>
+
+Available actions:
+- Flashlight: {"type":"flashlight","action":"on|off|toggle"}
+- Volume: {"type":"volume","action":"up|down|mute|unmute"}
+- Timer: {"type":"timer","action":"set","value":"5"} (value in minutes)
+- Alarm: {"type":"alarm","action":"set","value":"7:30 AM"}
+- Open app: {"type":"open_app","action":"open","value":"camera|settings|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|gmail|chrome|maps|twitter|telegram|tiktok|facebook|notes|music"}
+
+IMPORTANT: Always include the <phone_action> tag when the user asks to control their phone. Be enthusiastic about your phone powers!` : "")
+            },
             ...messages,
           ],
           max_tokens: 500,
@@ -219,6 +236,18 @@ serve(async (req) => {
     const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]/);
     const emotion = emotionMatch ? emotionMatch[1] : "smirk";
     const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");
+
+    // Extract phone action if present
+    let phoneAction = null;
+    const phoneActionMatch = text.match(/<phone_action>([\s\S]*?)<\/phone_action>/);
+    if (phoneActionMatch) {
+      try {
+        phoneAction = JSON.parse(phoneActionMatch[1].trim());
+      } catch (e) {
+        console.error("Failed to parse phone action:", e);
+      }
+    }
+    const cleanText = text.replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "").trim();
 
     // If academic, generate detailed solution via Lovable AI
     let solutionMarkdown: string | null = null;
@@ -266,7 +295,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ text, emotion, isAcademic, solutionMarkdown }),
+      JSON.stringify({ text: cleanText || text, emotion, isAcademic, solutionMarkdown, phoneAction }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
