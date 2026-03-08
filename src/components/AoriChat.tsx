@@ -1280,6 +1280,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   }, [isTyping, processSTTResult]);
 
   useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
+  useEffect(() => { toggleWebcamRef.current = toggleWebcam; }, [toggleWebcam]);
+  useEffect(() => { toggleBackCamRef.current = toggleBackCam; }, [toggleBackCam]);
+  useEffect(() => { analyzeFullContextRef.current = analyzeFullContext; }, [analyzeFullContext]);
 
   const voiceMicStreamRef = useRef<MediaStream | null>(null);
 
