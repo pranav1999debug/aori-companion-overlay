@@ -889,7 +889,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const { data, error } = await supabase.functions.invoke("aori-face", { body: { image, action: "save" } });
       if (error) throw error;
       const description = data.description || "No description";
-      const { error: dbError } = await supabase.from("known_faces").insert({ device_id: deviceId, name: name.trim(), description });
+      const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
       if (dbError) throw dbError;
       setKnownFaces(prev => [...prev, { id: crypto.randomUUID(), name: name.trim(), description }]);
       const msg = `Hmph, so that's ${name.trim()}? Fine, I'll remember their face... but you better not like them more than me! 😤`;
