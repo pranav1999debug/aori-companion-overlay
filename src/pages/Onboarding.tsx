@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { emotionCutouts } from "@/lib/aori-personality";
 import { toast } from "sonner";
 
@@ -9,19 +10,9 @@ const HOBBY_OPTIONS = [
   "Cooking", "Art", "Photography", "Travel", "Movies", "Fitness",
 ];
 
-function getDeviceId(): string {
-  let id = localStorage.getItem("aori-device-id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("aori-device-id", id);
-  }
-  return id;
-}
-
-export { getDeviceId };
-
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -42,11 +33,12 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     if (!name.trim()) { toast.error("Tell me your name, baka!"); return; }
+    if (!user) { toast.error("You need to be logged in!"); return; }
     setSaving(true);
-    const deviceId = getDeviceId();
     try {
       const { error } = await supabase.from("user_profiles").upsert({
-        device_id: deviceId,
+        user_id: user.id,
+        device_id: user.id,
         name: name.trim(),
         age: age ? parseInt(age) : null,
         hobbies,

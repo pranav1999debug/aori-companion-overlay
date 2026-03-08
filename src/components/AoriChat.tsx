@@ -5,7 +5,7 @@ import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personali
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { getDeviceId } from "@/pages/Onboarding";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -85,7 +85,8 @@ interface AoriChatProps {
 }
 
 export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
-  const deviceId = getDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id || "";
   const navigate = useNavigate();
 
   // User profile & contextual data
@@ -100,10 +101,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   // Load profile and contextual data on mount
   useEffect(() => {
     const loadData = async () => {
+      if (!userId) return;
       const [profileRes, facesRes, envRes] = await Promise.all([
-        supabase.from("user_profiles").select("*").eq("device_id", deviceId).single(),
-        supabase.from("known_faces").select("*").eq("device_id", deviceId),
-        supabase.from("environment_memories").select("*").eq("device_id", deviceId),
+        supabase.from("user_profiles").select("*").eq("user_id", userId).single(),
+        supabase.from("known_faces").select("*").eq("user_id", userId),
+        supabase.from("environment_memories").select("*").eq("user_id", userId),
       ]);
       if (profileRes.data) {
         setUserProfile({
@@ -117,7 +119,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (envRes.data) setEnvironmentMemories(envRes.data.map((e: any) => ({ id: e.id, description: e.description, location_label: e.location_label })));
     };
     loadData();
-  }, [deviceId]);
+  }, [userId]);
 
   const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
 
@@ -887,7 +889,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const { data, error } = await supabase.functions.invoke("aori-face", { body: { image, action: "save" } });
       if (error) throw error;
       const description = data.description || "No description";
-      const { error: dbError } = await supabase.from("known_faces").insert({ device_id: deviceId, name: name.trim(), description });
+      const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
       if (dbError) throw dbError;
       setKnownFaces(prev => [...prev, { id: crypto.randomUUID(), name: name.trim(), description }]);
       const msg = `Hmph, so that's ${name.trim()}? Fine, I'll remember their face... but you better not like them more than me! 😤`;
@@ -898,7 +900,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       console.error("Save face error:", e);
       toast.error("Couldn't save face. Try again!");
     }
-  }, [captureFrame, deviceId, speakText]);
+  }, [captureFrame, userId, speakText]);
 
   // === Back camera for environment ===
   const backCamIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -913,7 +915,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (error) return;
       if (data.description) {
         const { data: inserted } = await supabase.from("environment_memories").insert({
-          device_id: deviceId,
+          user_id: userId,
+          device_id: userId,
           description: data.description,
           location_label: data.location_label || null,
         }).select().single();
@@ -930,7 +933,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         speakText(msg);
       }
     } catch {}
-  }, [captureFrame, environmentMemories, deviceId, changeEmotion, speakText]);
+  }, [captureFrame, environmentMemories, userId, changeEmotion, speakText]);
 
   const toggleBackCam = useCallback(async () => {
     if (backCamEnabled) {

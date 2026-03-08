@@ -21,6 +21,7 @@ export type Database = {
           device_id: string
           id: string
           location_label: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -28,6 +29,7 @@ export type Database = {
           device_id: string
           id?: string
           location_label?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -35,6 +37,7 @@ export type Database = {
           device_id?: string
           id?: string
           location_label?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -45,6 +48,7 @@ export type Database = {
           device_id: string
           id: string
           name: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -52,6 +56,7 @@ export type Database = {
           device_id: string
           id?: string
           name: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -59,6 +64,7 @@ export type Database = {
           device_id?: string
           id?: string
           name?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -71,6 +77,7 @@ export type Database = {
           id: string
           name: string
           profession: string | null
+          user_id: string | null
         }
         Insert: {
           age?: number | null
@@ -80,6 +87,7 @@ export type Database = {
           id?: string
           name: string
           profession?: string | null
+          user_id?: string | null
         }
         Update: {
           age?: number | null
@@ -89,6 +97,7 @@ export type Database = {
           id?: string
           name?: string
           profession?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
