@@ -703,9 +703,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         // Also check final result for interrupt-only messages
         if (isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
           stopSpeaking();
-          changeEmotion("shock");
-          setLastAoriText("O-okay! I stopped! Happy now?! 😤");
-          setMessages(prev => [...prev, { id: Date.now(), text: "O-okay! I stopped! Happy now?! 😤", sender: "aori", emotion: "shock" as AoriEmotion, timestamp: Date.now() }]);
+          interruptCountRef.current += 1;
+          const { text: reaction, emotion } = getInterruptReaction();
+          changeEmotion(emotion);
+          setLastAoriText(reaction);
+          setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
           if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
           return;
         }
