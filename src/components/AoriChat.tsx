@@ -146,8 +146,7 @@ const ChatBubble = ({ message, onDismissQuickReplies }: { message: Message; onDi
                   key={i}
                   onClick={() => {
                     qr.action();
-                    // Remove quick replies after clicking
-                    setMessages(prev => prev.map(m => m.id === message.id ? { ...m, quickReplies: undefined } : m));
+                    onDismissQuickReplies?.(message.id);
                   }}
                   className="px-3 py-1.5 rounded-full bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors"
                 >
