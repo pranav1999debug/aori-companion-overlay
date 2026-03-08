@@ -797,9 +797,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const hasSummarizeIntent = /\b(summari[sz]e|summary|notes?|lecture|recap|study|explain this video|report|pdf|download)\b/i.test(text);
     const hasFollowUpSummaryIntent = /\b(i\s*want\s*(a\s*)?(pdf|summary|notes|report)|give\s*me\s*(a\s*)?(pdf|summary|notes|report)|do\s*it|seriously|im\s*serious|i'?m\s*serious|please\s*(summar|pdf|notes)|just\s*(summar|do\s*it))\b/i.test(text);
     
+    // Strip the full URL (including query params like ?si=...) not just the regex match
+    const fullUrlRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?[^\s]*|embed\/[^\s]*|shorts\/[^\s]*)|youtu\.be\/[^\s]*)/i;
+
     if (ytMatch && hasSummarizeIntent) {
       setIsTyping(false);
-      // Extract just the URL, not the full text with keywords
       const extractedUrl = text.match(fullUrlRegex)?.[0] || ytMatch[0];
       handleLectureSummary(extractedUrl, text);
       return;
