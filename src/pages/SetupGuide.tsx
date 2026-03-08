@@ -57,7 +57,7 @@ export default function SetupGuide() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Please sign in first"); return; }
 
-      const redirectUri = `${window.location.origin}/google-callback`;
+      const redirectUri = "https://aori-companion-overlay.lovable.app/google-callback";
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`,
