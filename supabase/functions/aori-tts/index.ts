@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +14,24 @@ serve(async (req) => {
 
   try {
     const { text } = await req.json();
+
+    // Try to get user's own API key first
+    const authHeader = req.headers.get("Authorization");
+    let userKey: string | null = null;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const sb = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data } = await sb.from("user_api_keys").select("api_key").eq("service", "groq").eq("is_active", true).maybeSingle();
+        if (data?.api_key) userKey = data.api_key;
+      } catch {}
+    }
+
     const groqKeys = [
+      ...(userKey ? [userKey] : []),
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
       Deno.env.get("GROQ_API_KEY_3"),
