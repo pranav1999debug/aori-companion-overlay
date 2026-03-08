@@ -1249,7 +1249,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       // Add to voice transcript overlay
       if (voiceModeRef.current) {
-        setVoiceEntries(prev => [...prev.slice(-8), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
+        setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
       }
       sendMessageWithText(transcript);
     } catch (e) {
