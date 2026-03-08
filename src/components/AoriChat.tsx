@@ -130,7 +130,7 @@ export default function AoriChat() {
         const parsed = JSON.parse(saved) as Message[];
         if (parsed.length > 0) {
           const greet = returningGreetings[Math.floor(Math.random() * returningGreetings.length)];
-          return [...parsed, { id: Date.now(), text: greet.text, sender: "aori" as const, emotion: greet.emotion }];
+          return [...parsed, { id: Date.now(), text: greet.text, sender: "aori" as const, emotion: greet.emotion, timestamp: Date.now() }];
         }
       }
     } catch {}
