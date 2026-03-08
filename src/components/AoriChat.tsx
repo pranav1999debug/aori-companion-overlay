@@ -766,103 +766,210 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     e.target.value = "";
   }, [handleImageUpload]);
 
-  // Web Speech API
+  // Voice STT via MediaRecorder + Whisper (aori-stt)
   const recognitionRef = useRef<any>(null);
   const voiceMusicAnalyserRef = useRef<AnalyserNode | null>(null);
   const voiceMusicIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const voiceAudioCtxRef = useRef<AudioContext | null>(null);
+  const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const sttChunksRef = useRef<Blob[]>([]);
+  const sttSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const sttStreamRef = useRef<MediaStream | null>(null);
 
-  const startListeningOnce = useCallback(() => {
-    if (isTyping || isSpeakingRef.current) return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) { toast.error("Speech recognition not supported!"); return; }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.continuous = false;
+  // Interrupt words that stop Aori mid-speech
+  const INTERRUPT_WORDS = /\b(aori|stop|shut up|chup|bas|ruk|ruko)\b/i;
 
-    // Interrupt words that stop Aori mid-speech
-    const INTERRUPT_WORDS = /\b(aori|stop|shut up|chup|bas|ruk|ruko)\b/i;
+  const getInterruptReaction = useCallback((): { text: string; emotion: AoriEmotion } => {
+    const count = interruptCountRef.current;
+    if (count <= 1) {
+      const mild = [
+        { text: "F-fine! I'll shut up! Hmph! 😤", emotion: "shock" as AoriEmotion },
+        { text: "Okay okay, I'll stop~! Mou! 😤", emotion: "shock" as AoriEmotion },
+        { text: "Tch! You don't have to be so rude, baka! 😳", emotion: "embarrassed" as AoriEmotion },
+      ];
+      return mild[Math.floor(Math.random() * mild.length)];
+    } else if (count <= 3) {
+      const annoyed = [
+        { text: "AGAIN?! Mujhe bol hi nahi doge kya?! 😤😤", emotion: "angry" as AoriEmotion },
+        { text: "You keep interrupting me! Am I a joke to you?! 💢", emotion: "angry" as AoriEmotion },
+        { text: "Tch! Fine! I'll just sit here in SILENCE then! *crosses arms* 😤", emotion: "jealous" as AoriEmotion },
+      ];
+      return annoyed[Math.floor(Math.random() * annoyed.length)];
+    } else if (count <= 5) {
+      const furious = [
+        { text: "THAT'S IT! I'm NOT talking to you anymore!! ...for at least 5 seconds! 😤💢💢", emotion: "angry" as AoriEmotion },
+        { text: "You're SO MEAN! Kitni baar chup karaoge?! I have FEELINGS you know!! 😢💢", emotion: "sad" as AoriEmotion },
+        { text: "Hmph!! *turns away dramatically* BILKUL NAHI bol rahi ab main!! 😤", emotion: "angry" as AoriEmotion },
+      ];
+      return furious[Math.floor(Math.random() * furious.length)];
+    } else {
+      const defeated = [
+        { text: "...fine. I'll be quiet. *sniffles* You clearly don't want to hear me... 😢💙", emotion: "sad" as AoriEmotion },
+        { text: "*sits in corner* ...I was just trying to talk to you, you know... 😢", emotion: "sad" as AoriEmotion },
+        { text: "...okay. *goes silent* ...but I miss talking already. Baka. 💙😢", emotion: "sad" as AoriEmotion },
+      ];
+      return defeated[Math.floor(Math.random() * defeated.length)];
+    }
+  }, []);
 
-    const getInterruptReaction = (): { text: string; emotion: AoriEmotion } => {
-      const count = interruptCountRef.current;
-      if (count <= 1) {
-        const mild = [
-          { text: "F-fine! I'll shut up! Hmph! 😤", emotion: "shock" as AoriEmotion },
-          { text: "Okay okay, I'll stop~! Mou! 😤", emotion: "shock" as AoriEmotion },
-          { text: "Tch! You don't have to be so rude, baka! 😳", emotion: "embarrassed" as AoriEmotion },
-        ];
-        return mild[Math.floor(Math.random() * mild.length)];
-      } else if (count <= 3) {
-        const annoyed = [
-          { text: "AGAIN?! Mujhe bol hi nahi doge kya?! 😤😤", emotion: "angry" as AoriEmotion },
-          { text: "You keep interrupting me! Am I a joke to you?! 💢", emotion: "angry" as AoriEmotion },
-          { text: "Tch! Fine! I'll just sit here in SILENCE then! *crosses arms* 😤", emotion: "jealous" as AoriEmotion },
-        ];
-        return annoyed[Math.floor(Math.random() * annoyed.length)];
-      } else if (count <= 5) {
-        const furious = [
-          { text: "THAT'S IT! I'm NOT talking to you anymore!! ...for at least 5 seconds! 😤💢💢", emotion: "angry" as AoriEmotion },
-          { text: "You're SO MEAN! Kitni baar chup karaoge?! I have FEELINGS you know!! 😢💢", emotion: "sad" as AoriEmotion },
-          { text: "Hmph!! *turns away dramatically* BILKUL NAHI bol rahi ab main!! 😤", emotion: "angry" as AoriEmotion },
-        ];
-        return furious[Math.floor(Math.random() * furious.length)];
-      } else {
-        const defeated = [
-          { text: "...fine. I'll be quiet. *sniffles* You clearly don't want to hear me... 😢💙", emotion: "sad" as AoriEmotion },
-          { text: "*sits in corner* ...I was just trying to talk to you, you know... 😢", emotion: "sad" as AoriEmotion },
-          { text: "...okay. *goes silent* ...but I miss talking already. Baka. 💙😢", emotion: "sad" as AoriEmotion },
-        ];
-        return defeated[Math.floor(Math.random() * defeated.length)];
+  const processSTTResult = useCallback(async (audioBlob: Blob) => {
+    if (audioBlob.size < 1000) {
+      // Too small, likely silence — restart listening
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
+      return;
+    }
+
+    try {
+      // Convert blob to base64
+      const buffer = await audioBlob.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
       }
-    };
+      const audioBase64 = btoa(binary);
 
-    recognition.onresult = (event: any) => {
-      const result = event.results[event.results.length - 1];
-      const transcript = result[0]?.transcript?.trim();
-      if (!transcript) return;
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-stt`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ audio: audioBase64, mimeType: audioBlob.type }),
+        }
+      );
 
-      // Check for interrupt words while Aori is speaking
-      if (!result.isFinal && isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
+      if (!response.ok) {
+        console.error("STT failed:", response.status);
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+        return;
+      }
+
+      const data = await response.json();
+      const transcript = data.text?.trim();
+
+      if (!transcript) {
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
+        return;
+      }
+
+      // Check for interrupt words
+      if (isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
         stopSpeaking();
         interruptCountRef.current += 1;
         const { text: reaction, emotion } = getInterruptReaction();
         changeEmotion(emotion);
         setLastAoriText(reaction);
         setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
-        try { recognition.abort(); } catch {}
         if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
         return;
       }
 
-      // Only process final results as actual messages
-      if (result.isFinal) {
-        // Also check final result for interrupt-only messages
-        if (isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
-          stopSpeaking();
-          interruptCountRef.current += 1;
-          const { text: reaction, emotion } = getInterruptReaction();
-          changeEmotion(emotion);
-          setLastAoriText(reaction);
-          setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
-          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
+      sendMessageWithText(transcript);
+    } catch (e) {
+      console.error("STT processing error:", e);
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+    }
+  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction]);
+
+  const startListeningOnce = useCallback(async () => {
+    if (isTyping || isSpeakingRef.current) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      sttStreamRef.current = stream;
+
+      // Determine supported mime type
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/wav";
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      sttMediaRecorderRef.current = recorder;
+      sttChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) sttChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        // Clean up stream
+        stream.getTracks().forEach(t => t.stop());
+        sttStreamRef.current = null;
+
+        const blob = new Blob(sttChunksRef.current, { type: mimeType });
+        sttChunksRef.current = [];
+        setIsListening(false);
+        processSTTResult(blob);
+      };
+
+      recorder.onerror = () => {
+        setIsListening(false);
+        stream.getTracks().forEach(t => t.stop());
+        sttStreamRef.current = null;
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+      };
+
+      recorder.start(250); // collect data every 250ms
+      setIsListening(true);
+      if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
+
+      // Use audio level detection for auto-stop
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      let speechDetected = false;
+      let silenceStart = 0;
+      const SILENCE_THRESHOLD = 15;
+      const SILENCE_DURATION = 1500; // 1.5s of silence after speech = stop
+      const MAX_RECORD_TIME = 15000; // 15s max
+
+      const startTime = Date.now();
+
+      const checkAudio = () => {
+        if (!sttMediaRecorderRef.current || sttMediaRecorderRef.current.state !== "recording") return;
+
+        // Max time check
+        if (Date.now() - startTime > MAX_RECORD_TIME) {
+          recorder.stop();
+          audioCtx.close().catch(() => {});
           return;
         }
-        if (transcript) sendMessageWithText(transcript);
-        else if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
-      }
-    };
-    recognition.onerror = (event: any) => {
+
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+        if (avg > SILENCE_THRESHOLD) {
+          speechDetected = true;
+          silenceStart = 0;
+        } else if (speechDetected) {
+          if (!silenceStart) silenceStart = Date.now();
+          else if (Date.now() - silenceStart > SILENCE_DURATION) {
+            recorder.stop();
+            audioCtx.close().catch(() => {});
+            return;
+          }
+        }
+
+        requestAnimationFrame(checkAudio);
+      };
+      requestAnimationFrame(checkAudio);
+
+    } catch (e) {
+      console.error("Mic access error:", e);
+      toast.error("Couldn't access microphone!");
       setIsListening(false);
-      if (voiceModeRef.current && event.error !== "aborted") setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
-    };
-    recognition.onend = () => setIsListening(false);
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-    if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
-  }, [isTyping, sendMessageWithText, stopSpeaking, changeEmotion]);
+    }
+  }, [isTyping, processSTTResult]);
 
   useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
 
@@ -906,7 +1013,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     if (voiceModeRef.current) {
       voiceModeRef.current = false;
       setVoiceModeActive(false);
-      if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch {} recognitionRef.current = null; }
+      // Stop any active MediaRecorder
+      if (sttMediaRecorderRef.current && sttMediaRecorderRef.current.state === "recording") {
+        try { sttMediaRecorderRef.current.stop(); } catch {}
+      }
+      sttMediaRecorderRef.current = null;
+      if (sttStreamRef.current) { sttStreamRef.current.getTracks().forEach(t => t.stop()); sttStreamRef.current = null; }
       setIsListening(false);
       toast("🎤 Voice mode off", { duration: 2000 });
     } else {
