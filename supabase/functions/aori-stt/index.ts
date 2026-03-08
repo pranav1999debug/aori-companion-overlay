@@ -75,6 +75,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log(`[STT] Detected language: ${data.language || "unknown"}, text: "${(data.text || "").substring(0, 80)}"`);
     return new Response(
       JSON.stringify({ text: data.text || "" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
