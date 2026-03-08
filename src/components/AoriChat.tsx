@@ -710,7 +710,7 @@ export default function AoriChat() {
       lastObservationRef.current = responseText;
       changeEmotion(emotion);
       setLastAoriText(`👁️ ${responseText}`);
-      setMessages((prev) => [...prev, { id: Date.now(), text: `👁️ ${responseText}`, sender: "aori", emotion }]);
+      setMessages((prev) => [...prev, { id: Date.now(), text: `👁️ ${responseText}`, sender: "aori", emotion, timestamp: Date.now() }]);
       speakText(responseText);
     } catch {}
   }, [captureFrame, changeEmotion, speakText]);
