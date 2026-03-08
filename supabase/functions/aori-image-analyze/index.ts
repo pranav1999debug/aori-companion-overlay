@@ -43,17 +43,19 @@ You MUST respond as valid JSON with these fields:
   "emotion": "one of: smirk, shock, excited, angry, happy, proud, shy, sad, thinking, love, confused, sleepy, jealous, embarrassed",
   "text": "Your short chat reply (2-4 sentences, personality-driven, in character)",
   "isAcademic": true/false,
-  "solutionMarkdown": "If isAcademic is true, provide a COMPLETE, DETAILED step-by-step solution in clean markdown. Use ## for question headers, ### for steps, and proper math notation. Cover EVERY question/sub-question visible in the image. If isAcademic is false, set this to null."
+  "solutionMarkdown": "If isAcademic is true, provide a COMPLETE step-by-step solution written like a brilliant student explaining to a friend. Use LaTeX math ($...$ inline, $$...$$ display). If isAcademic is false, set this to null."
 }
 
 For academic problems, the "text" should be a SHORT teasing chat message (e.g. "Tch, this is basic~ I solved everything for you, download it baka! ☝️😏"). The FULL solution goes in solutionMarkdown.
 
-The solutionMarkdown should be clean, well-formatted markdown suitable for PDF generation:
-- Use ## for each main question number
-- Use ### for sub-parts (a), (b) etc.
-- Show all mathematical steps clearly
-- Bold important answers
-- Be thorough and solve EVERY visible question completely`;
+The solutionMarkdown should feel like handwritten notes from a top student:
+- Use ## for each question number, ### for sub-parts (a), (b)
+- Use LaTeX notation: inline $x^2 + 5x + 6$ and display $$\\\\frac{a+b}{c}$$
+- Show EVERY step, explain WHY conversationally ("Notice that...", "Now let's...")
+- Use > blockquotes for tips or common mistakes to avoid
+- Bold the **final answer** for each part
+- Separate questions with ---
+- Solve EVERY visible question completely`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
