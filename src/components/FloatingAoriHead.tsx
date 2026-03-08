@@ -3,15 +3,17 @@ import { emotionCutouts } from "@/lib/aori-personality";
 import AoriChat from "./AoriChat";
 import { KeepAwake } from "@capacitor-community/keep-awake";
 
-const HEAD_SIZE = 60;
-const SNAP_THRESHOLD = 20; // px from edge to snap
+const DEFAULT_SIZE = 60;
+const MIN_SIZE = 40;
+const MAX_SIZE = 200;
 const LONG_PRESS_MS = 500;
 
 export default function FloatingAoriHead() {
   const [expanded, setExpanded] = useState(false);
   const [voiceActivated, setVoiceActivated] = useState(false);
+  const [headSize, setHeadSize] = useState(DEFAULT_SIZE);
   const [pos, setPos] = useState(() => ({
-    x: typeof window !== "undefined" ? window.innerWidth - HEAD_SIZE - 16 : 300,
+    x: typeof window !== "undefined" ? window.innerWidth - DEFAULT_SIZE - 16 : 300,
     y: typeof window !== "undefined" ? window.innerHeight * 0.6 : 400,
   }));
 
@@ -22,20 +24,56 @@ export default function FloatingAoriHead() {
     origY: number;
     moved: boolean;
   } | null>(null);
+  const pinchRef = useRef<{ initialDist: number; initialSize: number } | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const longPressFired = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Snap to nearest horizontal edge
-  const snapToEdge = useCallback((x: number, y: number) => {
-    const midX = window.innerWidth / 2;
-    const snappedX = x + HEAD_SIZE / 2 < midX ? 8 : window.innerWidth - HEAD_SIZE - 8;
-    const snappedY = Math.max(8, Math.min(window.innerHeight - HEAD_SIZE - 8, y));
-    return { x: snappedX, y: snappedY };
-  }, []);
+  // Clamp position within viewport
+  const clampPos = useCallback((x: number, y: number, size: number) => ({
+    x: Math.max(0, Math.min(window.innerWidth - size, x)),
+    y: Math.max(0, Math.min(window.innerHeight - size, y)),
+  }), []);
 
   const handlePointerDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
       if (expanded) return;
+
+      // Pinch-to-zoom: two fingers
+      if ("touches" in e && e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchRef.current = {
+          initialDist: Math.hypot(dx, dy),
+          initialSize: headSize,
+        };
+
+        const handlePinchMove = (ev: TouchEvent) => {
+          if (!pinchRef.current || ev.touches.length < 2) return;
+          ev.preventDefault();
+          const dx = ev.touches[0].clientX - ev.touches[1].clientX;
+          const dy = ev.touches[0].clientY - ev.touches[1].clientY;
+          const dist = Math.hypot(dx, dy);
+          const scale = dist / pinchRef.current.initialDist;
+          const newSize = Math.round(
+            Math.max(MIN_SIZE, Math.min(MAX_SIZE, pinchRef.current.initialSize * scale))
+          );
+          setHeadSize(newSize);
+          setPos((prev) => clampPos(prev.x, prev.y, newSize));
+        };
+
+        const handlePinchEnd = () => {
+          pinchRef.current = null;
+          window.removeEventListener("touchmove", handlePinchMove);
+          window.removeEventListener("touchend", handlePinchEnd);
+        };
+
+        window.addEventListener("touchmove", handlePinchMove, { passive: false });
+        window.addEventListener("touchend", handlePinchEnd);
+        return;
+      }
+
       e.preventDefault();
       const point = "touches" in e ? e.touches[0] : e;
       dragRef.current = {
@@ -47,13 +85,12 @@ export default function FloatingAoriHead() {
       };
       longPressFired.current = false;
 
-      // Start long press timer
+      // Long press timer
       longPressTimer.current = setTimeout(() => {
         if (dragRef.current && !dragRef.current.moved) {
           longPressFired.current = true;
           setVoiceActivated(true);
           setExpanded(true);
-          // Clean up
           dragRef.current = null;
         }
       }, LONG_PRESS_MS);
@@ -65,16 +102,12 @@ export default function FloatingAoriHead() {
         const dy = p.clientY - dragRef.current.startY;
         if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
           dragRef.current.moved = true;
-          // Cancel long press if user is dragging
           if (longPressTimer.current) {
             clearTimeout(longPressTimer.current);
             longPressTimer.current = null;
           }
         }
-        setPos({
-          x: dragRef.current.origX + dx,
-          y: dragRef.current.origY + dy,
-        });
+        setPos(clampPos(dragRef.current.origX + dx, dragRef.current.origY + dy, headSize));
       };
 
       const handleUp = () => {
@@ -84,10 +117,7 @@ export default function FloatingAoriHead() {
         }
 
         if (dragRef.current) {
-          // Snap to edge
-          setPos((prev) => snapToEdge(prev.x, prev.y));
-
-          // Short tap (no drag, no long press)
+          // Short tap → open chat
           if (!dragRef.current.moved && !longPressFired.current) {
             setExpanded(true);
             setVoiceActivated(false);
@@ -106,21 +136,32 @@ export default function FloatingAoriHead() {
       window.addEventListener("touchmove", handleMove, { passive: false });
       window.addEventListener("touchend", handleUp);
     },
-    [expanded, pos, snapToEdge]
+    [expanded, pos, headSize, clampPos]
   );
+
+  // Mouse wheel zoom (desktop)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || expanded) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setHeadSize((prev) => {
+        const next = Math.max(MIN_SIZE, Math.min(MAX_SIZE, prev - e.deltaY * 0.5));
+        return Math.round(next);
+      });
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [expanded]);
 
   // Keep screen awake while chat is expanded
   useEffect(() => {
     if (expanded) {
-      KeepAwake.keepAwake().catch(() => {
-        // Silently fail on web/unsupported platforms
-      });
+      KeepAwake.keepAwake().catch(() => {});
     } else {
       KeepAwake.allowSleep().catch(() => {});
     }
-    return () => {
-      KeepAwake.allowSleep().catch(() => {});
-    };
+    return () => { KeepAwake.allowSleep().catch(() => {}); };
   }, [expanded]);
 
   // Clean up timer on unmount
@@ -130,28 +171,19 @@ export default function FloatingAoriHead() {
     };
   }, []);
 
-  // Re-snap on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setPos((prev) => snapToEdge(prev.x, prev.y));
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [snapToEdge]);
-
   return (
     <>
-      {/* Floating head bubble */}
       {!expanded && (
         <div
+          ref={containerRef}
           className="fixed z-[9999] cursor-grab active:cursor-grabbing select-none"
           style={{
             left: pos.x,
             top: pos.y,
-            width: HEAD_SIZE,
-            height: HEAD_SIZE,
+            width: headSize,
+            height: headSize,
             touchAction: "none",
-            transition: dragRef.current?.moved ? "none" : "left 0.3s ease-out, top 0.3s ease-out",
+            transition: dragRef.current?.moved ? "none" : "left 0.3s ease-out, top 0.3s ease-out, width 0.15s ease-out, height 0.15s ease-out",
           }}
           onMouseDown={handlePointerDown}
           onTouchStart={handlePointerDown}
@@ -160,8 +192,7 @@ export default function FloatingAoriHead() {
           <div
             className="absolute inset-[-4px] rounded-full"
             style={{
-              background:
-                "radial-gradient(circle, hsl(var(--primary) / 0.4) 0%, transparent 70%)",
+              background: "radial-gradient(circle, hsl(var(--primary) / 0.4) 0%, transparent 70%)",
               filter: "blur(6px)",
               animation: "pulse-glow-aura 3s ease-in-out infinite",
             }}
@@ -186,7 +217,6 @@ export default function FloatingAoriHead() {
         </div>
       )}
 
-      {/* Expanded full Aori chat overlay */}
       {expanded && (
         <div className="fixed inset-0 z-[9998]">
           <AoriChat
