@@ -323,6 +323,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const startListeningOnceRef = useRef<() => void>(() => {});
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const speechCancelledRef = useRef(false);
+  const interruptCountRef = useRef(0);
 
   const stopSpeaking = useCallback(() => {
     speechCancelledRef.current = true;
