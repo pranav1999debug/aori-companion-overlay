@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import VoiceTranscript, { VoiceEntry } from "@/components/VoiceTranscript";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -266,6 +267,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
   const [isListening, setIsListening] = useState(false);
   const [voiceModeActive, setVoiceModeActive] = useState(false);
+  const [voiceEntries, setVoiceEntries] = useState<VoiceEntry[]>([]);
   const voiceModeRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -943,6 +945,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       setLastAoriText(responseText);
       setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+      if (voiceModeRef.current) {
+        setVoiceEntries(prev => [...prev.slice(-8), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
+      }
       speakText(responseText);
     } catch (e) {
       console.error("Chat error:", e);
@@ -1144,6 +1149,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         changeEmotion(emotion);
         setLastAoriText(reaction);
         setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
+        setVoiceEntries(prev => [...prev.slice(-8),
+          { id: Date.now() - 1, text: transcript, sender: "user", timestamp: Date.now() },
+          { id: Date.now(), text: reaction, sender: "aori", timestamp: Date.now() },
+        ]);
         if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
         return;
       }
@@ -1238,6 +1247,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         return;
       }
 
+      // Add to voice transcript overlay
+      if (voiceModeRef.current) {
+        setVoiceEntries(prev => [...prev.slice(-8), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
+      }
       sendMessageWithText(transcript);
     } catch (e) {
       console.error("STT processing error:", e);
@@ -1390,6 +1403,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       sttMediaRecorderRef.current = null;
       if (sttStreamRef.current) { sttStreamRef.current.getTracks().forEach(t => t.stop()); sttStreamRef.current = null; }
       setIsListening(false);
+      setVoiceEntries([]);
       toast("🎤 Voice mode off", { duration: 2000 });
     } else {
       voiceModeRef.current = true;
@@ -1843,6 +1857,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           )}
         </button>
       </div>
+
+      {/* Voice conversation transcript overlay */}
+      {voiceModeActive && !chatOpen && (
+        <VoiceTranscript
+          entries={voiceEntries}
+          isListening={isListening}
+          isSpeaking={isSpeakingState}
+        />
+      )}
 
       {/* Bottom input bar */}
       <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
