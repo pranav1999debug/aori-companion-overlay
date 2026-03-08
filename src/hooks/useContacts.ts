@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Capacitor } from "@capacitor/core";
 import { toast } from "sonner";
 
 export interface UserContact {
@@ -32,56 +31,77 @@ export function useContacts(userId: string | null) {
     }
   }, [userId]);
 
-  // Sync contacts from phone (native only)
-  const syncFromPhone = useCallback(async () => {
+  // Get a valid Google access token (refreshing if needed)
+  const getGoogleToken = useCallback(async (): Promise<string | null> => {
+    if (!userId) return null;
+    try {
+      const { data: tokenRow } = await supabase
+        .from("user_google_tokens")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!tokenRow) return null;
+
+      const isExpired = new Date(tokenRow.token_expires_at) <= new Date();
+      if (!isExpired) return tokenRow.access_token;
+
+      // Refresh the token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+
+      const refreshRes = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      const refreshData = await refreshRes.json();
+      if (refreshRes.ok) return refreshData.access_token;
+      return null;
+    } catch (e) {
+      console.error("Failed to get Google token:", e);
+      return null;
+    }
+  }, [userId]);
+
+  // Sync contacts from Google Contacts API
+  const syncFromGoogle = useCallback(async () => {
     if (!userId) {
       toast.error("Please sign in first!");
       return;
     }
 
-    if (!Capacitor.isNativePlatform()) {
-      toast.error("Contact sync requires the native app");
-      return;
-    }
-
     setSyncing(true);
     try {
-      const { Contacts } = await import("@capacitor-community/contacts");
-
-      const permission = await Contacts.requestPermissions();
-      if (permission.contacts !== "granted") {
-        toast.error("Contact permission denied");
+      const accessToken = await getGoogleToken();
+      if (!accessToken) {
+        toast.error("Connect Google first! Go to Setup Guide → Google");
         setSyncing(false);
         return;
       }
 
-      const result = await Contacts.getContacts({
-        projection: {
-          name: true,
-          phones: true,
-          emails: true,
-        },
-      });
+      // Fetch all contacts (paginated)
+      let allContacts: { name: string; phone_numbers: string[]; email_addresses: string[] }[] = [];
+      let nextPageToken: string | null = null;
 
-      const phoneContacts = result.contacts || [];
-      if (!phoneContacts.length) {
-        toast("No contacts found on your phone", { duration: 3000 });
-        setSyncing(false);
-        return;
-      }
+      do {
+        const { data, error } = await supabase.functions.invoke("aori-contacts", {
+          body: { accessToken, pageToken: nextPageToken, pageSize: 200 },
+        });
 
-      // Transform to our format
-      const transformed = phoneContacts
-        .filter((c: any) => c.name?.display && c.phones?.length)
-        .map((c: any) => ({
-          name: c.name.display,
-          phone_numbers: (c.phones || []).map((p: any) => p.number?.replace(/\s/g, "") || "").filter(Boolean),
-          email_addresses: (c.emails || []).map((e: any) => e.address || "").filter(Boolean),
-          user_id: userId,
-        }));
+        if (error) throw error;
+        if (data.contacts) allContacts = [...allContacts, ...data.contacts];
+        nextPageToken = data.nextPageToken;
+      } while (nextPageToken);
 
-      if (!transformed.length) {
-        toast("No contacts with phone numbers found", { duration: 3000 });
+      if (!allContacts.length) {
+        toast("No contacts with phone numbers found in Google", { duration: 3000 });
         setSyncing(false);
         return;
       }
@@ -91,8 +111,11 @@ export function useContacts(userId: string | null) {
 
       // Insert in batches of 100
       const batchSize = 100;
-      for (let i = 0; i < transformed.length; i += batchSize) {
-        const batch = transformed.slice(i, i + batchSize);
+      for (let i = 0; i < allContacts.length; i += batchSize) {
+        const batch = allContacts.slice(i, i + batchSize).map((c) => ({
+          ...c,
+          user_id: userId,
+        }));
         const { error } = await supabase.from("user_contacts").insert(batch);
         if (error) {
           console.error("Batch insert error:", error);
@@ -103,14 +126,14 @@ export function useContacts(userId: string | null) {
       // Reload
       loadedRef.current = false;
       await loadContacts();
-      toast.success(`✨ Synced ${transformed.length} contacts!`);
+      toast.success(`✨ Synced ${allContacts.length} contacts from Google!`);
     } catch (e) {
-      console.error("Contact sync error:", e);
-      toast.error("Failed to sync contacts");
+      console.error("Google contact sync error:", e);
+      toast.error("Failed to sync contacts from Google");
     } finally {
       setSyncing(false);
     }
-  }, [userId, loadContacts]);
+  }, [userId, getGoogleToken, loadContacts]);
 
   // Search contacts by name (fuzzy)
   const searchContacts = useCallback((query: string): UserContact[] => {
@@ -125,7 +148,7 @@ export function useContacts(userId: string | null) {
     contacts,
     syncing,
     loadContacts,
-    syncFromPhone,
+    syncFromGoogle,
     searchContacts,
   };
 }
