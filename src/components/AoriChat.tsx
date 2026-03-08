@@ -799,7 +799,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     
     if (ytMatch && hasSummarizeIntent) {
       setIsTyping(false);
-      handleLectureSummary(text, text);
+      // Extract just the URL, not the full text with keywords
+      const extractedUrl = text.match(fullUrlRegex)?.[0] || ytMatch[0];
+      handleLectureSummary(extractedUrl, text);
       return;
     }
 
