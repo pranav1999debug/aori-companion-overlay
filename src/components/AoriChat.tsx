@@ -85,7 +85,8 @@ interface AoriChatProps {
 }
 
 export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
-  const deviceId = getDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id || "";
   const navigate = useNavigate();
 
   // User profile & contextual data
