@@ -1705,6 +1705,86 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   useEffect(() => { toggleBackCamRef.current = toggleBackCam; }, [toggleBackCam]);
   useEffect(() => { analyzeFullContextRef.current = analyzeFullContext; }, [analyzeFullContext]);
 
+  // === Proactive suggestion check (runs every 5 minutes) ===
+  const proactiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastProactiveRef = useRef<number>(0);
+
+  const runProactiveCheck = useCallback(async () => {
+    if (isTyping) return;
+    const now = Date.now();
+    if (now - lastProactiveRef.current < 4 * 60 * 1000) return;
+    lastProactiveRef.current = now;
+
+    try {
+      const localTime = new Date().toLocaleString("en-US");
+      const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      let visionContext: string | undefined;
+      if (webcamEnabled) {
+        visionContext = lastObservationRef.current || undefined;
+      }
+
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: {
+          messages: chatHistory.slice(-6),
+          userProfile,
+          knownFaces,
+          environmentMemories,
+          musicDetected,
+          userLocalTime: localTime,
+          userTimezone: timezoneName,
+          sessionMinutes: Math.round((Date.now() - sessionStartRef.current) / 60000),
+          proactiveCheck: true,
+          visionContext,
+        },
+      });
+
+      if (error || !data?.suggestedActions?.length) return;
+
+      const emotion = (data.emotion || "thinking") as AoriEmotion;
+      const responseText = data.text || "";
+      if (!responseText) return;
+
+      const quickReplies: QuickReply[] = data.suggestedActions.map((sa: any) => ({
+        label: sa.label,
+        action: () => {
+          if (sa.action) {
+            executeAction(sa.action).then(success => {
+              if (success) toast(`✨ Done: ${sa.label}`, { duration: 2000 });
+            });
+          }
+        },
+      }));
+
+      changeEmotion(emotion);
+      setLastAoriText(responseText);
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        text: `💡 ${responseText}`,
+        sender: "aori",
+        emotion,
+        timestamp: Date.now(),
+        quickReplies,
+      }]);
+      setChatHistory(prev => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+      speakText(responseText);
+    } catch (e) {
+      console.error("Proactive check error:", e);
+    }
+  }, [isTyping, webcamEnabled, chatHistory, userProfile, knownFaces, environmentMemories, musicDetected, changeEmotion, speakText, executeAction]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      runProactiveCheck();
+      proactiveIntervalRef.current = setInterval(runProactiveCheck, 5 * 60 * 1000);
+    }, 2 * 60 * 1000);
+
+    return () => {
+      clearTimeout(timeout);
+      if (proactiveIntervalRef.current) clearInterval(proactiveIntervalRef.current);
+    };
+  }, [runProactiveCheck]);
+
   useEffect(() => {
     if (videoRef.current && webcamStream) videoRef.current.srcObject = webcamStream;
   }, [webcamStream]);
