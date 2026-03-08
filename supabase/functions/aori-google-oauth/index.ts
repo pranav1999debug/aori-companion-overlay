@@ -72,13 +72,8 @@ serve(async (req) => {
     }
   }
 
-  // Step 2: Exchange code for tokens (called from frontend after redirect)
-  if (req.method === "POST" && path === "callback") {
-    // This is actually handled via the POST with action=exchange
-  }
-
-  // Handle token exchange
-  if (req.method === "PUT") {
+  // Step 2: Exchange code for tokens (POST with action=exchange)
+  if (req.method === "PUT" || (req.method === "POST" && path === "callback")) {
     try {
       const authHeader = req.headers.get("Authorization");
       console.log("[OAuth PUT] Auth header present:", !!authHeader);

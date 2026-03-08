@@ -37,20 +37,33 @@ export default function GoogleCallback() {
         }
 
         const redirectUri = "https://aori-companion-overlay.lovable.app/google-callback";
-        setDebugInfo(prev => prev + `\nRedirect URI: ${redirectUri}\nCalling PUT...`);
+        setDebugInfo(prev => prev + `\nRedirect URI: ${redirectUri}\nCalling POST callback...`);
 
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({ code, redirectUri }),
+        const fetchWithRetry = async (attempt = 1): Promise<Response> => {
+          try {
+            return await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth/callback`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session.access_token}`,
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                },
+                body: JSON.stringify({ code, redirectUri }),
+              }
+            );
+          } catch (e) {
+            if (attempt < 3) {
+              setDebugInfo(prev => prev + `\n⚠️ Attempt ${attempt} failed, retrying...`);
+              await new Promise(r => setTimeout(r, 1000 * attempt));
+              return fetchWithRetry(attempt + 1);
+            }
+            throw e;
           }
-        );
+        };
+
+        const res = await fetchWithRetry();
 
         const data = await res.json();
         setDebugInfo(prev => prev + `\nResponse: ${res.status} ${JSON.stringify(data).substring(0, 100)}`);
