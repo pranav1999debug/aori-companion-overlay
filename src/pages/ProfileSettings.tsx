@@ -441,6 +441,104 @@ export default function ProfileSettings() {
 
         <div className="h-px bg-border/50 my-2" />
 
+        {/* API Status Dashboard */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5" /> API Key Status (TTS)
+          </label>
+          <div className="bg-card border border-border/50 rounded-xl p-4 space-y-3">
+            {!apiStatus && !apiStatusLoading && (
+              <button
+                onClick={fetchApiStatus}
+                className="w-full py-2.5 rounded-lg bg-muted text-foreground text-xs font-medium hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
+              >
+                <Key className="w-3.5 h-3.5" />
+                Check API Key Status
+              </button>
+            )}
+            {apiStatusLoading && (
+              <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Probing {10} keys...
+              </div>
+            )}
+            {apiStatus && !apiStatusLoading && (
+              <>
+                {/* Summary bar */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="flex items-center gap-1 text-green-400">
+                      <CheckCircle className="w-3.5 h-3.5" /> {apiStatus.available} live
+                    </span>
+                    <span className="flex items-center gap-1 text-amber-400">
+                      <Clock className="w-3.5 h-3.5" /> {apiStatus.rateLimited} limited
+                    </span>
+                    <span className="flex items-center gap-1 text-red-400">
+                      <XCircle className="w-3.5 h-3.5" /> {apiStatus.errored} error
+                    </span>
+                  </div>
+                  <button onClick={fetchApiStatus} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Overall usage bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Stored: {apiStatus.totalStored} keys</span>
+                    <span>{Math.round((apiStatus.rateLimited / Math.max(apiStatus.totalStored, 1)) * 100)}% exhausted</span>
+                  </div>
+                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.round((apiStatus.available / Math.max(apiStatus.totalStored, 1)) * 100)}%`,
+                        background: apiStatus.available > 3
+                          ? "hsl(142 71% 45%)"
+                          : apiStatus.available > 0
+                          ? "hsl(38 92% 50%)"
+                          : "hsl(0 84% 60%)",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Per-key details */}
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {apiStatus.keys.map((k, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg bg-muted/30">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                        k.status === "available" ? "bg-green-400" :
+                        k.status === "rate_limited" ? "bg-amber-400" :
+                        "bg-red-400"
+                      }`} />
+                      <span className="font-mono text-muted-foreground flex-1 truncate">{k.name}</span>
+                      {k.status === "rate_limited" && k.usedPercent !== null && (
+                        <span className="text-amber-400 font-medium">{k.usedPercent}%</span>
+                      )}
+                      {k.retryIn && (
+                        <span className="flex items-center gap-0.5 text-muted-foreground/70">
+                          <Clock className="w-2.5 h-2.5" /> {k.retryIn}
+                        </span>
+                      )}
+                      {k.error && (
+                        <span className="flex items-center gap-0.5 text-red-400">
+                          <AlertTriangle className="w-2.5 h-2.5" /> {k.error}
+                        </span>
+                      )}
+                      {k.status === "available" && (
+                        <span className="text-green-400">✓</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="h-px bg-border/50 my-2" />
+
         <button
           onClick={handleLogout}
           className="w-full py-3 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
