@@ -86,7 +86,7 @@ const downloadMarkdownAsPdf = (markdown: string, title: string) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${title} - Lecture Summary</title>
+      <title>${title} - Aori</title>
       <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1a1a1a; line-height: 1.6; }
         h1 { color: #1a1f2e; border-bottom: 2px solid #6366f1; padding-bottom: 8px; }
@@ -133,11 +133,11 @@ const ChatBubble = ({ message, onDismissQuickReplies }: { message: Message; onDi
           {message.text}
           {message.summaryMarkdown && (
             <button
-              onClick={() => downloadMarkdownAsPdf(message.summaryMarkdown!, "Lecture_Summary")}
+              onClick={() => downloadMarkdownAsPdf(message.summaryMarkdown!, message.imageUrl ? "Aori_Solution" : "Lecture_Summary")}
               className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors w-full justify-center"
             >
               <Download className="w-3.5 h-3.5" />
-              Download Summary PDF
+              {message.imageUrl ? "📄 Download Solution PDF" : "Download Summary PDF"}
             </button>
           )}
           {message.quickReplies && message.quickReplies.length > 0 && (
@@ -1031,7 +1031,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const responseText = data.text || "Hmm~ I can't quite see that... try again? 🤔";
         changeEmotion(emotion);
         setLastAoriText(responseText);
-        setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
+        const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
+        setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now(), summaryMarkdown: solutionMd }]);
         setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
         speakText(responseText);
       } catch (e) {
