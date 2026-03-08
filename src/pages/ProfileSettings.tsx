@@ -158,8 +158,11 @@ export default function ProfileSettings() {
   };
 
   useEffect(() => {
-    if (user) loadContacts();
-  }, [user, loadContacts]);
+    if (user) {
+      loadContacts();
+      loadUserKey();
+    }
+  }, [user, loadContacts, loadUserKey]);
 
   useEffect(() => {
     if (!user) return;
