@@ -771,8 +771,18 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const ytMatch = text.match(YOUTUBE_URL_REGEX);
     const hasSummarizeIntent = /\b(summar|notes?|lecture|recap|study|explain this video|report)\b/i.test(text);
     if (ytMatch && hasSummarizeIntent) {
-      setIsTyping(false); // handleLectureSummary manages its own typing state
+      setIsTyping(false);
       handleLectureSummary(text, text);
+      return;
+    }
+
+    // Check for PDF URL with summarize intent
+    const pdfUrlMatch = text.match(PDF_URL_REGEX);
+    if (pdfUrlMatch && hasSummarizeIntent) {
+      setIsTyping(false);
+      const url = pdfUrlMatch[0];
+      const fileName = url.split("/").pop()?.split("?")[0] || "lecture.pdf";
+      handlePdfSummary({ url, fileName });
       return;
     }
 
