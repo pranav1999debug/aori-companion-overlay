@@ -1172,7 +1172,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (whatAmIDoing) {
         const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
-        analyzeFullContext();
+        analyzeFullContextRef.current();
         return;
       }
 
