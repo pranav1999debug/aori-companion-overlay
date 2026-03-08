@@ -647,6 +647,67 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, [musicDetected, changeEmotion, speakText]);
 
+  // === YouTube lecture summary handler ===
+  const handleLectureSummary = useCallback(async (youtubeUrl: string, originalText: string) => {
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+
+    // Aori's initial reaction
+    const startMsg = "Ooh~ a lecture video? *pushes up glasses* Let me watch this and take notes for you~ This might take a minute, so be patient, baka! 📝✨";
+    changeEmotion("thinking");
+    setLastAoriText(startMsg);
+    setMessages(prev => [...prev, { id: Date.now(), text: startMsg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+    speakText(startMsg);
+
+    try {
+      // Get Google access token for video info
+      let googleAccessToken: string | null = null;
+      if (userId) {
+        const { data: tokenRow } = await supabase
+          .from("user_google_tokens")
+          .select("access_token, token_expires_at")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (tokenRow && new Date(tokenRow.token_expires_at) > new Date()) {
+          googleAccessToken = tokenRow.access_token;
+        }
+      }
+
+      const { data, error } = await supabase.functions.invoke("aori-lecture-summary", {
+        body: { youtubeUrl, accessToken: googleAccessToken },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const summaryPreview = data.summary.substring(0, 200) + "...";
+      const responseText = `Yatta~! I finished your notes! 📚✨ Here's the summary for "${data.videoTitle}":\n\n${summaryPreview}\n\nTap the button below to download the full report~! ☝️`;
+      
+      changeEmotion("proud");
+      setLastAoriText(responseText);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        text: responseText,
+        sender: "aori",
+        emotion: "proud",
+        timestamp: Date.now(),
+        summaryMarkdown: data.summary,
+      }]);
+      speakText(`Done! I finished summarizing ${data.videoTitle}. Tap download for the full report!`);
+    } catch (e: any) {
+      console.error("Lecture summary error:", e);
+      const errMsg = e?.message?.includes("No captions")
+        ? "Tch! This video doesn't have subtitles, so I can't summarize it. Try a video with captions, ne? 😤"
+        : `Mou! Something went wrong with the summary... ${e?.message || "try again later"} 😤`;
+      changeEmotion("angry");
+      setLastAoriText(errMsg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      speakText(errMsg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, changeEmotion, speakText, userId]);
+
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
@@ -655,6 +716,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setInput("");
     setIsTyping(true);
     if (!chatOpen && !fromVoice) setChatOpen(true);
+
+    // Check for YouTube link with summarize intent
+    const ytMatch = text.match(YOUTUBE_URL_REGEX);
+    const hasSummarizeIntent = /\b(summar|notes?|lecture|recap|study|explain this video|report)\b/i.test(text);
+    if (ytMatch && hasSummarizeIntent) {
+      setIsTyping(false); // handleLectureSummary manages its own typing state
+      handleLectureSummary(text, text);
+      return;
+    }
 
     const localTime = new Date().toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, weekday: "short", month: "short", day: "numeric" });
     const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
