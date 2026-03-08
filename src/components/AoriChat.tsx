@@ -391,6 +391,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const isSpeakingRef = useRef(false);
   const [isSpeakingState, setIsSpeakingState] = useState(false);
   const startListeningOnceRef = useRef<() => void>(() => {});
+  const toggleWebcamRef = useRef<() => void>(() => {});
+  const toggleBackCamRef = useRef<() => void>(() => {});
+  const analyzeFullContextRef = useRef<() => void>(() => {});
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const speechCancelledRef = useRef(false);
   const interruptCountRef = useRef(0);
