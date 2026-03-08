@@ -36,7 +36,7 @@ export default function GoogleCallback() {
           return;
         }
 
-        const redirectUri = `${window.location.origin}/google-callback`;
+        const redirectUri = "https://aori-companion-overlay.lovable.app/google-callback";
         setDebugInfo(prev => prev + `\nRedirect URI: ${redirectUri}\nCalling PUT...`);
 
         const res = await fetch(
