@@ -84,7 +84,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary } = await req.json();
+    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext } = await req.json();
     const groqKeys = [
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
@@ -192,6 +192,7 @@ serve(async (req) => {
           model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: SYSTEM_PROMPT + dynamicContext 
+              + proactivePrompt
               + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
               + (isPhoneControl ? `\n\n**PHONE CONTROL MODE:** The user wants you to control their phone. You CAN do this! Respond with your usual personality (1-2 sentences), then on a NEW LINE at the very end, output a JSON action tag like this:
 <phone_action>{"type":"flashlight","action":"on"}</phone_action>
@@ -252,7 +253,23 @@ IMPORTANT: Always include the <phone_action> tag when the user asks to control t
         console.error("Failed to parse phone action:", e);
       }
     }
-    const cleanText = text.replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "").trim();
+
+    // Extract suggested actions if present
+    let suggestedActions = null;
+    const suggestedMatch = text.match(/<suggested_actions>([\s\S]*?)<\/suggested_actions>/);
+    if (suggestedMatch) {
+      try {
+        suggestedActions = JSON.parse(suggestedMatch[1].trim());
+        if (!Array.isArray(suggestedActions)) suggestedActions = null;
+      } catch (e) {
+        console.error("Failed to parse suggested actions:", e);
+      }
+    }
+
+    const cleanText = text
+      .replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "")
+      .replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/g, "")
+      .trim();
 
     // If academic, generate detailed solution via Lovable AI
     let solutionMarkdown: string | null = null;
@@ -300,7 +317,7 @@ IMPORTANT: Always include the <phone_action> tag when the user asks to control t
     }
 
     return new Response(
-      JSON.stringify({ text: cleanText || text, emotion, isAcademic, solutionMarkdown, phoneAction }),
+      JSON.stringify({ text: cleanText || text, emotion, isAcademic, solutionMarkdown, phoneAction, suggestedActions }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
