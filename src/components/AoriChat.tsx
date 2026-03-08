@@ -86,7 +86,7 @@ const downloadMarkdownAsPdf = (markdown: string, title: string) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${title} - Lecture Summary</title>
+      <title>${title} - Aori</title>
       <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1a1a1a; line-height: 1.6; }
         h1 { color: #1a1f2e; border-bottom: 2px solid #6366f1; padding-bottom: 8px; }
