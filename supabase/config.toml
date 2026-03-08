@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.aori-environment]
 verify_jwt = false
+
+[functions.aori-image-analyze]
+verify_jwt = false

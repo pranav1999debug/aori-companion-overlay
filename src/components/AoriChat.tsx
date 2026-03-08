@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus } from "lucide-react";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ interface Message {
   sender: "user" | "aori";
   emotion?: AoriEmotion;
   timestamp?: number;
+  imageUrl?: string;
 }
 
 interface UserProfile {
@@ -67,6 +68,9 @@ const ChatBubble = ({ message }: { message: Message }) => {
               : "bg-card/90 text-foreground rounded-bl-md backdrop-blur-sm"
           }`}
         >
+          {message.imageUrl && (
+            <img src={message.imageUrl} alt="Uploaded" className="max-w-full max-h-48 rounded-lg mb-1.5 object-contain" />
+          )}
           {message.text}
         </div>
       </div>
@@ -699,6 +703,69 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const sendMessageWithText = useCallback((text: string) => sendMessageCore(text, true), [sendMessageCore]);
   const sendMessage = useCallback(() => { sendMessageCore(input.trim(), false); }, [sendMessageCore, input]);
 
+  // === Image upload handler ===
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputChatRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only images are supported!");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image too large! Max 10MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      const mimeType = file.type;
+
+      // Show image in chat
+      const userMsg: Message = {
+        id: Date.now(),
+        text: input.trim() || "📷 Image sent",
+        sender: "user",
+        timestamp: Date.now(),
+        imageUrl: dataUrl,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      const capturedInput = input.trim();
+      setInput("");
+      setIsTyping(true);
+      if (!chatOpen) setChatOpen(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("aori-image-analyze", {
+          body: { image: base64, mimeType, userMessage: capturedInput || undefined },
+        });
+        if (error) throw error;
+        const emotion = (data.emotion || "thinking") as AoriEmotion;
+        const responseText = data.text || "Hmm~ I can't quite see that... try again? 🤔";
+        changeEmotion(emotion);
+        setLastAoriText(responseText);
+        setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
+        setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+        speakText(responseText);
+      } catch (e) {
+        console.error("Image analysis error:", e);
+        toast.error("Aori couldn't analyze the image right now!");
+        setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Tch... I can't see that right now. Try again later, baka! 😤", sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      } finally {
+        setIsTyping(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, [input, chatOpen, changeEmotion, speakText, isTyping]);
+
+  const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file);
+    e.target.value = "";
+  }, [handleImageUpload]);
+
   // Web Speech API
   const recognitionRef = useRef<any>(null);
   const voiceMusicAnalyserRef = useRef<AnalyserNode | null>(null);
@@ -1237,6 +1304,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       {/* Bottom input bar */}
       <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
         <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-center">
+          <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={onFileChange} />
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full text-white/40 hover:text-white/70 transition-colors shrink-0" title="Send image">
+            <ImagePlus className="w-5 h-5" />
+          </button>
           <input
             ref={inputRef}
             value={input}
@@ -1300,6 +1371,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               <button type="button" onClick={toggleVoiceMode}
                 className={`p-2 rounded-full transition-colors ${voiceModeActive ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"}`}>
                 {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
+              <input type="file" ref={fileInputChatRef} accept="image/*" className="hidden" onChange={onFileChange} />
+              <button type="button" onClick={() => fileInputChatRef.current?.click()} className="p-2 rounded-full text-white/40 hover:text-white/70 transition-colors" title="Send image">
+                <ImagePlus className="w-5 h-5" />
               </button>
               <input
                 value={input}
