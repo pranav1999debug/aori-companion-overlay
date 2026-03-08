@@ -216,16 +216,16 @@ export default function ProfileSettings() {
             <Phone className="w-3.5 h-3.5" /> Phone Contacts
           </label>
           <p className="text-xs text-muted-foreground/70">
-            Import your phone contacts so Aori can find the right person when you ask to send a message.
+            Import contacts from your Google account so Aori can find the right person when you ask to send a message.
             {contacts.length > 0 && ` (${contacts.length} contacts synced)`}
           </p>
           <button
-            onClick={syncFromPhone}
+            onClick={syncFromGoogle}
             disabled={syncing}
             className="w-full py-3 rounded-xl bg-accent/20 text-accent-foreground text-sm font-medium hover:bg-accent/30 transition-colors flex items-center justify-center gap-2 border border-accent/20"
           >
             {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4" />}
-            {syncing ? "Syncing contacts..." : contacts.length > 0 ? "Re-sync Contacts" : "Import Phone Contacts"}
+            {syncing ? "Syncing contacts..." : contacts.length > 0 ? "Re-sync Google Contacts" : "Import Google Contacts"}
           </button>
         </div>
 
