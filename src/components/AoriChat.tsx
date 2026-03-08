@@ -1149,7 +1149,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         changeEmotion(emotion);
         setLastAoriText(reaction);
         setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
-        setVoiceEntries(prev => [...prev.slice(-8),
+        setVoiceEntries(prev => [...prev.slice(-3),
           { id: Date.now() - 1, text: transcript, sender: "user", timestamp: Date.now() },
           { id: Date.now(), text: reaction, sender: "aori", timestamp: Date.now() },
         ]);
