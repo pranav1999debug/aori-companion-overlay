@@ -619,9 +619,12 @@ export default function AoriChat() {
 
   useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
 
+  const voiceMicStreamRef = useRef<MediaStream | null>(null);
+
   const startVoiceMusicDetection = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceMicStreamRef.current = stream;
       const audioCtx = new AudioContext();
       voiceAudioCtxRef.current = audioCtx;
       const source = audioCtx.createMediaStreamSource(stream);
@@ -648,10 +651,11 @@ export default function AoriChat() {
     if (voiceMusicIntervalRef.current) { clearInterval(voiceMusicIntervalRef.current); voiceMusicIntervalRef.current = null; }
     voiceMusicAnalyserRef.current = null;
     if (voiceAudioCtxRef.current) { voiceAudioCtxRef.current.close().catch(() => {}); voiceAudioCtxRef.current = null; }
+    if (voiceMicStreamRef.current) { voiceMicStreamRef.current.getTracks().forEach(t => t.stop()); voiceMicStreamRef.current = null; }
     setMusicDetected(false);
   }, []);
 
-  const toggleVoiceMode = useCallback(() => {
+  const toggleVoiceMode = useCallback(async () => {
     if (voiceModeRef.current) {
       voiceModeRef.current = false;
       setVoiceModeActive(false);
@@ -663,8 +667,12 @@ export default function AoriChat() {
       voiceModeRef.current = true;
       setVoiceModeActive(true);
       toast("🎤 Voice mode on — speak freely! 🎵 Music detection active~", { duration: 2000 });
-      startListeningOnce();
-      startVoiceMusicDetection();
+      // Start music detection first, then speech recognition after mic is acquired
+      await startVoiceMusicDetection();
+      // Small delay to let mic settle before SpeechRecognition grabs it too
+      setTimeout(() => {
+        if (voiceModeRef.current) startListeningOnce();
+      }, 300);
     }
   }, [startListeningOnce, startVoiceMusicDetection, stopVoiceMusicDetection]);
 
