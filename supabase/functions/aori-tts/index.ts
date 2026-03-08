@@ -63,15 +63,20 @@ serve(async (req) => {
         });
 
         if (ttsResponse.ok) break;
-        console.warn(`TTS key ${i + 1} failed with status ${ttsResponse.status}, trying next...`);
+        // Capture and log the actual error body from Groq
+        let errorBody = "";
+        try {
+          errorBody = await ttsResponse.text();
+        } catch {}
+        console.error(`[${new Date().toISOString()}] TTS key ${i + 1} failed | Status: ${ttsResponse.status} | Body: ${errorBody}`);
       } catch (fetchErr) {
-        console.warn(`TTS key ${i + 1} fetch error:`, fetchErr);
+        console.error(`[${new Date().toISOString()}] TTS key ${i + 1} fetch exception:`, fetchErr);
       }
     }
 
     if (!ttsResponse || !ttsResponse.ok) {
       const status = ttsResponse?.status || 500;
-      console.error("All TTS keys failed:", status);
+      console.error(`[${new Date().toISOString()}] All TTS keys exhausted | Final status: ${status}`);
       return new Response(
         JSON.stringify({ error: status === 429 ? "rate_limited" : `TTS API error: ${status}`, message: "TTS failed" }),
         { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -15,6 +15,7 @@ interface Message {
   text: string;
   sender: "user" | "aori";
   emotion?: AoriEmotion;
+  timestamp?: number;
 }
 
 interface UserProfile {
@@ -36,29 +37,42 @@ interface EnvironmentMemory {
   location_label?: string;
 }
 
+const formatTimestamp = (ts?: number) => {
+  if (!ts) return null;
+  const d = new Date(ts);
+  return d.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, month: "short", day: "numeric" });
+};
+
 const ChatBubble = ({ message }: { message: Message }) => {
   const isUser = message.sender === "user";
   return (
     <div
-      className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"} items-end`}
+      className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
       style={{ animation: "slide-up 0.3s ease-out" }}
     >
-      {!isUser && message.emotion && (
-        <img
-          src={emotionCutouts[message.emotion]}
-          alt="Aori"
-          className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30 shrink-0"
-        />
-      )}
-      <div
-        className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
-          isUser
-            ? "bg-primary text-primary-foreground rounded-br-md"
-            : "bg-card/90 text-foreground rounded-bl-md backdrop-blur-sm"
-        }`}
-      >
-        {message.text}
+      <div className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"} items-end`}>
+        {!isUser && message.emotion && (
+          <img
+            src={emotionCutouts[message.emotion]}
+            alt="Aori"
+            className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30 shrink-0"
+          />
+        )}
+        <div
+          className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
+            isUser
+              ? "bg-primary text-primary-foreground rounded-br-md"
+              : "bg-card/90 text-foreground rounded-bl-md backdrop-blur-sm"
+          }`}
+        >
+          {message.text}
+        </div>
       </div>
+      {message.timestamp && (
+        <span className={`text-[10px] text-muted-foreground/60 mt-0.5 ${isUser ? "mr-1" : "ml-9"}`}>
+          {formatTimestamp(message.timestamp)}
+        </span>
+      )}
     </div>
   );
 };
@@ -107,7 +121,7 @@ export default function AoriChat() {
     { text: `Hmph. You left me alone for so long... *pouts* but I forgive you. This time. 💙`, emotion: "shy" },
   ];
 
-  const firstTimeGreeting: Message = { id: 0, text: `Hey~! ${userName}, you finally opened me! About time, baka~ 💙`, sender: "aori", emotion: "smirk" };
+  const firstTimeGreeting: Message = { id: 0, text: `Hey~! ${userName}, you finally opened me! About time, baka~ 💙`, sender: "aori", emotion: "smirk", timestamp: Date.now() };
 
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
@@ -116,7 +130,7 @@ export default function AoriChat() {
         const parsed = JSON.parse(saved) as Message[];
         if (parsed.length > 0) {
           const greet = returningGreetings[Math.floor(Math.random() * returningGreetings.length)];
-          return [...parsed, { id: Date.now(), text: greet.text, sender: "aori" as const, emotion: greet.emotion }];
+          return [...parsed, { id: Date.now(), text: greet.text, sender: "aori" as const, emotion: greet.emotion, timestamp: Date.now() }];
         }
       }
     } catch {}
@@ -457,7 +471,7 @@ export default function AoriChat() {
         const resp = shakeResponses[Math.floor(Math.random() * shakeResponses.length)];
         changeEmotion(resp.emotion);
         setLastAoriText(resp.text);
-        setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion, timestamp: Date.now() }]);
         speakText(resp.text);
       }
     };
@@ -531,7 +545,7 @@ export default function AoriChat() {
       const r = reactions[Math.floor(Math.random() * reactions.length)];
       changeEmotion(r.emotion);
       setLastAoriText(r.text);
-      setMessages(prev => [...prev, { id: Date.now(), text: r.text, sender: "aori", emotion: r.emotion }]);
+      setMessages(prev => [...prev, { id: Date.now(), text: r.text, sender: "aori", emotion: r.emotion, timestamp: Date.now() }]);
       speakText(r.text);
     }
   }, [musicDetected, changeEmotion, speakText]);
@@ -539,7 +553,7 @@ export default function AoriChat() {
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
-    const userMsg: Message = { id: Date.now(), text, sender: "user" };
+    const userMsg: Message = { id: Date.now(), text, sender: "user", timestamp: Date.now() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
@@ -568,13 +582,13 @@ export default function AoriChat() {
       const responseText = data.text || "Hmm~ say that again? 😏";
       changeEmotion(emotion);
       setLastAoriText(responseText);
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion }]);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
       speakText(responseText);
     } catch (e) {
       console.error("Chat error:", e);
       toast.error("Aori couldn't respond right now. Try again!");
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry" }]);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry", timestamp: Date.now() }]);
       if (fromVoice && voiceModeRef.current) {
         setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
       }
@@ -696,7 +710,7 @@ export default function AoriChat() {
       lastObservationRef.current = responseText;
       changeEmotion(emotion);
       setLastAoriText(`👁️ ${responseText}`);
-      setMessages((prev) => [...prev, { id: Date.now(), text: `👁️ ${responseText}`, sender: "aori", emotion }]);
+      setMessages((prev) => [...prev, { id: Date.now(), text: `👁️ ${responseText}`, sender: "aori", emotion, timestamp: Date.now() }]);
       speakText(responseText);
     } catch {}
   }, [captureFrame, changeEmotion, speakText]);
@@ -726,7 +740,7 @@ export default function AoriChat() {
       webcamIntervalRef.current = setInterval(() => analyzeFrame(), 60000);
       const msg = `Ara ara~ now I can see you, ${userName}! Don't do anything weird, baka~ 😏👁️`;
       setLastAoriText(msg);
-      setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "smirk" }]);
+      setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
     } catch { toast.error("Couldn't access your camera."); }
   }, [webcamEnabled, webcamStream, analyzeFrame, userName]);
 
@@ -746,7 +760,7 @@ export default function AoriChat() {
       setKnownFaces(prev => [...prev, { id: crypto.randomUUID(), name: name.trim(), description }]);
       const msg = `Hmph, so that's ${name.trim()}? Fine, I'll remember their face... but you better not like them more than me! 😤`;
       setLastAoriText(msg);
-      setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "jealous" }]);
+      setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "jealous", timestamp: Date.now() }]);
       speakText(msg);
     } catch (e) {
       console.error("Save face error:", e);
@@ -780,7 +794,7 @@ export default function AoriChat() {
           : `I remember this ${label}! Same messy spot, huh~ 😏`;
         changeEmotion(data.is_new ? "excited" : "smirk");
         setLastAoriText(msg);
-        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: data.is_new ? "excited" : "smirk" }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: data.is_new ? "excited" : "smirk", timestamp: Date.now() }]);
         speakText(msg);
       }
     } catch {}
