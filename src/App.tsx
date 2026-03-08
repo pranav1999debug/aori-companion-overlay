@@ -7,6 +7,7 @@ import { useAuth } from "./hooks/useAuth";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import SetupGuide from "./pages/SetupGuide";
+import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
 import FloatingAoriHead from "./components/FloatingAoriHead";
 
@@ -49,6 +50,9 @@ function AppRoutes() {
         } />
         <Route path="/setup" element={
           <RequireAuth><RequireOnboarding><SetupGuide /></RequireOnboarding></RequireAuth>
+        } />
+        <Route path="/profile" element={
+          <RequireAuth><RequireOnboarding><ProfileSettings /></RequireOnboarding></RequireAuth>
         } />
         <Route path="*" element={<NotFound />} />
       </Routes>
