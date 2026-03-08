@@ -156,38 +156,16 @@ serve(async (req) => {
       getVideoInfo(videoId, accessToken),
     ]);
 
-    if (!transcript || transcript.length < 50) {
-      return new Response(JSON.stringify({
-        error: "No captions/transcript available for this video. Only videos with subtitles can be summarized.",
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const titleInfo = videoInfo ? `Title: "${videoInfo.title}" by ${videoInfo.channel}` : `Video ID: ${videoId}`;
+    const usedFallback = !transcript || transcript.length < 50;
+
+    if (usedFallback) {
+      console.log(`[Lecture Summary] No captions found, using Gemini video analysis fallback`);
+    } else {
+      console.log(`[Lecture Summary] Transcript length: ${transcript.length} chars`);
     }
 
-    console.log(`[Lecture Summary] Transcript length: ${transcript.length} chars`);
-
-    // Truncate if too long (limit to ~12000 words for context window)
-    const maxChars = 50000;
-    const truncatedTranscript = transcript.length > maxChars
-      ? transcript.substring(0, maxChars) + "\n[... transcript truncated due to length]"
-      : transcript;
-
-    const titleInfo = videoInfo ? `Title: "${videoInfo.title}" by ${videoInfo.channel}` : `Video ID: ${videoId}`;
-
-    // Generate summary using AI
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are a brilliant academic note-taker. Generate a comprehensive, well-structured lecture summary report from the provided transcript. 
+    const summarySystemPrompt = `You are a brilliant academic note-taker. Generate a comprehensive, well-structured lecture summary report.
 
 Format the report as follows:
 # 📚 Lecture Summary Report
@@ -211,12 +189,36 @@ Format the report as follows:
 ## 🔗 Related Topics for Further Study
 [Suggest related concepts to explore]
 
-Be thorough but concise. Use markdown formatting. If it's a technical/STEM lecture, include any formulas or equations mentioned. If it's humanities, focus on arguments and evidence.`,
-          },
-          {
-            role: "user",
-            content: `Please summarize this lecture:\n\n${titleInfo}\n\nTranscript:\n${truncatedTranscript}`,
-          },
+Be thorough but concise. Use markdown formatting. If it's a technical/STEM lecture, include any formulas or equations mentioned. If it's humanities, focus on arguments and evidence.`;
+
+    let userContent: string;
+
+    if (usedFallback) {
+      // Gemini fallback: ask it to analyze the YouTube video directly
+      userContent = `Please watch and summarize this YouTube lecture video: https://www.youtube.com/watch?v=${videoId}\n\n${titleInfo}\n\nThe video has no captions/subtitles available, so please analyze the video content directly — listen to the audio, read any text/slides shown on screen, and provide a comprehensive summary.`;
+    } else {
+      // Truncate if too long
+      const maxChars = 50000;
+      const truncatedTranscript = transcript!.length > maxChars
+        ? transcript!.substring(0, maxChars) + "\n[... transcript truncated due to length]"
+        : transcript!;
+      userContent = `Please summarize this lecture:\n\n${titleInfo}\n\nTranscript:\n${truncatedTranscript}`;
+    }
+
+    // Use gemini-2.5-pro for video analysis (multimodal), flash for text-only
+    const model = usedFallback ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: summarySystemPrompt },
+          { role: "user", content: userContent },
         ],
       }),
     });
