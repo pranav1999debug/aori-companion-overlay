@@ -1552,6 +1552,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       toast.error("Couldn't access back camera. Are you on a mobile device?");
     }
   }, [backCamEnabled, backCamStream, analyzeEnvironment]);
+  useEffect(() => { toggleWebcamRef.current = toggleWebcam; }, [toggleWebcam]);
+  useEffect(() => { toggleBackCamRef.current = toggleBackCam; }, [toggleBackCam]);
+  useEffect(() => { analyzeFullContextRef.current = analyzeFullContext; }, [analyzeFullContext]);
 
   useEffect(() => {
     if (videoRef.current && webcamStream) videoRef.current.srcObject = webcamStream;
