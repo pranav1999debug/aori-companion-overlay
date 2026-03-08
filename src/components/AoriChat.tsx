@@ -772,11 +772,28 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
     // Check for YouTube link with summarize intent
     const ytMatch = text.match(YOUTUBE_URL_REGEX);
-    const hasSummarizeIntent = /\b(summar|notes?|lecture|recap|study|explain this video|report)\b/i.test(text);
+    const hasSummarizeIntent = /\b(summar|notes?|lecture|recap|study|explain this video|report|pdf|download)\b/i.test(text);
+    const hasFollowUpSummaryIntent = /\b(i\s*want\s*(a\s*)?(pdf|summary|notes|report)|give\s*me\s*(a\s*)?(pdf|summary|notes|report)|do\s*it|seriously|im\s*serious|i'?m\s*serious|please\s*(summar|pdf|notes)|just\s*(summar|do\s*it))\b/i.test(text);
+    
     if (ytMatch && hasSummarizeIntent) {
       setIsTyping(false);
       handleLectureSummary(text, text);
       return;
+    }
+
+    // Check for follow-up summary request referencing a recent YouTube URL
+    if (!ytMatch && (hasSummarizeIntent || hasFollowUpSummaryIntent)) {
+      // Look back through recent messages for a YouTube URL
+      const recentMessages = [...messages].reverse().slice(0, 10);
+      const recentYtMsg = recentMessages.find(m => YOUTUBE_URL_REGEX.test(m.text));
+      if (recentYtMsg) {
+        const recentYtUrl = recentYtMsg.text.match(YOUTUBE_URL_REGEX)?.[0];
+        if (recentYtUrl) {
+          setIsTyping(false);
+          handleLectureSummary(recentYtUrl, text);
+          return;
+        }
+      }
     }
 
     // Check for PDF URL with summarize intent
