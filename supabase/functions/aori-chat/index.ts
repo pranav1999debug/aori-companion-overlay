@@ -84,7 +84,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext } = await req.json();
+    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary } = await req.json();
     const groqKeys = [
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
@@ -176,6 +176,15 @@ serve(async (req) => {
 - Reference YouTube ONLY when relevant (user mentions videos, boredom, recommendations, etc.)
 - Be opinionated about their taste: "You watch THAT? ...fine, it's kinda good I guess~"
 - Suggest watching stuff together~`;
+    }
+
+    // Contacts context
+    if (contactsSummary) {
+      dynamicContext += `\n\n**PHONE CONTACTS:**\n${contactsSummary}
+- When the user asks to message/WhatsApp someone, use this contact data to find the right phone number.
+- If multiple contacts match, list them numbered and ask "Which one? First, second...?"
+- When user says "first one", "second one", etc., use that contact's phone number in the <phone_action> tag.
+- Format phone numbers for WhatsApp: remove spaces, +, dashes. Include country code.`;
     }
 
     // Proactive action suggestions based on context

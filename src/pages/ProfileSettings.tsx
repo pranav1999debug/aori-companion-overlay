@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { emotionCutouts } from "@/lib/aori-personality";
-import { ChevronLeft, LogOut, Save, User, Briefcase, Heart, Trash2 } from "lucide-react";
+import { ChevronLeft, LogOut, Save, User, Briefcase, Heart, Trash2, Phone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useContacts } from "@/hooks/useContacts";
 
 const HOBBY_OPTIONS = [
   "Gaming", "Anime", "Music", "Coding", "Reading", "Sports",
@@ -20,6 +21,11 @@ export default function ProfileSettings() {
   const [profession, setProfession] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { contacts, syncing, syncFromPhone, loadContacts } = useContacts(user?.id || null);
+
+  useEffect(() => {
+    if (user) loadContacts();
+  }, [user, loadContacts]);
 
   useEffect(() => {
     if (!user) return;
@@ -200,6 +206,28 @@ export default function ProfileSettings() {
           <Save className="w-4 h-4" />
           {saving ? "Saving..." : "Save Changes"}
         </button>
+
+        {/* Divider */}
+        <div className="h-px bg-border/50 my-2" />
+
+        {/* Contacts sync */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Phone className="w-3.5 h-3.5" /> Phone Contacts
+          </label>
+          <p className="text-xs text-muted-foreground/70">
+            Import your phone contacts so Aori can find the right person when you ask to send a message.
+            {contacts.length > 0 && ` (${contacts.length} contacts synced)`}
+          </p>
+          <button
+            onClick={syncFromPhone}
+            disabled={syncing}
+            className="w-full py-3 rounded-xl bg-accent/20 text-accent-foreground text-sm font-medium hover:bg-accent/30 transition-colors flex items-center justify-center gap-2 border border-accent/20"
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4" />}
+            {syncing ? "Syncing contacts..." : contacts.length > 0 ? "Re-sync Contacts" : "Import Phone Contacts"}
+          </button>
+        </div>
 
         {/* Divider */}
         <div className="h-px bg-border/50 my-2" />
