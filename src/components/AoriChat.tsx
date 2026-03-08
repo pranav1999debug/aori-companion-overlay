@@ -976,9 +976,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
   const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleImageUpload(file);
+    if (file) handleFileUpload(file);
     e.target.value = "";
-  }, [handleImageUpload]);
+  }, [handleFileUpload]);
 
   // Voice STT via MediaRecorder + Whisper (aori-stt)
   const recognitionRef = useRef<any>(null);
