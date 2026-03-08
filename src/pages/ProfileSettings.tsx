@@ -572,8 +572,8 @@ export default function ProfileSettings() {
                     />
                   </div>
                   <div className="flex justify-between text-[9px] text-muted-foreground/60">
-                    <span>{apiStatus.totalUsed.toLocaleString()} tokens used</span>
-                    <span>{apiStatus.totalLimit.toLocaleString()} total capacity</span>
+                    <span>{(apiStatus.totalUsed ?? 0).toLocaleString()} tokens used</span>
+                    <span>{(apiStatus.totalLimit ?? 0).toLocaleString()} total capacity</span>
                   </div>
                 </div>
 
