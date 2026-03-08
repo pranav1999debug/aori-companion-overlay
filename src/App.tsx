@@ -12,8 +12,17 @@ import SetupGuide from "./pages/SetupGuide";
 import GoogleCallback from "./pages/GoogleCallback";
 import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
-
+import AoriChat from "./components/AoriChat";
 import DraggableCutout from "./components/DraggableCutout";
+
+function AoriChatDashboard() {
+  return (
+    <div className="h-screen w-screen relative">
+      <AoriChat />
+      <DraggableCutout />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -133,7 +142,7 @@ function AppRoutes() {
           <RequireAuth><RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded></RequireAuth>
         } />
         <Route path="/" element={
-          <RequireAuth><RequireOnboarding><div className="h-screen w-screen bg-background"><DraggableCutout /></div></RequireOnboarding></RequireAuth>
+          <RequireAuth><RequireOnboarding><AoriChatDashboard /></RequireOnboarding></RequireAuth>
         } />
         <Route path="/setup" element={
           <RequireAuth><RequireOnboarding><SetupGuide /></RequireOnboarding></RequireAuth>
