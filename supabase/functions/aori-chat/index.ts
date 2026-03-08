@@ -181,11 +181,13 @@ serve(async (req) => {
     // Contacts context
     if (contactsSummary) {
       dynamicContext += `\n\n**PHONE CONTACTS:**\n${contactsSummary}
-- When the user asks to message/WhatsApp someone, use this contact data to find the right phone number.
-- If the search result says NO PHONE NUMBER or NO CONTACTS FOUND, do NOT generate a <phone_action> tag. Instead, tell the user you couldn't find their WhatsApp number.
-- If multiple contacts match, list them numbered and ask "Which one? First, second...?"
-- When user says "first one", "second one", etc., use that contact's phone number in the <phone_action> tag.
-- Format phone numbers for WhatsApp: remove spaces, +, dashes. Include country code.`;
+
+**CRITICAL WHATSAPP RULES:**
+- If EXACTLY ONE MATCH is found with a phone number → IMMEDIATELY use that number in <phone_action>. Do NOT ask the user for the number. Example: if contact shows "Mom — Phone: +919876543210", use phone "919876543210" directly.
+- If MULTIPLE matches → list them and ask which one.
+- If NO PHONE NUMBER found → tell user the contact doesn't have a WhatsApp number saved. Do NOT generate <phone_action>.
+- If NO CONTACTS FOUND → tell user you couldn't find that person in their contacts. Do NOT generate <phone_action>.
+- Format: remove +, spaces, dashes from phone numbers. Keep country code.`;
     }
 
     // Proactive action suggestions based on context

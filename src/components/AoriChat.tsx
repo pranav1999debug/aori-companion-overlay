@@ -960,27 +960,48 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const msgLower = text.toLowerCase();
       let contactsSummary: string | null = null;
       if (contacts.length > 0 && /\b(send|message|text|whatsapp|call|msg|contact)\b/i.test(msgLower)) {
-        // Extract potential name from the message and search
-        const nameMatch = msgLower.match(/(?:to|message|text|call|send.*to)\s+(\w+(?:\s+\w+)?)/i);
+        // Extract potential name — stop before "saying", "that", "about", "with", "a", "the", "and", "on", "hi", "hello", "hey"
+        const stopWords = /\b(saying|that|about|with|and|on|hi|hello|hey|please|to say|tell|asking|message|msg)\b/;
+        const nameMatch = msgLower.match(/(?:to|message|text|call|send.*?to)\s+(\w+(?:\s+\w+){0,2})/i);
+        let searchName = "";
         if (nameMatch) {
-          const matches = searchContacts(nameMatch[1]);
+          // Trim stop words from the captured name
+          searchName = nameMatch[1].split(/\s+/).reduce((acc: string[], word: string) => {
+            if (stopWords.test(word)) return acc; // stop collecting
+            if (acc.length < 2) acc.push(word); // max 2 words for name
+            return acc;
+          }, []).join(" ").trim();
+        }
+
+        if (searchName) {
+          // Try exact match first, then try each word individually
+          let matches = searchContacts(searchName);
+          if (matches.length === 0 && searchName.includes(" ")) {
+            for (const word of searchName.split(" ")) {
+              matches = searchContacts(word);
+              if (matches.length > 0) break;
+            }
+          }
+
           if (matches.length > 0) {
-            // Check which contacts have phone numbers
             const withPhone = matches.filter(c => c.phone_numbers.length > 0 && c.phone_numbers.some(p => p.length >= 5));
             if (withPhone.length > 0) {
-              contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}":\n` +
-                withPhone.slice(0, 10).map((c, i) => `${i + 1}. ${c.name} — ${c.phone_numbers.join(", ")}`).join("\n") +
-                (withPhone.length > 1 ? `\n\nThere are ${withPhone.length} matches. If ambiguous, ask the user which one.` : "");
+              contactsSummary = `CONTACT SEARCH for "${searchName}":\n` +
+                withPhone.slice(0, 10).map((c, i) => `${i + 1}. ${c.name} — Phone: ${c.phone_numbers.join(", ")}`).join("\n") +
+                (withPhone.length === 1
+                  ? `\n\nEXACTLY ONE MATCH FOUND. Use this phone number directly in the <phone_action> tag. DO NOT ask for the number.`
+                  : `\n\nThere are ${withPhone.length} matches. Ask the user which one.`);
             } else {
-              // Found contacts but none have phone numbers
-              contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}": Found ${matches.length} contact(s) named "${nameMatch[1]}" but NONE have a phone number saved. You CANNOT open WhatsApp for them. Tell the user you found "${matches[0].name}" but they don't have a WhatsApp number saved in their contacts.`;
+              contactsSummary = `CONTACT SEARCH for "${searchName}": Found ${matches.length} contact(s) named "${matches[0].name}" but NONE have a phone number saved. You CANNOT open WhatsApp. Tell the user "${matches[0].name}" doesn't have a WhatsApp number in their contacts.`;
             }
           } else {
-            contactsSummary = `CONTACT SEARCH for "${nameMatch[1]}": NO CONTACTS FOUND with that name. Tell the user you couldn't find anyone named "${nameMatch[1]}" in their contacts.`;
+            contactsSummary = `CONTACT SEARCH for "${searchName}": NO CONTACTS FOUND with that name. Tell the user you couldn't find anyone named "${searchName}" in their contacts.`;
           }
         }
         if (!contactsSummary) {
-          contactsSummary = `User has ${contacts.length} contacts synced. If they mention a name, search for it.`;
+          // Provide top contacts for general context
+          const topContacts = contacts.slice(0, 20).map(c => `${c.name}: ${c.phone_numbers.join(", ")}`).join("\n");
+          contactsSummary = `User has ${contacts.length} contacts synced. Here are some:\n${topContacts}\n\nSearch by name if needed.`;
         }
       }
 
