@@ -1311,9 +1311,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       let speechDetected = false;
+      let speechStartTime = 0;
       let silenceStart = 0;
-      const SILENCE_THRESHOLD = 15;
-      const SILENCE_DURATION = 1500; // 1.5s of silence after speech = stop
+      const SILENCE_THRESHOLD = 25;
+      const MIN_SPEECH_DURATION = 500; // at least 0.5s of speech before we consider stopping
+      const SILENCE_DURATION = 1800; // 1.8s of silence after speech = stop
       const MAX_RECORD_TIME = 15000; // 15s max
 
       const startTime = Date.now();
