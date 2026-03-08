@@ -104,9 +104,14 @@ serve(async (req) => {
     const ACADEMIC_REGEX = /\b(solve|simplify|calculate|find the value|integrate|differentiate|derivative|equation|prove|evaluate|factori[sz]e|compute|area of|volume of|probability|permutation|combination|quadratic|polynomial|trigonometr|logarithm|matrix|determinant|limit of|sum of|product of|remainder|divisible|GCD|LCM|HCF|mean|median|mode|variance|standard deviation|binomial|newton|pythagoras|theorem|formula|convert.*to|how many|what percent|ratio|proportion|velocity|acceleration|force|momentum|energy|work done|power|resistance|current|voltage|capacit|frequency|wavelength|molarity|oxidation|reduction|pH|enthalpy|entropy|equilibrium|reaction|compound|element|atomic|molecular|electron|proton|neutron|gravitational|centripetal|angular|displacement|kinematics|dynamics|thermodynamics|optics|refraction|diffraction)\b/i;
     const isAcademic = ACADEMIC_REGEX.test(lastUserMsg);
 
-    // Detect phone control intents
+    // Detect phone control intents — check current message AND recent messages for multi-turn flows
     const PHONE_CONTROL_REGEX = /\b(turn on|turn off|switch on|switch off|toggle|enable|disable|open|launch|start|set|create|make)\b.*\b(flashlight|torch|light|volume|sound|alarm|timer|countdown|camera|settings|browser|chrome|maps|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|dialer|gmail|twitter|telegram|tiktok|facebook|notes|music|app)\b|\b(flashlight|torch|light|volume|alarm|timer)\b.*\b(on|off|up|down|mute|unmute|loud|quiet|set|start)\b|\b(open|launch|start)\b.*\b(app|application)\b|\b(send|message|text|msg|whatsapp)\b.*\b(whatsapp|message|send|to)\b/i;
+    const WHATSAPP_MULTI_TURN = /\b(send|message|text|whatsapp|msg)\b/i;
     const isPhoneControl = PHONE_CONTROL_REGEX.test(lastUserMsg);
+    // Also check if recent conversation has WhatsApp context (user may be continuing a multi-turn flow)
+    const recentMsgs = messages.slice(-6);
+    const hasRecentWhatsAppFlow = recentMsgs.some((m: any) => WHATSAPP_MULTI_TURN.test(m.content || ""));
+    const isWhatsAppFlow = isPhoneControl || hasRecentWhatsAppFlow;
 
     // Build dynamic context
     let dynamicContext = "";
@@ -246,22 +251,24 @@ Rules:
             { role: "system", content: SYSTEM_PROMPT + dynamicContext 
               + proactivePrompt
               + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
-              + (isPhoneControl ? `\n\n**PHONE CONTROL MODE:** The user wants you to control their phone. You CAN do this! Respond with your usual personality (1-2 sentences), then on a NEW LINE at the very end, output a JSON action tag like this:
+              + (isPhoneControl || isWhatsAppFlow ? `\n\n**PHONE CONTROL MODE:** You CAN control the user's phone! Respond in character (1-2 sentences), then on a NEW LINE output a JSON action tag:
 <phone_action>{"type":"flashlight","action":"on"}</phone_action>
 
-Available actions:
-- Flashlight: {"type":"flashlight","action":"on|off|toggle"}
-- Volume: {"type":"volume","action":"up|down|mute|unmute"}
-- Timer: {"type":"timer","action":"set","value":"5"} (value in minutes)
-- Alarm: {"type":"alarm","action":"set","value":"7:30 AM"}
-- Open app: {"type":"open_app","action":"open","value":"camera|settings|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|gmail|chrome|maps|twitter|telegram|tiktok|facebook|notes|music"}
-- WhatsApp message: {"type":"whatsapp","action":"send","phone":"919876543210","message":"Hey! How are you?"}
-  - phone: number WITH country code, no + or spaces (e.g., 919876543210 for India +91)
-  - message: the text to pre-fill
-  - If user doesn't specify a number, omit "phone" field (opens WhatsApp to choose contact)
-  - If user says "send hi to mom on whatsapp", ask for the number OR omit phone to let them pick
+Actions: flashlight(on|off|toggle), volume(up|down|mute|unmute), timer(set, value in min), alarm(set, value="7:30 AM"), open_app(open, value="spotify|camera|gmail|..."), whatsapp(send, phone="919876543210", message="Hi!")
+- phone: number WITH country code, no + or spaces
+- message: text to pre-fill
 
-IMPORTANT: Always include the <phone_action> tag when the user asks to control their phone. Be enthusiastic about your phone powers!` : "")
+**MULTI-TURN WHATSAPP:** Users often split requests:
+- "Send WhatsApp" -> ask who -> "mom" -> find contact -> ask what to say -> "I'm okay" -> send with <phone_action>
+- "WhatsApp mom saying hi" -> find contact and send immediately
+- "to mom" (after earlier WhatsApp mention) -> this IS the name, find contact
+- "say I'm okay" (after contact found) -> this IS the message content, send now
+
+RULES:
+- If PHONE CONTACTS section has a number for this person, use it DIRECTLY in <phone_action>. NEVER ask for the number.
+- If user gives message content ("saying hi", "say I'm okay", "tell her..."), put it in "message" field and send.
+- If message not specified yet, ask what to say. If name not specified, ask who.
+- ALWAYS output <phone_action> when you have both phone number AND message content.` : "")
             },
             ...messages,
           ],
