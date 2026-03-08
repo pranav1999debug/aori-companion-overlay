@@ -980,6 +980,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
       }
       speakText(responseText);
+      // Execute phone action if present
+      if (data.phoneAction) {
+        try {
+          const success = await executeAction(data.phoneAction);
+          if (success) {
+            console.log("Phone action executed:", data.phoneAction);
+          }
+        } catch (e) {
+          console.error("Phone action failed:", e);
+        }
+      }
     } catch (e) {
       console.error("Chat error:", e);
       toast.error("Aori couldn't respond right now. Try again!");
