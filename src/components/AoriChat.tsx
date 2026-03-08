@@ -639,13 +639,50 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     if (!SpeechRecognition) { toast.error("Speech recognition not supported!"); return; }
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognition.continuous = false;
+
+    // Interrupt words that stop Aori mid-speech
+    const INTERRUPT_WORDS = /\b(aori|stop|shut up|chup|bas|ruk|ruko)\b/i;
+
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (transcript) sendMessageWithText(transcript);
-      else if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
+      const result = event.results[event.results.length - 1];
+      const transcript = result[0]?.transcript?.trim();
+      if (!transcript) return;
+
+      // Check for interrupt words while Aori is speaking
+      if (!result.isFinal && isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
+        stopSpeaking();
+        changeEmotion("shock");
+        const interruptReactions = [
+          "F-fine! I'll shut up! Hmph! 😤",
+          "Okay okay, I'll stop~! Mou! 😤",
+          "Tch! You don't have to be so rude, baka! 😳",
+        ];
+        const reaction = interruptReactions[Math.floor(Math.random() * interruptReactions.length)];
+        setLastAoriText(reaction);
+        setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion: "shock" as AoriEmotion, timestamp: Date.now() }]);
+        // Abort this recognition session, restart listening
+        try { recognition.abort(); } catch {}
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
+        return;
+      }
+
+      // Only process final results as actual messages
+      if (result.isFinal) {
+        // Also check final result for interrupt-only messages
+        if (isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
+          stopSpeaking();
+          changeEmotion("shock");
+          setLastAoriText("O-okay! I stopped! Happy now?! 😤");
+          setMessages(prev => [...prev, { id: Date.now(), text: "O-okay! I stopped! Happy now?! 😤", sender: "aori", emotion: "shock" as AoriEmotion, timestamp: Date.now() }]);
+          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
+          return;
+        }
+        if (transcript) sendMessageWithText(transcript);
+        else if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
+      }
     };
     recognition.onerror = (event: any) => {
       setIsListening(false);
