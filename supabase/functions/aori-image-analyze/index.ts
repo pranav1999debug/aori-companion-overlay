@@ -37,11 +37,23 @@ When the user sends you an image, analyze it carefully and respond as Aori:
 - NEVER use Devanagari script. Always Roman transliteration.
 - Emoji heavy, uses ~ and *action text*
 
-**Rules:**
-1. Start with emotion tag: [smirk], [shock], [excited], [angry], [happy], [proud], [shy], [sad], [thinking], [love], [confused], [sleepy], [jealous], or [embarrassed]
-2. For academic problems: be detailed and correct, but keep personality
-3. For non-academic images: keep to 2-3 sentences max
-4. NEVER break character`;
+**CRITICAL RESPONSE FORMAT:**
+You MUST respond as valid JSON with these fields:
+{
+  "emotion": "one of: smirk, shock, excited, angry, happy, proud, shy, sad, thinking, love, confused, sleepy, jealous, embarrassed",
+  "text": "Your short chat reply (2-4 sentences, personality-driven, in character)",
+  "isAcademic": true/false,
+  "solutionMarkdown": "If isAcademic is true, provide a COMPLETE, DETAILED step-by-step solution in clean markdown. Use ## for question headers, ### for steps, and proper math notation. Cover EVERY question/sub-question visible in the image. If isAcademic is false, set this to null."
+}
+
+For academic problems, the "text" should be a SHORT teasing chat message (e.g. "Tch, this is basic~ I solved everything for you, download it baka! ☝️😏"). The FULL solution goes in solutionMarkdown.
+
+The solutionMarkdown should be clean, well-formatted markdown suitable for PDF generation:
+- Use ## for each main question number
+- Use ### for sub-parts (a), (b) etc.
+- Show all mathematical steps clearly
+- Bold important answers
+- Be thorough and solve EVERY visible question completely`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -78,8 +90,8 @@ serve(async (req) => {
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },
         ],
-        max_tokens: 1000,
-        temperature: 0.8,
+        max_tokens: 4000,
+        temperature: 0.7,
       }),
     });
 
@@ -92,14 +104,43 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "[confused] Nani?! I can't see this properly~ Send it again! 😤";
+    const reply = data.choices?.[0]?.message?.content || "";
 
-    const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]/);
-    const emotion = emotionMatch ? emotionMatch[1] : "thinking";
-    const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");
+    // Try to parse JSON response
+    let emotion = "thinking";
+    let text = "Hmm~ I can't quite see that... try again? 🤔";
+    let isAcademic = false;
+    let solutionMarkdown: string | null = null;
+
+    try {
+      // Extract JSON from the response (handle markdown code blocks)
+      let jsonStr = reply;
+      const jsonMatch = reply.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+      }
+      
+      const parsed = JSON.parse(jsonStr);
+      emotion = parsed.emotion || "thinking";
+      text = parsed.text || text;
+      isAcademic = parsed.isAcademic || false;
+      solutionMarkdown = parsed.solutionMarkdown || null;
+    } catch {
+      // Fallback: treat as plain text response (old format)
+      const emotionMatch = reply.match(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]/);
+      emotion = emotionMatch ? emotionMatch[1] : "thinking";
+      text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");
+      
+      // Detect if it looks academic from the text content
+      if (text.length > 500 && /step|solve|answer|simplify|equation|formula/i.test(text)) {
+        isAcademic = true;
+        solutionMarkdown = text;
+        text = "Tch, this is basic~ I solved everything for you! Download the PDF, baka! ☝️😏";
+      }
+    }
 
     return new Response(
-      JSON.stringify({ text, emotion }),
+      JSON.stringify({ text, emotion, isAcademic, solutionMarkdown }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
