@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,webp}"],
-        navigateFallbackDenylist: [/^\/~oauth/],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/google-callback/],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
