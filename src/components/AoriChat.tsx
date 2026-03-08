@@ -321,6 +321,27 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const isSpeakingRef = useRef(false);
   const [isSpeakingState, setIsSpeakingState] = useState(false);
   const startListeningOnceRef = useRef<() => void>(() => {});
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speechCancelledRef = useRef(false);
+
+  const stopSpeaking = useCallback(() => {
+    speechCancelledRef.current = true;
+    speechQueueRef.current = [];
+    // Stop HTML5 Audio playback
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.src = "";
+      currentAudioRef.current = null;
+    }
+    // Stop browser TTS
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    isSpeakingRef.current = false;
+    setIsSpeakingState(false);
+    // Reset cancel flag after a tick
+    setTimeout(() => { speechCancelledRef.current = false; }, 100);
+  }, []);
 
   const processQueue = useCallback(async () => {
     if (isSpeakingRef.current) return;
