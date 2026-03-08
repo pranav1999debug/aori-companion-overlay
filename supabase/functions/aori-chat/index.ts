@@ -253,7 +253,23 @@ IMPORTANT: Always include the <phone_action> tag when the user asks to control t
         console.error("Failed to parse phone action:", e);
       }
     }
-    const cleanText = text.replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "").trim();
+
+    // Extract suggested actions if present
+    let suggestedActions = null;
+    const suggestedMatch = text.match(/<suggested_actions>([\s\S]*?)<\/suggested_actions>/);
+    if (suggestedMatch) {
+      try {
+        suggestedActions = JSON.parse(suggestedMatch[1].trim());
+        if (!Array.isArray(suggestedActions)) suggestedActions = null;
+      } catch (e) {
+        console.error("Failed to parse suggested actions:", e);
+      }
+    }
+
+    const cleanText = text
+      .replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "")
+      .replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/g, "")
+      .trim();
 
     // If academic, generate detailed solution via Lovable AI
     let solutionMarkdown: string | null = null;
