@@ -602,10 +602,81 @@ export default function ProfileSettings() {
           </div>
         </div>
 
-        <div className="h-px bg-border/50 my-2" />
+        {/* Add Your API Key Section */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Key className="w-3.5 h-3.5" /> Your Groq API Key
+          </label>
+          <div className="bg-card border border-border/50 rounded-xl p-4 space-y-3">
+            <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+              Add your own free Groq API key so Aori never runs out of voice or chat tokens.
+              Your key is used first — shared keys are fallback only.
+            </p>
 
-        <button
-          onClick={handleLogout}
+            <button
+              onClick={() => setShowKeyGuide(!showKeyGuide)}
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              {showKeyGuide ? "Hide guide ▲" : "How to get a free Groq API key? ▼"}
+            </button>
+
+            {showKeyGuide && (
+              <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-[11px] text-muted-foreground leading-relaxed border border-border/30">
+                <p className="font-semibold text-foreground">🔑 Get your free Groq API key in 2 minutes:</p>
+                <ol className="list-decimal list-inside space-y-1.5">
+                  <li>Go to <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">console.groq.com</a></li>
+                  <li>Sign up with Google/GitHub (free)</li>
+                  <li>Click <strong>&quot;API Keys&quot;</strong> in the left sidebar</li>
+                  <li>Click <strong>&quot;Create API Key&quot;</strong></li>
+                  <li>Name it anything (e.g. &quot;Aori&quot;) and copy the key</li>
+                  <li>Paste it below — it starts with <code className="bg-muted px-1 rounded">gsk_</code></li>
+                </ol>
+                <div className="mt-2 p-2 bg-primary/5 rounded border border-primary/20">
+                  <p className="text-[10px] text-primary">
+                    ⚡ <strong>Important:</strong> After creating your key, go to{" "}
+                    <a href="https://console.groq.com/playground?model=canopylabs%2Forpheus-v1-english" target="_blank" rel="noopener noreferrer" className="underline">
+                      Groq Playground → Orpheus model
+                    </a>{" "}
+                    and accept the model terms. This enables Aori&apos;s voice!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={userApiKey}
+                onChange={(e) => setUserApiKey(e.target.value)}
+                placeholder="gsk_xxxxxxxxxxxx..."
+                className="flex-1 px-3 py-2.5 rounded-lg bg-muted/50 border border-border/50 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-1 focus:ring-primary/50 font-mono"
+              />
+              <button
+                onClick={saveUserKey}
+                disabled={savingKey || !userApiKey.trim()}
+                className="px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
+              >
+                {savingKey ? "..." : existingUserKey ? "Update" : "Save"}
+              </button>
+            </div>
+
+            {existingUserKey && (
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] flex items-center gap-1.5 text-green-400">
+                  <CheckCircle className="w-3 h-3" /> Your key is active — used first for all requests
+                </span>
+                <button
+                  onClick={deleteUserKey}
+                  className="text-[10px] text-red-400 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="h-px bg-border/50 my-2" />
           className="w-full py-3 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
         >
           <LogOut className="w-4 h-4" />
