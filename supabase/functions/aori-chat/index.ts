@@ -237,6 +237,18 @@ IMPORTANT: Always include the <phone_action> tag when the user asks to control t
     const emotion = emotionMatch ? emotionMatch[1] : "smirk";
     const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");
 
+    // Extract phone action if present
+    let phoneAction = null;
+    const phoneActionMatch = text.match(/<phone_action>([\s\S]*?)<\/phone_action>/);
+    if (phoneActionMatch) {
+      try {
+        phoneAction = JSON.parse(phoneActionMatch[1].trim());
+      } catch (e) {
+        console.error("Failed to parse phone action:", e);
+      }
+    }
+    const cleanText = text.replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "").trim();
+
     // If academic, generate detailed solution via Lovable AI
     let solutionMarkdown: string | null = null;
     if (isAcademic) {
