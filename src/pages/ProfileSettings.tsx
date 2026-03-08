@@ -677,6 +677,9 @@ export default function ProfileSettings() {
         </div>
 
         <div className="h-px bg-border/50 my-2" />
+
+        <button
+          onClick={handleLogout}
           className="w-full py-3 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
         >
           <LogOut className="w-4 h-4" />
