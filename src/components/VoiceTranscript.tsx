@@ -54,11 +54,11 @@ export default function VoiceTranscript({ entries, isListening, isSpeaking }: Vo
   if (entries.length === 0 && !isListening) return null;
 
   return (
-    <div className="absolute bottom-24 left-4 right-16 z-25 pointer-events-none" style={{ maxHeight: "45vh" }}>
+    <div className="absolute top-16 left-4 right-16 z-25 pointer-events-none" style={{ maxHeight: "45vh" }}>
       <div
         ref={scrollRef}
         className="flex flex-col gap-2 overflow-hidden"
-        style={{ maskImage: "linear-gradient(to top, black 80%, transparent 100%)" }}
+        style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
       >
         {entries.map((entry, i) => {
           const isLatest = i === entries.length - 1;
