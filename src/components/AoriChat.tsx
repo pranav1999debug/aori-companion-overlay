@@ -237,9 +237,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
       if (facesRes.data) setKnownFaces(facesRes.data.map((f: any) => ({ id: f.id, name: f.name, description: f.description })));
       if (envRes.data) setEnvironmentMemories(envRes.data.map((e: any) => ({ id: e.id, description: e.description, location_label: e.location_label })));
+      loadContacts();
     };
     loadData();
-  }, [userId]);
+  }, [userId, loadContacts]);
 
   const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
 
