@@ -1115,7 +1115,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
         if (webcamEnabled) {
-          toggleWebcam();
+          toggleWebcamRef.current();
           const msg = "Fine~ I'll stop watching you... for now 😏";
           changeEmotion("smirk");
           setLastAoriText(msg);
