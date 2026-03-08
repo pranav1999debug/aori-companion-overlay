@@ -696,8 +696,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       speakText(`Done! I finished summarizing ${data.videoTitle}. Tap download for the full report!`);
     } catch (e: any) {
       console.error("Lecture summary error:", e);
-      const errMsg = e?.message?.includes("No captions")
-        ? "Tch! This video doesn't have subtitles, so I can't summarize it. Try a video with captions, ne? 😤"
+      const errMsg = e?.message?.includes("rate limit")
+        ? "Mou! Too many requests right now. Wait a minute and try again~ 😤"
         : `Mou! Something went wrong with the summary... ${e?.message || "try again later"} 😤`;
       changeEmotion("angry");
       setLastAoriText(errMsg);
