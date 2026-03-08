@@ -34,6 +34,7 @@ const App = () => {
           <Routes>
             <Route path="/onboarding" element={<RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded>} />
             <Route path="/" element={<RequireOnboarding><div className="h-screen w-screen" /></RequireOnboarding>} />
+            <Route path="/setup" element={<RequireOnboarding><SetupGuide /></RequireOnboarding>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
