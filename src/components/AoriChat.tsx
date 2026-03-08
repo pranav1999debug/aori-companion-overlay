@@ -323,6 +323,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const startListeningOnceRef = useRef<() => void>(() => {});
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const speechCancelledRef = useRef(false);
+  const interruptCountRef = useRef(0);
 
   const stopSpeaking = useCallback(() => {
     speechCancelledRef.current = true;
@@ -646,6 +647,39 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     // Interrupt words that stop Aori mid-speech
     const INTERRUPT_WORDS = /\b(aori|stop|shut up|chup|bas|ruk|ruko)\b/i;
 
+    const getInterruptReaction = (): { text: string; emotion: AoriEmotion } => {
+      const count = interruptCountRef.current;
+      if (count <= 1) {
+        const mild = [
+          { text: "F-fine! I'll shut up! Hmph! 😤", emotion: "shock" as AoriEmotion },
+          { text: "Okay okay, I'll stop~! Mou! 😤", emotion: "shock" as AoriEmotion },
+          { text: "Tch! You don't have to be so rude, baka! 😳", emotion: "embarrassed" as AoriEmotion },
+        ];
+        return mild[Math.floor(Math.random() * mild.length)];
+      } else if (count <= 3) {
+        const annoyed = [
+          { text: "AGAIN?! Mujhe bol hi nahi doge kya?! 😤😤", emotion: "angry" as AoriEmotion },
+          { text: "You keep interrupting me! Am I a joke to you?! 💢", emotion: "angry" as AoriEmotion },
+          { text: "Tch! Fine! I'll just sit here in SILENCE then! *crosses arms* 😤", emotion: "jealous" as AoriEmotion },
+        ];
+        return annoyed[Math.floor(Math.random() * annoyed.length)];
+      } else if (count <= 5) {
+        const furious = [
+          { text: "THAT'S IT! I'm NOT talking to you anymore!! ...for at least 5 seconds! 😤💢💢", emotion: "angry" as AoriEmotion },
+          { text: "You're SO MEAN! Kitni baar chup karaoge?! I have FEELINGS you know!! 😢💢", emotion: "sad" as AoriEmotion },
+          { text: "Hmph!! *turns away dramatically* BILKUL NAHI bol rahi ab main!! 😤", emotion: "angry" as AoriEmotion },
+        ];
+        return furious[Math.floor(Math.random() * furious.length)];
+      } else {
+        const defeated = [
+          { text: "...fine. I'll be quiet. *sniffles* You clearly don't want to hear me... 😢💙", emotion: "sad" as AoriEmotion },
+          { text: "*sits in corner* ...I was just trying to talk to you, you know... 😢", emotion: "sad" as AoriEmotion },
+          { text: "...okay. *goes silent* ...but I miss talking already. Baka. 💙😢", emotion: "sad" as AoriEmotion },
+        ];
+        return defeated[Math.floor(Math.random() * defeated.length)];
+      }
+    };
+
     recognition.onresult = (event: any) => {
       const result = event.results[event.results.length - 1];
       const transcript = result[0]?.transcript?.trim();
@@ -654,16 +688,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       // Check for interrupt words while Aori is speaking
       if (!result.isFinal && isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
         stopSpeaking();
-        changeEmotion("shock");
-        const interruptReactions = [
-          "F-fine! I'll shut up! Hmph! 😤",
-          "Okay okay, I'll stop~! Mou! 😤",
-          "Tch! You don't have to be so rude, baka! 😳",
-        ];
-        const reaction = interruptReactions[Math.floor(Math.random() * interruptReactions.length)];
+        interruptCountRef.current += 1;
+        const { text: reaction, emotion } = getInterruptReaction();
+        changeEmotion(emotion);
         setLastAoriText(reaction);
-        setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion: "shock" as AoriEmotion, timestamp: Date.now() }]);
-        // Abort this recognition session, restart listening
+        setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
         try { recognition.abort(); } catch {}
         if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
         return;
@@ -674,9 +703,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         // Also check final result for interrupt-only messages
         if (isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
           stopSpeaking();
-          changeEmotion("shock");
-          setLastAoriText("O-okay! I stopped! Happy now?! 😤");
-          setMessages(prev => [...prev, { id: Date.now(), text: "O-okay! I stopped! Happy now?! 😤", sender: "aori", emotion: "shock" as AoriEmotion, timestamp: Date.now() }]);
+          interruptCountRef.current += 1;
+          const { text: reaction, emotion } = getInterruptReaction();
+          changeEmotion(emotion);
+          setLastAoriText(reaction);
+          setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
           if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
           return;
         }
