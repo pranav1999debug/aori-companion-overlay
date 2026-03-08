@@ -471,7 +471,7 @@ export default function AoriChat() {
         const resp = shakeResponses[Math.floor(Math.random() * shakeResponses.length)];
         changeEmotion(resp.emotion);
         setLastAoriText(resp.text);
-        setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: resp.text, sender: "aori", emotion: resp.emotion, timestamp: Date.now() }]);
         speakText(resp.text);
       }
     };
