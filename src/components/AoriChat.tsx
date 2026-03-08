@@ -1854,6 +1854,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         </button>
       </div>
 
+      {/* Voice conversation transcript overlay */}
+      {voiceModeActive && !chatOpen && (
+        <VoiceTranscript
+          entries={voiceEntries}
+          isListening={isListening}
+          isSpeaking={isSpeakingState}
+        />
+      )}
+
       {/* Bottom input bar */}
       <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
         <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-center">
