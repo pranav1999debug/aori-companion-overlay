@@ -26,7 +26,9 @@ serve(async (req) => {
 
     const totalStored = keys.length;
 
-    // Check each key's rate limit status using Groq's models endpoint (lightweight)
+    // Check each key's rate limit status - use larger text to trigger rate limit if near daily cap
+    const testText = "This is a longer test message to check if the API key has enough daily tokens remaining for actual text to speech requests.";
+    
     const keyStatuses = await Promise.all(
       keys.map(async ({ name, key }) => {
         try {
@@ -38,7 +40,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: "canopylabs/orpheus-v1-english",
-              input: "test",
+              input: testText,
               voice: "hannah",
               response_format: "wav",
             }),
@@ -46,19 +48,9 @@ serve(async (req) => {
 
           if (res.ok) {
             await res.arrayBuffer();
-            // Parse rate limit headers from successful response
-            const remaining = res.headers.get("x-ratelimit-remaining-tokens");
-            const limit = res.headers.get("x-ratelimit-limit-tokens");
-            const dailyRemaining = res.headers.get("x-ratelimit-remaining-requests");
-            const dailyLimit = res.headers.get("x-ratelimit-limit-requests");
-            // Estimate usage from remaining/limit headers
-            let used: number | null = null;
-            let total: number | null = null;
-            if (remaining && limit) {
-              total = parseInt(limit);
-              used = total - parseInt(remaining);
-            }
-            return { name, status: "available", used, limit: total || 3600, retryIn: null, error: null };
+            // Success means key has capacity - but we can't know exact daily usage from headers
+            // Headers show per-minute limits, not daily. Mark as available with unknown usage.
+            return { name, status: "available", used: null, limit: 3600, retryIn: null, error: null };
           }
 
           const body = await res.text();
