@@ -12,6 +12,11 @@ interface ChatMessage {
   content: string;
 }
 
+interface QuickReply {
+  label: string;
+  action: () => void;
+}
+
 interface Message {
   id: number;
   text: string;
@@ -20,6 +25,7 @@ interface Message {
   timestamp?: number;
   imageUrl?: string;
   summaryMarkdown?: string;
+  quickReplies?: QuickReply[];
 }
 
 interface UserProfile {
@@ -98,7 +104,7 @@ const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   setTimeout(() => printWindow.print(), 500);
 };
 
-const ChatBubble = ({ message }: { message: Message }) => {
+const ChatBubble = ({ message, onDismissQuickReplies }: { message: Message; onDismissQuickReplies?: (id: number) => void }) => {
   const isUser = message.sender === "user";
   return (
     <div
@@ -132,6 +138,22 @@ const ChatBubble = ({ message }: { message: Message }) => {
               <Download className="w-3.5 h-3.5" />
               Download Summary PDF
             </button>
+          )}
+          {message.quickReplies && message.quickReplies.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {message.quickReplies.map((qr, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    qr.action();
+                    onDismissQuickReplies?.(message.id);
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors"
+                >
+                  {qr.label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -778,6 +800,25 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     if (ytMatch && hasSummarizeIntent) {
       setIsTyping(false);
       handleLectureSummary(text, text);
+      return;
+    }
+
+    // Bare YouTube link with no other intent — ask if they want a summary
+    if (ytMatch && !hasSummarizeIntent && text.trim().replace(YOUTUBE_URL_REGEX, "").trim().length < 10) {
+      setIsTyping(false);
+      const ytUrl = ytMatch[0];
+      const askMsg: Message = {
+        id: Date.now() + 1,
+        text: "Ooh, a video link! Want me to summarize it and give you a PDF report? 📄✨",
+        sender: "aori",
+        timestamp: Date.now(),
+        quickReplies: [
+          { label: "Yes, summarize it!", action: () => handleLectureSummary(ytUrl, "summarize this") },
+          { label: "No, just sharing", action: () => {} },
+        ],
+      };
+      setMessages(prev => [...prev, askMsg]);
+      changeEmotion("excited");
       return;
     }
 
@@ -1849,7 +1890,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </button>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.map((msg) => <ChatBubble key={msg.id} message={msg} />)}
+            {messages.map((msg) => <ChatBubble key={msg.id} message={msg} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} />)}
             {isTyping && (
               <div className="flex gap-2 items-end" style={{ animation: "slide-up 0.3s ease-out" }}>
                 <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
