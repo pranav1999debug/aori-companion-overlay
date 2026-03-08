@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import VoiceTranscript, { VoiceEntry } from "@/components/VoiceTranscript";
+import { usePhoneControls } from "@/hooks/usePhoneControls";
 
 interface ChatMessage {
   role: "user" | "assistant";
