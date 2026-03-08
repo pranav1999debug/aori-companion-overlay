@@ -92,6 +92,7 @@ serve(async (req) => {
       Deno.env.get("GROQ_API_KEY_7"),
       Deno.env.get("GROQ_API_KEY_8"),
       Deno.env.get("GROQ_API_KEY_9"),
+      Deno.env.get("GROQ_API_KEY_10"),
     ].filter(Boolean) as string[];
     if (!groqKeys.length) throw new Error("No GROQ API keys configured");
 
