@@ -23,11 +23,16 @@ export default function GoogleCallback() {
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log("[GoogleCallback] session exists:", !!session);
         if (!session) {
+          console.error("[GoogleCallback] No session found, redirecting to auth");
           setStatus("error");
           navigate("/auth");
           return;
         }
+
+        const redirectUri = `${window.location.origin}/google-callback`;
+        console.log("[GoogleCallback] Exchanging code with redirectUri:", redirectUri);
 
         const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`,
@@ -38,23 +43,21 @@ export default function GoogleCallback() {
               Authorization: `Bearer ${session.access_token}`,
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
-            body: JSON.stringify({
-              code,
-              redirectUri: `${window.location.origin}/google-callback`,
-            }),
+            body: JSON.stringify({ code, redirectUri }),
           }
         );
 
         const data = await res.json();
+        console.log("[GoogleCallback] Response status:", res.status, "data:", data);
         if (!res.ok) throw new Error(data.error || "Token exchange failed");
 
         setStatus("success");
         toast.success("Google connected! 🎉");
         setTimeout(() => navigate("/setup"), 1500);
-      } catch (e) {
-        console.error("OAuth callback error:", e);
+      } catch (e: any) {
+        console.error("[GoogleCallback] OAuth callback error:", e?.message || e);
         setStatus("error");
-        toast.error("Failed to connect Google. Try again!");
+        toast.error(`Failed to connect Google: ${e?.message || "Unknown error"}`);
         setTimeout(() => navigate("/setup"), 2000);
       }
     };
