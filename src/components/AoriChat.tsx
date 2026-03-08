@@ -915,7 +915,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (error) return;
       if (data.description) {
         const { data: inserted } = await supabase.from("environment_memories").insert({
-          device_id: deviceId,
+          user_id: userId,
+          device_id: userId,
           description: data.description,
           location_label: data.location_label || null,
         }).select().single();
