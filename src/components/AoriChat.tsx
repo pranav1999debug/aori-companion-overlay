@@ -596,6 +596,24 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const newHistory: ChatMessage[] = [...chatHistory, contextMsg];
     setChatHistory(prev => [...prev, { role: "user", content: text }]);
     try {
+      // Fetch Gmail & Calendar data in parallel if access token exists
+      let gmailSummary: string | null = null;
+      let calendarSummary: string | null = null;
+      const googleAccessToken = localStorage.getItem("aori-google-access-token");
+      if (googleAccessToken) {
+        const [gmailRes, calRes] = await Promise.all([
+          supabase.functions.invoke("aori-gmail", { body: { accessToken: googleAccessToken, maxResults: 5 } }).catch(() => ({ data: null })),
+          supabase.functions.invoke("aori-calendar", { body: { accessToken: googleAccessToken, maxResults: 5, daysAhead: 3 } }).catch(() => ({ data: null })),
+        ]);
+        if (gmailRes.data?.emails?.length) {
+          const emails = gmailRes.data.emails.slice(0, 3);
+          gmailSummary = `User has ${gmailRes.data.totalUnread} unread emails. Recent: ${emails.map((e: any) => `"${e.subject}" from ${e.from}`).join("; ")}`;
+        }
+        if (calRes.data?.events?.length) {
+          calendarSummary = `Upcoming events: ${calRes.data.events.slice(0, 5).map((e: any) => `"${e.summary}" at ${e.start}`).join("; ")}`;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("aori-chat", {
         body: {
           messages: newHistory,
@@ -606,6 +624,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           userLocalTime: localTime,
           userTimezone: timezoneName,
           sessionMinutes: Math.round((Date.now() - sessionStartRef.current) / 60000),
+          gmailSummary,
+          calendarSummary,
         },
       });
       if (error) throw error;
