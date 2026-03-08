@@ -3,9 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
+import FloatingAoriHead from "./components/FloatingAoriHead";
 
 const queryClient = new QueryClient();
 
@@ -21,20 +21,25 @@ function RedirectIfOnboarded({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/onboarding" element={<RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded>} />
-          <Route path="/" element={<RequireOnboarding><Index /></RequireOnboarding>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const onboarded = localStorage.getItem("aori-onboarded") === "true";
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/onboarding" element={<RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded>} />
+            <Route path="/" element={<RequireOnboarding><div className="h-screen w-screen" /></RequireOnboarding>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+        {onboarded && <FloatingAoriHead />}
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

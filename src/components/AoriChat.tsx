@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2 } from "lucide-react";
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -77,7 +77,12 @@ const ChatBubble = ({ message }: { message: Message }) => {
   );
 };
 
-export default function AoriChat() {
+interface AoriChatProps {
+  onClose?: () => void;
+  autoVoiceMode?: boolean;
+}
+
+export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const deviceId = getDeviceId();
 
   // User profile & contextual data
@@ -684,6 +689,20 @@ export default function AoriChat() {
     }
   }, [startListeningOnce]);
 
+  // Auto-activate voice mode when opened via long press
+  const autoVoiceTriggered = useRef(false);
+  useEffect(() => {
+    if (autoVoiceMode && !autoVoiceTriggered.current) {
+      autoVoiceTriggered.current = true;
+      if (!voiceModeRef.current) {
+        voiceModeRef.current = true;
+        setVoiceModeActive(true);
+        toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
+        startListeningOnce();
+      }
+    }
+  }, [autoVoiceMode, startListeningOnce]);
+
   // === Webcam (front) ===
   const captureFrame = useCallback((videoEl?: HTMLVideoElement | null): string | null => {
     const video = videoEl || videoRef.current;
@@ -970,6 +989,12 @@ export default function AoriChat() {
 
       {/* Right side buttons */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2.5 z-20">
+        {onClose && (
+          <button onClick={onClose}
+            className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Minimize">
+            <Minimize2 className="w-5 h-5" />
+          </button>
+        )}
         <button onClick={() => { if (lastAoriText) toast(lastAoriText, { duration: 4000 }); }}
           className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Latest message">
           <Info className="w-5 h-5" />
