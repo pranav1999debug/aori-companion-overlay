@@ -703,6 +703,69 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const sendMessageWithText = useCallback((text: string) => sendMessageCore(text, true), [sendMessageCore]);
   const sendMessage = useCallback(() => { sendMessageCore(input.trim(), false); }, [sendMessageCore, input]);
 
+  // === Image upload handler ===
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputChatRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only images are supported!");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image too large! Max 10MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      const mimeType = file.type;
+
+      // Show image in chat
+      const userMsg: Message = {
+        id: Date.now(),
+        text: input.trim() || "📷 Image sent",
+        sender: "user",
+        timestamp: Date.now(),
+        imageUrl: dataUrl,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      const capturedInput = input.trim();
+      setInput("");
+      setIsTyping(true);
+      if (!chatOpen) setChatOpen(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("aori-image-analyze", {
+          body: { image: base64, mimeType, userMessage: capturedInput || undefined },
+        });
+        if (error) throw error;
+        const emotion = (data.emotion || "thinking") as AoriEmotion;
+        const responseText = data.text || "Hmm~ I can't quite see that... try again? 🤔";
+        changeEmotion(emotion);
+        setLastAoriText(responseText);
+        setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
+        setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+        speakText(responseText);
+      } catch (e) {
+        console.error("Image analysis error:", e);
+        toast.error("Aori couldn't analyze the image right now!");
+        setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Tch... I can't see that right now. Try again later, baka! 😤", sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      } finally {
+        setIsTyping(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, [input, chatOpen, changeEmotion, speakText, isTyping]);
+
+  const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file);
+    e.target.value = "";
+  }, [handleImageUpload]);
+
   // Web Speech API
   const recognitionRef = useRef<any>(null);
   const voiceMusicAnalyserRef = useRef<AnalyserNode | null>(null);
