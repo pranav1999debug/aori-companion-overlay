@@ -178,6 +178,15 @@ serve(async (req) => {
 - Suggest watching stuff together~`;
     }
 
+    // Contacts context
+    if (contactsSummary) {
+      dynamicContext += `\n\n**PHONE CONTACTS:**\n${contactsSummary}
+- When the user asks to message/WhatsApp someone, use this contact data to find the right phone number.
+- If multiple contacts match, list them numbered and ask "Which one? First, second...?"
+- When user says "first one", "second one", etc., use that contact's phone number in the <phone_action> tag.
+- Format phone numbers for WhatsApp: remove spaces, +, dashes. Include country code.`;
+    }
+
     // Proactive action suggestions based on context
     let proactivePrompt = "";
     if (proactiveCheck || visionContext) {
