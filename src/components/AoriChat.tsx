@@ -267,6 +267,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
   const [isListening, setIsListening] = useState(false);
   const [voiceModeActive, setVoiceModeActive] = useState(false);
+  const [voiceEntries, setVoiceEntries] = useState<VoiceEntry[]>([]);
   const voiceModeRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
