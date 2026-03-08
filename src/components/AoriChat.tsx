@@ -1093,7 +1093,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       });
       if (error) throw error;
       const emotion = (data.emotion || "smirk") as AoriEmotion;
-      const responseText = data.text || "Hmm~ say that again? 😏";
+      const responseText = cleanResponseText(data.text || "Hmm~ say that again? 😏");
       changeEmotion(emotion);
       setLastAoriText(responseText);
       const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
