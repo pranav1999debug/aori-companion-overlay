@@ -52,6 +52,9 @@ function AppRoutes() {
         <Route path="/setup" element={
           <RequireAuth><RequireOnboarding><SetupGuide /></RequireOnboarding></RequireAuth>
         } />
+        <Route path="/google-callback" element={
+          <RequireAuth><GoogleCallback /></RequireAuth>
+        } />
         <Route path="/profile" element={
           <RequireAuth><RequireOnboarding><ProfileSettings /></RequireOnboarding></RequireAuth>
         } />

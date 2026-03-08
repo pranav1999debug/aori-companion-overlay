@@ -598,14 +598,54 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const newHistory: ChatMessage[] = [...chatHistory, contextMsg];
     setChatHistory(prev => [...prev, { role: "user", content: text }]);
     try {
-      // Fetch Gmail & Calendar data in parallel if access token exists
+      // Fetch Google access token from DB (with auto-refresh)
+      let googleAccessToken: string | null = null;
+      if (userId) {
+        try {
+          const { data: tokenRow } = await supabase
+            .from("user_google_tokens")
+            .select("access_token, token_expires_at")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (tokenRow) {
+            const isExpired = new Date(tokenRow.token_expires_at) <= new Date();
+            if (isExpired) {
+              // Refresh token via edge function
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session) {
+                const refreshRes = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`,
+                  {
+                    method: "PATCH",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${session.access_token}`,
+                      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    },
+                  }
+                );
+                const refreshData = await refreshRes.json();
+                if (refreshRes.ok) googleAccessToken = refreshData.access_token;
+              }
+            } else {
+              googleAccessToken = tokenRow.access_token;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to get Google token:", e);
+        }
+      }
+
+      // Fetch Gmail, Calendar & YouTube data in parallel
       let gmailSummary: string | null = null;
       let calendarSummary: string | null = null;
-      const googleAccessToken = localStorage.getItem("aori-google-access-token");
+      let youtubeSummary: string | null = null;
       if (googleAccessToken) {
-        const [gmailRes, calRes] = await Promise.all([
+        const [gmailRes, calRes, ytRes] = await Promise.all([
           supabase.functions.invoke("aori-gmail", { body: { accessToken: googleAccessToken, maxResults: 5 } }).catch(() => ({ data: null })),
           supabase.functions.invoke("aori-calendar", { body: { accessToken: googleAccessToken, maxResults: 5, daysAhead: 3 } }).catch(() => ({ data: null })),
+          supabase.functions.invoke("aori-youtube", { body: { accessToken: googleAccessToken, maxResults: 5 } }).catch(() => ({ data: null })),
         ]);
         if (gmailRes.data?.emails?.length) {
           const emails = gmailRes.data.emails.slice(0, 3);
@@ -613,6 +653,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         }
         if (calRes.data?.events?.length) {
           calendarSummary = `Upcoming events: ${calRes.data.events.slice(0, 5).map((e: any) => `"${e.summary}" at ${e.start}`).join("; ")}`;
+        }
+        if (ytRes.data?.subscriptions?.length || ytRes.data?.likedVideos?.length) {
+          const subs = ytRes.data.subscriptions?.slice(0, 3).map((s: any) => s.title).join(", ") || "";
+          const liked = ytRes.data.likedVideos?.slice(0, 3).map((v: any) => `"${v.title}" by ${v.channelTitle}`).join("; ") || "";
+          youtubeSummary = `YouTube: ${subs ? `Subscribed to: ${subs}. ` : ""}${liked ? `Recently liked: ${liked}` : ""}`;
         }
       }
 
