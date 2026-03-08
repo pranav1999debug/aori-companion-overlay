@@ -1236,15 +1236,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       {/* Aori Avatar (centered) */}
       <div
-        className="absolute z-10 select-none"
+        className="absolute z-10 select-none cursor-grab active:cursor-grabbing"
         style={{
-          left: "50%",
-          top: "calc(50% - 40px)",
+          left: avatarPos.x,
+          top: avatarPos.y,
           width: avatarSize,
           height: avatarSize,
-          transform: "translate(-50%, -50%)",
+          touchAction: "none",
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
         }}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
       >
         {/* Glowing aura */}
         <div
@@ -1281,6 +1283,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
         />
+        {/* Resize handle */}
+        <div
+          data-resize
+          className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-20 flex items-center justify-center opacity-40 hover:opacity-80 transition-opacity"
+          onMouseDown={handleResizeStart}
+          onTouchStart={handleResizeStart}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M11 1L1 11M11 5L5 11M11 9L9 11" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
       </div>
 
       {/* Webcam preview */}
