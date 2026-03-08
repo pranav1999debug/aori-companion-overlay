@@ -582,7 +582,7 @@ export default function AoriChat() {
       const responseText = data.text || "Hmm~ say that again? 😏";
       changeEmotion(emotion);
       setLastAoriText(responseText);
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion }]);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
       speakText(responseText);
     } catch (e) {
