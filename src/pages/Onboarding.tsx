@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { emotionCutouts } from "@/lib/aori-personality";
 import { toast } from "sonner";
 
@@ -8,17 +9,6 @@ const HOBBY_OPTIONS = [
   "Gaming", "Anime", "Music", "Coding", "Reading", "Sports",
   "Cooking", "Art", "Photography", "Travel", "Movies", "Fitness",
 ];
-
-function getDeviceId(): string {
-  let id = localStorage.getItem("aori-device-id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("aori-device-id", id);
-  }
-  return id;
-}
-
-export { getDeviceId };
 
 export default function Onboarding() {
   const navigate = useNavigate();
