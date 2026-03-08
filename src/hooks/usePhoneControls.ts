@@ -6,9 +6,11 @@ import { Capacitor } from "@capacitor/core";
 const isNative = Capacitor.isNativePlatform();
 
 interface PhoneAction {
-  type: "flashlight" | "volume" | "alarm" | "timer" | "open_app";
-  action: string; // on, off, toggle, up, down, mute, set
+  type: "flashlight" | "volume" | "alarm" | "timer" | "open_app" | "whatsapp";
+  action: string; // on, off, toggle, up, down, mute, set, send
   value?: string; // e.g., app name, volume level, timer minutes
+  phone?: string; // phone number for WhatsApp
+  message?: string; // message text for WhatsApp
 }
 
 export function usePhoneControls() {
