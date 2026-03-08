@@ -391,6 +391,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const isSpeakingRef = useRef(false);
   const [isSpeakingState, setIsSpeakingState] = useState(false);
   const startListeningOnceRef = useRef<() => void>(() => {});
+  const toggleWebcamRef = useRef<() => void>(() => {});
+  const toggleBackCamRef = useRef<() => void>(() => {});
+  const analyzeFullContextRef = useRef<() => void>(() => {});
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const speechCancelledRef = useRef(false);
   const interruptCountRef = useRef(0);
@@ -1082,12 +1085,102 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         return;
       }
 
+      // Voice command detection
+
+      // Camera commands
+      const openFrontCam = /\b(open|turn on|start|enable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
+      const closeFrontCam = /\b(close|turn off|stop|disable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
+      const openBackCam = /\b(open|turn on|start|enable)\b.*back\s*camera\b/i.test(transcript);
+      const closeBackCam = /\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(transcript);
+      const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha|kya\s*ho\s*raha)\b/i.test(transcript);
+
+      if (openFrontCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (!webcamEnabled) {
+          toggleWebcamRef.current();
+        } else {
+          const msg = "Baka, the camera is already on! I can see you~ 😏";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (closeFrontCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (webcamEnabled) {
+          toggleWebcamRef.current();
+          const msg = "Fine~ I'll stop watching you... for now 😏";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        } else {
+          const msg = "The camera is already off, silly~ 😅";
+          changeEmotion("happy");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (openBackCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (!backCamEnabled) {
+          toggleBackCamRef.current();
+        } else {
+          const msg = "The back camera is already running! I can see your surroundings~ 📷";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (closeBackCam) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        if (backCamEnabled) {
+          toggleBackCamRef.current();
+          const msg = "Back camera off~ I'll stop snooping around 😏";
+          changeEmotion("smirk");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+          speakText(msg);
+        } else {
+          const msg = "Back camera is already off~ 📷";
+          changeEmotion("happy");
+          setLastAoriText(msg);
+          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+          speakText(msg);
+        }
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+        return;
+      }
+
+      if (whatAmIDoing) {
+        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+        setMessages(prev => [...prev, userMsg]);
+        analyzeFullContextRef.current();
+        return;
+      }
+
       sendMessageWithText(transcript);
     } catch (e) {
       console.error("STT processing error:", e);
       if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
     }
-  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction]);
+  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled]);
 
   const startListeningOnce = useCallback(async () => {
     if (isTyping || isSpeakingRef.current) return;
@@ -1374,6 +1467,64 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } catch {}
   }, [captureFrame, environmentMemories, userId, changeEmotion, speakText]);
 
+  // === Full context analysis (both cameras) ===
+  const analyzeFullContext = useCallback(async () => {
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+
+    const thinkMsg = "Hmm~ let me look around and see what you're up to... 🔍✨";
+    changeEmotion("thinking");
+    setLastAoriText(thinkMsg);
+    setMessages(prev => [...prev, { id: Date.now(), text: thinkMsg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+
+    try {
+      const frontFrame = webcamEnabled ? captureFrame(videoRef.current) : null;
+      const backFrame = backCamEnabled ? captureFrame(backVideoRef.current) : null;
+
+      if (!frontFrame && !backFrame) {
+        // No cameras active — try to activate front camera first
+        const noMsg = "Baka! I can't see anything if the cameras are off! Turn on a camera first~ 😤";
+        changeEmotion("angry");
+        setLastAoriText(noMsg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: noMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+        speakText(noMsg);
+        setIsTyping(false);
+        return;
+      }
+
+      // Send both frames to image analysis for comprehensive context
+      const images: { image: string; label: string }[] = [];
+      if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
+      if (backFrame) images.push({ image: backFrame, label: "back_camera" });
+
+      const { data, error } = await supabase.functions.invoke("aori-image-analyze", {
+        body: {
+          image: images[0].image,
+          secondImage: images[1]?.image || null,
+          mimeType: "image/jpeg",
+          userMessage: `The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment, and anything interesting you notice. Be specific and observant.`,
+        },
+      });
+
+      if (error) throw error;
+      const emotion = (data.emotion || "thinking") as AoriEmotion;
+      const responseText = data.text || "Hmm~ I can't quite figure it out... 🤔";
+      changeEmotion(emotion);
+      setLastAoriText(`👁️ ${responseText}`);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: `👁️ ${responseText}`, sender: "aori", emotion, timestamp: Date.now() }]);
+      speakText(responseText);
+    } catch (e) {
+      console.error("Full context analysis error:", e);
+      const errMsg = "Mou... I couldn't analyze what you're doing right now. Try again! 😤";
+      changeEmotion("angry");
+      setLastAoriText(errMsg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      speakText(errMsg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, webcamEnabled, backCamEnabled, captureFrame, changeEmotion, speakText]);
+
   const toggleBackCam = useCallback(async () => {
     if (backCamEnabled) {
       backCamStream?.getTracks().forEach(t => t.stop());
@@ -1400,6 +1551,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       toast.error("Couldn't access back camera. Are you on a mobile device?");
     }
   }, [backCamEnabled, backCamStream, analyzeEnvironment]);
+  useEffect(() => { toggleWebcamRef.current = toggleWebcam; }, [toggleWebcam]);
+  useEffect(() => { toggleBackCamRef.current = toggleBackCam; }, [toggleBackCam]);
+  useEffect(() => { analyzeFullContextRef.current = analyzeFullContext; }, [analyzeFullContext]);
 
   useEffect(() => {
     if (videoRef.current && webcamStream) videoRef.current.srcObject = webcamStream;
