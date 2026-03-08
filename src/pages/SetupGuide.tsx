@@ -5,6 +5,17 @@ import { Check, ChevronLeft, ChevronRight, Shield, Unlink, Loader2 } from "lucid
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type SetupService = "google" | "github";
 
@@ -166,14 +177,31 @@ export default function SetupGuide() {
         {/* Action */}
         <div className="p-4 border-t border-border/50 flex gap-3">
           {googleConnected ? (
-            <button
-              onClick={handleDisconnectGoogle}
-              disabled={disconnecting}
-              className="flex-1 py-3 rounded-xl bg-destructive/10 text-destructive font-medium text-sm hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4" />}
-              Disconnect Google
-            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  disabled={disconnecting}
+                  className="flex-1 py-3 rounded-xl bg-destructive/10 text-destructive font-medium text-sm hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4" />}
+                  Disconnect Google
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Disconnect Google?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Aori will lose access to your Gmail, Calendar, and YouTube data. You can reconnect anytime.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDisconnectGoogle} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Disconnect
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           ) : (
             <button
               onClick={handleConnectGoogle}
