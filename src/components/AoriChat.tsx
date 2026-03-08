@@ -943,7 +943,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const responseText = data.text || "Hmm~ say that again? 😏";
       changeEmotion(emotion);
       setLastAoriText(responseText);
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
+      const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
+      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now(), summaryMarkdown: solutionMd }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
       if (voiceModeRef.current) {
         setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);

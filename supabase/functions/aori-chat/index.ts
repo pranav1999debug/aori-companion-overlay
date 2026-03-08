@@ -99,6 +99,11 @@ serve(async (req) => {
     ].filter(Boolean) as string[];
     if (!groqKeys.length) throw new Error("No GROQ API keys configured");
 
+    // Detect if the latest user message is an academic problem
+    const lastUserMsg = messages[messages.length - 1]?.content || "";
+    const ACADEMIC_REGEX = /\b(solve|simplify|calculate|find the value|integrate|differentiate|derivative|equation|prove|evaluate|factori[sz]e|compute|area of|volume of|probability|permutation|combination|quadratic|polynomial|trigonometr|logarithm|matrix|determinant|limit of|sum of|product of|remainder|divisible|GCD|LCM|HCF|mean|median|mode|variance|standard deviation|binomial|newton|pythagoras|theorem|formula|convert.*to|how many|what percent|ratio|proportion|velocity|acceleration|force|momentum|energy|work done|power|resistance|current|voltage|capacit|frequency|wavelength|molarity|oxidation|reduction|pH|enthalpy|entropy|equilibrium|reaction|compound|element|atomic|molecular|electron|proton|neutron|gravitational|centripetal|angular|displacement|kinematics|dynamics|thermodynamics|optics|refraction|diffraction)\b/i;
+    const isAcademic = ACADEMIC_REGEX.test(lastUserMsg);
+
     // Build dynamic context
     let dynamicContext = "";
 
@@ -182,7 +187,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT + dynamicContext },
+            { role: "system", content: SYSTEM_PROMPT + dynamicContext + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "") },
             ...messages,
           ],
           max_tokens: 500,
@@ -191,14 +196,11 @@ serve(async (req) => {
       });
 
       if (response.ok) break;
-
       if (response.status === 429) {
         console.warn("Key rate limited, trying next...");
         lastError = "rate_limited";
         continue;
       }
-
-      // Non-rate-limit error, don't retry
       break;
     }
 
@@ -218,8 +220,41 @@ serve(async (req) => {
     const emotion = emotionMatch ? emotionMatch[1] : "smirk";
     const text = reply.replace(/^\[(smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed)\]\s*/, "");
 
+    // If academic, generate detailed solution via Lovable AI
+    let solutionMarkdown: string | null = null;
+    if (isAcademic) {
+      try {
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        if (LOVABLE_API_KEY) {
+          const solveResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: `You are an expert academic tutor. Solve the following problem step-by-step in clean markdown format suitable for PDF export. Use ## for main sections, ### for sub-steps. Show all work clearly. Bold important answers. Be thorough and mathematically precise. Do NOT include any personality or character — just clean, professional solutions.` },
+                { role: "user", content: lastUserMsg },
+              ],
+              max_tokens: 4000,
+              temperature: 0.3,
+            }),
+          });
+
+          if (solveResponse.ok) {
+            const solveData = await solveResponse.json();
+            solutionMarkdown = solveData.choices?.[0]?.message?.content || null;
+          }
+        }
+      } catch (e) {
+        console.error("Solution generation error:", e);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ text, emotion }),
+      JSON.stringify({ text, emotion, isAcademic, solutionMarkdown }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
