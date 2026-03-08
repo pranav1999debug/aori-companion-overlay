@@ -989,6 +989,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       {/* Right side buttons */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2.5 z-20">
+        {onClose && (
+          <button onClick={onClose}
+            className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Minimize">
+            <Minimize2 className="w-5 h-5" />
+          </button>
+        )}
         <button onClick={() => { if (lastAoriText) toast(lastAoriText, { duration: 4000 }); }}
           className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Latest message">
           <Info className="w-5 h-5" />
