@@ -8,6 +8,10 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import VoiceTranscript, { VoiceEntry } from "@/components/VoiceTranscript";
 import { usePhoneControls } from "@/hooks/usePhoneControls";
+
+// Strip any <suggested_actions>...</suggested_actions> tags the AI model may embed in text
+const cleanResponseText = (text: string): string =>
+  text.replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/gi, "").trim();
 import { useContacts } from "@/hooks/useContacts";
 
 interface ChatMessage {
@@ -1089,7 +1093,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       });
       if (error) throw error;
       const emotion = (data.emotion || "smirk") as AoriEmotion;
-      const responseText = data.text || "Hmm~ say that again? 😏";
+      const responseText = cleanResponseText(data.text || "Hmm~ say that again? 😏");
       changeEmotion(emotion);
       setLastAoriText(responseText);
       const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
@@ -1214,7 +1218,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         });
         if (error) throw error;
         const emotion = (data.emotion || "thinking") as AoriEmotion;
-        const responseText = data.text || "Hmm~ I can't quite see that... try again? 🤔";
+        const responseText = cleanResponseText(data.text || "Hmm~ I can't quite see that... try again? 🤔");
         changeEmotion(emotion);
         setLastAoriText(responseText);
         const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
@@ -1640,7 +1644,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       });
       if (error) return;
       const emotion = (data.emotion || "smirk") as AoriEmotion;
-      const responseText = data.text || "";
+      const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
       lastObservationRef.current = responseText;
       changeEmotion(emotion);
@@ -1777,7 +1781,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       if (error) throw error;
       const emotion = (data.emotion || "thinking") as AoriEmotion;
-      const responseText = data.text || "Hmm~ I can't quite figure it out... 🤔";
+      const responseText = cleanResponseText(data.text || "Hmm~ I can't quite figure it out... 🤔");
       changeEmotion(emotion);
       setLastAoriText(`👁️ ${responseText}`);
       setMessages(prev => [...prev, { id: Date.now() + 1, text: `👁️ ${responseText}`, sender: "aori", emotion, timestamp: Date.now() }]);
@@ -1861,7 +1865,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (error || !data?.suggestedActions?.length) return;
 
       const emotion = (data.emotion || "thinking") as AoriEmotion;
-      const responseText = data.text || "";
+      const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
 
       const quickReplies: QuickReply[] = data.suggestedActions.map((sa: any) => ({
