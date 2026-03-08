@@ -178,6 +178,46 @@ serve(async (req) => {
 - Suggest watching stuff together~`;
     }
 
+    // Proactive action suggestions based on context
+    let proactivePrompt = "";
+    if (proactiveCheck || visionContext) {
+      const hour = (() => {
+        try {
+          const d = new Date(userLocalTime || Date.now());
+          return d.getHours();
+        } catch { return -1; }
+      })();
+
+      proactivePrompt = `\n\n**PROACTIVE SUGGESTION MODE:**
+You should evaluate the current context and optionally suggest helpful phone actions.
+On a NEW LINE at the very end, output a JSON array of suggested actions (0-3 max) like this:
+<suggested_actions>[{"label":"Turn on flashlight 🔦","icon":"flashlight","action":{"type":"flashlight","action":"on"}},{"label":"Set alarm for 7 AM ⏰","icon":"alarm","action":{"type":"alarm","action":"set","value":"7:00 AM"}}]</suggested_actions>
+
+Context clues for suggestions:
+- Current hour: ${hour >= 0 ? hour : "unknown"}
+${hour >= 20 || hour < 5 ? "- It's DARK outside → suggest flashlight if not mentioned recently" : ""}
+${hour >= 22 || hour < 2 ? "- It's LATE → suggest setting a morning alarm" : ""}
+${hour >= 6 && hour < 9 ? "- It's MORNING → suggest opening calendar or checking emails" : ""}
+${sessionMinutes && sessionMinutes > 45 ? "- Long session → suggest setting a break timer" : ""}
+${visionContext ? `- Vision context: ${visionContext} — use this to suggest relevant actions` : ""}
+${musicDetected ? "- Music detected → suggest opening Spotify or adjusting volume" : ""}
+${calendarSummary ? "- User has upcoming events → suggest setting reminders" : ""}
+
+Available action types:
+- Flashlight: {"type":"flashlight","action":"on|off"}
+- Timer: {"type":"timer","action":"set","value":"5"}
+- Alarm: {"type":"alarm","action":"set","value":"7:00 AM"}
+- Volume: {"type":"volume","action":"up|down|mute"}
+- Open app: {"type":"open_app","action":"open","value":"spotify|camera|gmail|youtube|whatsapp|calculator|settings"}
+- WhatsApp: {"type":"whatsapp","action":"send","message":"Hey!"}
+
+Rules:
+- Only suggest 1-3 actions that are CONTEXTUALLY RELEVANT right now
+- If nothing is relevant, output an empty array: <suggested_actions>[]</suggested_actions>
+- Make labels short and cute with emojis, in Aori's style
+- Don't repeat suggestions the user already acted on`;
+    }
+
     let response: Response | null = null;
     let lastError = "";
 
