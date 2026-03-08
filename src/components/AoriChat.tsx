@@ -48,6 +48,7 @@ const formatTimestamp = (ts?: number) => {
 };
 
 const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i;
+const PDF_URL_REGEX = /https?:\/\/[^\s]+\.pdf(?:\?[^\s]*)?/i;
 
 const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   // Create a simple HTML document from markdown for printing as PDF
