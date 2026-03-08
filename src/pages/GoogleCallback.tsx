@@ -97,8 +97,6 @@ export default function GoogleCallback() {
             <p className="text-sm text-muted-foreground">Redirecting back...</p>
           </>
         )}
-        {/* Debug info - remove after fixing */}
-        <pre className="mt-4 p-3 bg-muted rounded text-xs text-left max-w-sm overflow-auto whitespace-pre-wrap break-all">{debugInfo}</pre>
       </div>
     </div>
   );

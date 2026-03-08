@@ -20,3 +20,15 @@ verify_jwt = false
 
 [functions.aori-image-analyze]
 verify_jwt = false
+
+[functions.aori-google-oauth]
+verify_jwt = false
+
+[functions.aori-gmail]
+verify_jwt = false
+
+[functions.aori-calendar]
+verify_jwt = false
+
+[functions.aori-youtube]
+verify_jwt = false
