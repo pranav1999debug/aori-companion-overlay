@@ -69,6 +69,32 @@ export default function ProfileSettings() {
   const [saving, setSaving] = useState(false);
   const { contacts, syncing, syncFromGoogle, loadContacts } = useContacts(user?.id || null);
 
+  // API Status state
+  const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
+  const [apiStatusLoading, setApiStatusLoading] = useState(false);
+
+  const fetchApiStatus = useCallback(async () => {
+    setApiStatusLoading(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-api-status`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+          body: JSON.stringify({}),
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setApiStatus(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch API status:", e);
+    } finally {
+      setApiStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) loadContacts();
   }, [user, loadContacts]);
