@@ -207,6 +207,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const userId = user?.id || "";
   const navigate = useNavigate();
   const { executeAction, flashlightOn } = usePhoneControls();
+  const { contacts, loadContacts, searchContacts } = useContacts(userId || null);
 
   // User profile & contextual data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
