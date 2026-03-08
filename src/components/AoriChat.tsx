@@ -972,7 +972,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
     };
     reader.readAsDataURL(file);
-  }, [input, chatOpen, changeEmotion, speakText, isTyping]);
+  }, [input, chatOpen, changeEmotion, speakText, isTyping, handlePdfSummary]);
 
   const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
