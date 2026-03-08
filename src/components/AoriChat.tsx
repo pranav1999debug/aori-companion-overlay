@@ -588,7 +588,7 @@ export default function AoriChat() {
     } catch (e) {
       console.error("Chat error:", e);
       toast.error("Aori couldn't respond right now. Try again!");
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry" }]);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, text: "Hmph... something went wrong. Try again, baka! 😤", sender: "aori", emotion: "angry", timestamp: Date.now() }]);
       if (fromVoice && voiceModeRef.current) {
         setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
       }
