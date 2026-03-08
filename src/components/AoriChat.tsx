@@ -1781,7 +1781,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       if (error) throw error;
       const emotion = (data.emotion || "thinking") as AoriEmotion;
-      const responseText = data.text || "Hmm~ I can't quite figure it out... 🤔";
+      const responseText = cleanResponseText(data.text || "Hmm~ I can't quite figure it out... 🤔");
       changeEmotion(emotion);
       setLastAoriText(`👁️ ${responseText}`);
       setMessages(prev => [...prev, { id: Date.now() + 1, text: `👁️ ${responseText}`, sender: "aori", emotion, timestamp: Date.now() }]);
