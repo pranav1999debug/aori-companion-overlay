@@ -88,6 +88,41 @@ async function fetchTranscript(videoId: string): Promise<string | null> {
   }
 }
 
+async function fetchThumbnailsAsBase64(videoId: string): Promise<{ url: string; base64: string }[]> {
+  // YouTube provides thumbnails at fixed URLs: 0.jpg (default), 1.jpg, 2.jpg, 3.jpg (auto-picked frames)
+  // plus maxresdefault, hqdefault, mqdefault
+  const thumbUrls = [
+    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/0.jpg`,
+    `https://img.youtube.com/vi/${videoId}/1.jpg`,
+    `https://img.youtube.com/vi/${videoId}/2.jpg`,
+    `https://img.youtube.com/vi/${videoId}/3.jpg`,
+  ];
+
+  const results: { url: string; base64: string }[] = [];
+  const fetches = thumbUrls.map(async (url) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const buf = await res.arrayBuffer();
+      // Skip tiny placeholder images (YouTube returns a small default for missing thumbs)
+      if (buf.byteLength < 5000) return null;
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return { url, base64: btoa(binary) };
+    } catch {
+      return null;
+    }
+  });
+
+  const settled = await Promise.all(fetches);
+  for (const r of settled) {
+    if (r) results.push(r);
+  }
+  return results;
+}
+
 async function getVideoInfo(videoId: string, accessToken?: string): Promise<{ title: string; channel: string; duration: string } | null> {
   try {
     const headers: Record<string, string> = {};
