@@ -139,6 +139,23 @@ const ChatBubble = ({ message }: { message: Message }) => {
               Download Summary PDF
             </button>
           )}
+          {message.quickReplies && message.quickReplies.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {message.quickReplies.map((qr, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    qr.action();
+                    // Remove quick replies after clicking
+                    setMessages(prev => prev.map(m => m.id === message.id ? { ...m, quickReplies: undefined } : m));
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors"
+                >
+                  {qr.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {message.timestamp && (
