@@ -1399,6 +1399,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       sttMediaRecorderRef.current = null;
       if (sttStreamRef.current) { sttStreamRef.current.getTracks().forEach(t => t.stop()); sttStreamRef.current = null; }
       setIsListening(false);
+      setVoiceEntries([]);
       toast("🎤 Voice mode off", { duration: 2000 });
     } else {
       voiceModeRef.current = true;
