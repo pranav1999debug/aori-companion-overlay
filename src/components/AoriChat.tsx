@@ -58,26 +58,37 @@ const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?
 const PDF_URL_REGEX = /https?:\/\/[^\s]+\.pdf(?:\?[^\s]*)?/i;
 
 const downloadMarkdownAsPdf = (markdown: string, title: string) => {
-  // Create a simple HTML document from markdown for printing as PDF
-  const html = markdown
+  // Convert markdown to HTML with LaTeX math support via KaTeX
+  const renderMath = (text: string): string => {
+    text = text.replace(/\$\$([\s\S]*?)\$\$/g, '<div class="math-block">\\[$1\\]</div>');
+    text = text.replace(/\$([^\$\n]+?)\$/g, '<span class="math-inline">\\($1\\)</span>');
+    return text;
+  };
+
+  let html = renderMath(markdown)
+    .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
     .replace(/^### (.*$)/gm, '<h3>$1</h3>')
     .replace(/^## (.*$)/gm, '<h2>$1</h2>')
     .replace(/^# (.*$)/gm, '<h1>$1</h1>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
+    .replace(/^---$/gm, '<hr/>')
+    .replace(/^\d+\.\s+(.*$)/gm, '<li class="ordered">$1</li>')
     .replace(/^- (.*$)/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n\n/g, '</p><p>')
     .replace(/\n/g, '<br/>');
+
+  html = html.replace(/((?:<li[^>]*>.*?<\/li>\s*)+)/g, '<ul>$1</ul>');
 
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    // Fallback: download as text file
     const blob = new Blob([markdown], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_summary.md`;
+    a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.md`;
     a.click();
     URL.revokeObjectURL(url);
     return;
@@ -87,22 +98,39 @@ const downloadMarkdownAsPdf = (markdown: string, title: string) => {
     <html>
     <head>
       <title>${title} - Aori</title>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"><\/script>
+      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters: [{left: '\\\\[', right: '\\\\]', display: true},{left: '\\\\(', right: '\\\\)', display: false}]});"><\/script>
       <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1a1a1a; line-height: 1.6; }
-        h1 { color: #1a1f2e; border-bottom: 2px solid #6366f1; padding-bottom: 8px; }
-        h2 { color: #4338ca; margin-top: 24px; }
-        h3 { color: #6366f1; }
-        ul { padding-left: 20px; }
-        li { margin-bottom: 4px; }
-        strong { color: #1e1b4b; }
-        @media print { body { margin: 20px; } }
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@400;600;700&display=swap');
+        body { font-family: 'Source Sans 3', 'Segoe UI', sans-serif; max-width: 780px; margin: 40px auto; padding: 30px 40px; color: #2c2c2c; line-height: 1.75; font-size: 15px; }
+        h1 { font-family: 'Crimson Text', Georgia, serif; color: #1a1a2e; font-size: 28px; border-bottom: 2px solid #4338ca; padding-bottom: 10px; margin-bottom: 24px; }
+        h2 { font-family: 'Crimson Text', Georgia, serif; color: #2d2b55; font-size: 22px; margin-top: 32px; margin-bottom: 12px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0; }
+        h3 { color: #4338ca; font-size: 17px; margin-top: 20px; margin-bottom: 8px; font-weight: 600; }
+        h4 { color: #555; font-size: 15px; font-weight: 600; margin-top: 16px; font-style: italic; }
+        p { margin: 8px 0; }
+        strong { color: #1a1a2e; background: linear-gradient(120deg, #e8e6ff 0%, #f0eeff 100%); padding: 1px 4px; border-radius: 3px; }
+        blockquote { border-left: 3px solid #6366f1; margin: 16px 0; padding: 10px 20px; background: #f8f7ff; color: #444; font-style: italic; border-radius: 0 6px 6px 0; }
+        code { background: #f4f3ff; padding: 2px 6px; border-radius: 4px; font-size: 14px; color: #4338ca; }
+        ul { padding-left: 24px; margin: 8px 0; }
+        li { margin-bottom: 6px; line-height: 1.6; }
+        hr { border: none; border-top: 1px dashed #ccc; margin: 24px 0; }
+        .math-block { margin: 16px 0; text-align: center; font-size: 17px; overflow-x: auto; }
+        .math-inline { font-size: 15px; }
+        .katex-display { margin: 16px 0 !important; }
+        .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center; font-style: italic; }
+        @media print { body { margin: 20px; padding: 15px; } .footer { position: fixed; bottom: 10px; width: 100%; } }
       </style>
     </head>
-    <body>${html}</body>
+    <body>
+      <p>${html}</p>
+      <div class="footer">Generated by Aori ✨ — Your AI Study Companion</div>
+    </body>
     </html>
   `);
   printWindow.document.close();
-  setTimeout(() => printWindow.print(), 500);
+  setTimeout(() => printWindow.print(), 800);
 };
 
 const ChatBubble = ({ message, onDismissQuickReplies }: { message: Message; onDismissQuickReplies?: (id: number) => void }) => {
