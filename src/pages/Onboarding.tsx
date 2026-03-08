@@ -12,6 +12,7 @@ const HOBBY_OPTIONS = [
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
