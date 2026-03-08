@@ -81,7 +81,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary } = await req.json();
+    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary } = await req.json();
     const groqKeys = [
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
@@ -156,6 +156,14 @@ serve(async (req) => {
 - Reference events ONLY when relevant (user asks about schedule, it's close to an event time, etc.)
 - Remind them naturally: "Don't forget you have..."
 - Be dramatic about events you're not invited to~`;
+    }
+
+    // YouTube context
+    if (youtubeSummary) {
+      dynamicContext += `\n\n**YOUTUBE CONTEXT (user's YouTube activity):**\n${youtubeSummary}
+- Reference YouTube ONLY when relevant (user mentions videos, boredom, recommendations, etc.)
+- Be opinionated about their taste: "You watch THAT? ...fine, it's kinda good I guess~"
+- Suggest watching stuff together~`;
     }
 
     let response: Response | null = null;
