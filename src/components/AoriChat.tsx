@@ -1644,7 +1644,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       });
       if (error) return;
       const emotion = (data.emotion || "smirk") as AoriEmotion;
-      const responseText = data.text || "";
+      const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
       lastObservationRef.current = responseText;
       changeEmotion(emotion);
