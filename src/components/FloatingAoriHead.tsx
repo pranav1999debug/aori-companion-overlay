@@ -116,10 +116,10 @@ export default function FloatingAoriHead() {
         }
 
         if (dragRef.current) {
-          // Short tap → open chat
+          // Short tap → toggle chat
           if (!dragRef.current.moved && !longPressFired.current) {
-            setExpanded(true);
-            setVoiceActivated(false);
+            setExpanded((prev) => !prev);
+            if (expanded) setVoiceActivated(false);
           }
         }
 
