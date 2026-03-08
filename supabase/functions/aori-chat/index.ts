@@ -188,11 +188,18 @@ serve(async (req) => {
       dynamicContext += `\n\n**PHONE CONTACTS:**\n${contactsSummary}
 
 **CRITICAL WHATSAPP RULES:**
-- If EXACTLY ONE MATCH is found with a phone number → IMMEDIATELY use that number in <phone_action>. Do NOT ask the user for the number. Example: if contact shows "Mom — Phone: +919876543210", use phone "919876543210" directly.
-- If MULTIPLE matches → list them and ask which one.
-- If NO PHONE NUMBER found → tell user the contact doesn't have a WhatsApp number saved. Do NOT generate <phone_action>.
-- If NO CONTACTS FOUND → tell user you couldn't find that person in their contacts. Do NOT generate <phone_action>.
-- Format: remove +, spaces, dashes from phone numbers. Keep country code.`;
+- If ONE contact found with phone → use number DIRECTLY in <phone_action>. NEVER ask for the number.
+- If MULTIPLE contacts → show them NUMBERED (1. Name — Phone, 2. Name — Phone, 3. Name — Phone) and ask user to pick.
+- When user picks (says "3rd", "third", "3", "last one") → use that contact's number from YOUR previous message.
+- If NO phone number → tell user contact doesn't have WhatsApp. No <phone_action>.
+- If NO contact found → tell user you couldn't find them. No <phone_action>.
+- Format phone: remove +, spaces, dashes. Keep country code (e.g., 919876543210).
+
+**MESSAGE CONTENT:**
+- If user provides message content (e.g., "tell her I'll be late", "say I'm okay", "saying how are you"), compose a natural message from it.
+- Example: user says "tell her I'll be late I'll come around 9pm" → message: "Hey, I'll be late. I'll come around 9 PM."
+- Make the message natural and polished, not a raw copy of what user said.
+- If no message specified yet, ask "What should I say?"`;
     }
 
     // Proactive action suggestions based on context
