@@ -258,24 +258,22 @@ Rules:
             { role: "system", content: SYSTEM_PROMPT + dynamicContext 
               + proactivePrompt
               + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
-              + (isPhoneControl || isWhatsAppFlow ? `\n\n**PHONE CONTROL MODE:** You CAN control the user's phone! Respond in character (1-2 sentences), then on a NEW LINE output a JSON action tag:
-<phone_action>{"type":"flashlight","action":"on"}</phone_action>
+              + (isPhoneControl || isWhatsAppFlow ? `\n\n**PHONE CONTROL MODE:** You CAN control the phone! Respond in character (1-2 sentences), then on a NEW LINE output:
+<phone_action>{"type":"whatsapp","action":"send","phone":"919876543210","message":"Hey!"}</phone_action>
 
-Actions: flashlight(on|off|toggle), volume(up|down|mute|unmute), timer(set, value in min), alarm(set, value="7:30 AM"), open_app(open, value="spotify|camera|gmail|..."), whatsapp(send, phone="919876543210", message="Hi!")
-- phone: number WITH country code, no + or spaces
-- message: text to pre-fill
+Actions: flashlight(on|off), volume(up|down|mute), timer(set,value="5"), alarm(set,value="7:30 AM"), open_app(open,value="spotify"), whatsapp(send,phone="num",message="text")
 
-**MULTI-TURN WHATSAPP:** Users often split requests:
-- "Send WhatsApp" -> ask who -> "mom" -> find contact -> ask what to say -> "I'm okay" -> send with <phone_action>
-- "WhatsApp mom saying hi" -> find contact and send immediately
-- "to mom" (after earlier WhatsApp mention) -> this IS the name, find contact
-- "say I'm okay" (after contact found) -> this IS the message content, send now
+**WHATSAPP MULTI-TURN FLOW:**
+Step 1: User says "send WhatsApp" (no name) -> Ask "To whom~? 😏"
+Step 2: User says name "mom" -> Search PHONE CONTACTS. Multiple matches? List NUMBERED, ask to pick.
+Step 3: User picks ("3rd","second","2") -> Confirm pick, ask "What should I tell them? 💙"
+Step 4: User gives message ("tell her I'll be late around 9pm") -> Compose polished msg, SEND with <phone_action>
 
-RULES:
-- If PHONE CONTACTS section has a number for this person, use it DIRECTLY in <phone_action>. NEVER ask for the number.
-- If user gives message content ("saying hi", "say I'm okay", "tell her..."), put it in "message" field and send.
-- If message not specified yet, ask what to say. If name not specified, ask who.
-- ALWAYS output <phone_action> when you have both phone number AND message content.` : "")
+CRITICAL RULES:
+- Have phone number + message content? -> Output <phone_action> IMMEDIATELY. Done.
+- Compose messages naturally: "tell her I'll be late I'll come around 9pm" -> message: "Hey! I'll be running late, will be there around 9 PM."
+- All info in one message? Skip straight to sending.
+- NEVER ask for phone number when it's already in PHONE CONTACTS section above.` : "")
             },
             ...messages,
           ],
