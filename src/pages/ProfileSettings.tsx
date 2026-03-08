@@ -10,6 +10,8 @@ import { useContacts } from "@/hooks/useContacts";
 interface KeyStatus {
   name: string;
   status: "available" | "rate_limited" | "terms_required" | "error";
+  used: number | null;
+  limit: number | null;
   usedPercent: number | null;
   retryIn: string | null;
   error: string | null;
@@ -20,6 +22,9 @@ interface ApiStatus {
   available: number;
   rateLimited: number;
   errored: number;
+  overallExhaustedPercent: number;
+  totalUsed: number;
+  totalLimit: number;
   keys: KeyStatus[];
 }
 
