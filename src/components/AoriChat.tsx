@@ -48,6 +48,7 @@ const formatTimestamp = (ts?: number) => {
 };
 
 const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i;
+const PDF_URL_REGEX = /https?:\/\/[^\s]+\.pdf(?:\?[^\s]*)?/i;
 
 const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   // Create a simple HTML document from markdown for printing as PDF
@@ -708,6 +709,55 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, [chatOpen, changeEmotion, speakText, userId]);
 
+  // === PDF lecture summary handler ===
+  const handlePdfSummary = useCallback(async (source: { base64?: string; url?: string; fileName: string }) => {
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+
+    const startMsg = `Ooh~ lecture slides? *adjusts glasses* Let me read through "${source.fileName}" and take notes for you~ This might take a moment! 📝✨`;
+    changeEmotion("thinking");
+    setLastAoriText(startMsg);
+    setMessages(prev => [...prev, { id: Date.now(), text: startMsg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+    speakText(startMsg);
+
+    try {
+      const body: Record<string, string> = { fileName: source.fileName };
+      if (source.base64) body.pdfBase64 = source.base64;
+      if (source.url) body.pdfUrl = source.url;
+
+      const { data, error } = await supabase.functions.invoke("aori-pdf-summary", { body });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const summaryPreview = data.summary.substring(0, 200) + "...";
+      const responseText = `Yatta~! I finished your notes! 📚✨ Here's the summary for "${data.fileName}":\n\n${summaryPreview}\n\nTap the button below to download the full report~! ☝️`;
+
+      changeEmotion("proud");
+      setLastAoriText(responseText);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        text: responseText,
+        sender: "aori",
+        emotion: "proud",
+        timestamp: Date.now(),
+        summaryMarkdown: data.summary,
+      }]);
+      speakText(`Done! I finished summarizing ${data.fileName}. Tap download for the full report!`);
+    } catch (e: any) {
+      console.error("PDF summary error:", e);
+      const errMsg = e?.message?.includes("rate limit")
+        ? "Mou! Too many requests right now. Wait a minute and try again~ 😤"
+        : `Mou! Something went wrong with the summary... ${e?.message || "try again later"} 😤`;
+      changeEmotion("angry");
+      setLastAoriText(errMsg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      speakText(errMsg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, changeEmotion, speakText]);
+
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
@@ -721,8 +771,18 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const ytMatch = text.match(YOUTUBE_URL_REGEX);
     const hasSummarizeIntent = /\b(summar|notes?|lecture|recap|study|explain this video|report)\b/i.test(text);
     if (ytMatch && hasSummarizeIntent) {
-      setIsTyping(false); // handleLectureSummary manages its own typing state
+      setIsTyping(false);
       handleLectureSummary(text, text);
+      return;
+    }
+
+    // Check for PDF URL with summarize intent
+    const pdfUrlMatch = text.match(PDF_URL_REGEX);
+    if (pdfUrlMatch && hasSummarizeIntent) {
+      setIsTyping(false);
+      const url = pdfUrlMatch[0];
+      const fileName = url.split("/").pop()?.split("?")[0] || "lecture.pdf";
+      handlePdfSummary({ url, fileName });
       return;
     }
 
@@ -828,7 +888,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } finally {
       setIsTyping(false);
     }
-  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected, handleLectureSummary]);
+  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected, handleLectureSummary, handlePdfSummary]);
 
   const sendMessageWithText = useCallback((text: string) => sendMessageCore(text, true), [sendMessageCore]);
   const sendMessage = useCallback(() => { sendMessageCore(input.trim(), false); }, [sendMessageCore, input]);
@@ -837,9 +897,33 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputChatRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = useCallback(async (file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
+    // Handle PDF files for lecture summarization
+    if (file.type === "application/pdf") {
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("PDF too large! Max 20MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1];
+        const userMsg: Message = {
+          id: Date.now(),
+          text: `📄 ${file.name}`,
+          sender: "user",
+          timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, userMsg]);
+        setInput("");
+        handlePdfSummary({ base64, fileName: file.name });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     if (!file.type.startsWith("image/")) {
-      toast.error("Only images are supported!");
+      toast.error("Only images and PDFs are supported!");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -888,13 +972,13 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
     };
     reader.readAsDataURL(file);
-  }, [input, chatOpen, changeEmotion, speakText, isTyping]);
+  }, [input, chatOpen, changeEmotion, speakText, isTyping, handlePdfSummary]);
 
   const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleImageUpload(file);
+    if (file) handleFileUpload(file);
     e.target.value = "";
-  }, [handleImageUpload]);
+  }, [handleFileUpload]);
 
   // Voice STT via MediaRecorder + Whisper (aori-stt)
   const recognitionRef = useRef<any>(null);
@@ -1546,7 +1630,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       {/* Bottom input bar */}
       <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
         <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-center">
-          <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={onFileChange} />
+          <input type="file" ref={fileInputRef} accept="image/*,.pdf,application/pdf" className="hidden" onChange={onFileChange} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full text-white/40 hover:text-white/70 transition-colors shrink-0" title="Send image">
             <ImagePlus className="w-5 h-5" />
           </button>
@@ -1614,7 +1698,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
                 className={`p-2 rounded-full transition-colors ${voiceModeActive ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"}`}>
                 {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
-              <input type="file" ref={fileInputChatRef} accept="image/*" className="hidden" onChange={onFileChange} />
+              <input type="file" ref={fileInputChatRef} accept="image/*,.pdf,application/pdf" className="hidden" onChange={onFileChange} />
               <button type="button" onClick={() => fileInputChatRef.current?.click()} className="p-2 rounded-full text-white/40 hover:text-white/70 transition-colors" title="Send image">
                 <ImagePlus className="w-5 h-5" />
               </button>

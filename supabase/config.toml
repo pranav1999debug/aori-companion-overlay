@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.aori-lecture-summary]
 verify_jwt = false
+
+[functions.aori-pdf-summary]
+verify_jwt = false
