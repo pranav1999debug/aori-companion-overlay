@@ -47,8 +47,9 @@ serve(async (req) => {
     const formData = new FormData();
     formData.append("file", blob, `audio.${ext}`);
     formData.append("model", "whisper-large-v3");
-    formData.append("response_format", "json");
-    formData.append("prompt", "This audio may contain English, Hindi, or Hinglish (mixed English-Hindi). Transcribe accurately preserving the original language used.");
+    formData.append("language", "hi");
+    formData.append("response_format", "verbose_json");
+    formData.append("prompt", "Yeh audio mein English aur Hindi dono languages use hoti hain. Please transcribe exactly as spoken, mixing English and Hindi naturally.");
 
     let response: Response | null = null;
 
