@@ -364,9 +364,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const playAudioAsync = useCallback((audioSrc: string): Promise<void> => {
     return new Promise((resolve) => {
       const audio = new Audio(audioSrc);
-      audio.onended = () => resolve();
-      audio.onerror = () => resolve();
-      audio.play().catch(() => resolve());
+      currentAudioRef.current = audio;
+      audio.onended = () => { currentAudioRef.current = null; resolve(); };
+      audio.onerror = () => { currentAudioRef.current = null; resolve(); };
+      audio.play().catch(() => { currentAudioRef.current = null; resolve(); });
     });
   }, []);
 
