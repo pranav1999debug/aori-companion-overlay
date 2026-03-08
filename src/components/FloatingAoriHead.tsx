@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { emotionCutouts } from "@/lib/aori-personality";
 import AoriChat from "./AoriChat";
+import { KeepAwake } from "@capacitor-community/keep-awake";
 
 const HEAD_SIZE = 60;
 const SNAP_THRESHOLD = 20; // px from edge to snap
