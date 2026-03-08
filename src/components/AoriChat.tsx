@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2 } from "lucide-react";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ interface Message {
   emotion?: AoriEmotion;
   timestamp?: number;
   imageUrl?: string;
+  summaryMarkdown?: string;
 }
 
 interface UserProfile {
@@ -44,6 +45,56 @@ const formatTimestamp = (ts?: number) => {
   if (!ts) return null;
   const d = new Date(ts);
   return d.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, month: "short", day: "numeric" });
+};
+
+const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i;
+
+const downloadMarkdownAsPdf = (markdown: string, title: string) => {
+  // Create a simple HTML document from markdown for printing as PDF
+  const html = markdown
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^- (.*$)/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>');
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    // Fallback: download as text file
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_summary.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${title} - Lecture Summary</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1a1a1a; line-height: 1.6; }
+        h1 { color: #1a1f2e; border-bottom: 2px solid #6366f1; padding-bottom: 8px; }
+        h2 { color: #4338ca; margin-top: 24px; }
+        h3 { color: #6366f1; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 4px; }
+        strong { color: #1e1b4b; }
+        @media print { body { margin: 20px; } }
+      </style>
+    </head>
+    <body>${html}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  setTimeout(() => printWindow.print(), 500);
 };
 
 const ChatBubble = ({ message }: { message: Message }) => {
@@ -72,6 +123,15 @@ const ChatBubble = ({ message }: { message: Message }) => {
             <img src={message.imageUrl} alt="Uploaded" className="max-w-full max-h-48 rounded-lg mb-1.5 object-contain" />
           )}
           {message.text}
+          {message.summaryMarkdown && (
+            <button
+              onClick={() => downloadMarkdownAsPdf(message.summaryMarkdown!, "Lecture_Summary")}
+              className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors w-full justify-center"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download Summary PDF
+            </button>
+          )}
         </div>
       </div>
       {message.timestamp && (
@@ -587,6 +647,67 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, [musicDetected, changeEmotion, speakText]);
 
+  // === YouTube lecture summary handler ===
+  const handleLectureSummary = useCallback(async (youtubeUrl: string, originalText: string) => {
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+
+    // Aori's initial reaction
+    const startMsg = "Ooh~ a lecture video? *pushes up glasses* Let me watch this and take notes for you~ This might take a minute, so be patient, baka! 📝✨";
+    changeEmotion("thinking");
+    setLastAoriText(startMsg);
+    setMessages(prev => [...prev, { id: Date.now(), text: startMsg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+    speakText(startMsg);
+
+    try {
+      // Get Google access token for video info
+      let googleAccessToken: string | null = null;
+      if (userId) {
+        const { data: tokenRow } = await supabase
+          .from("user_google_tokens")
+          .select("access_token, token_expires_at")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (tokenRow && new Date(tokenRow.token_expires_at) > new Date()) {
+          googleAccessToken = tokenRow.access_token;
+        }
+      }
+
+      const { data, error } = await supabase.functions.invoke("aori-lecture-summary", {
+        body: { youtubeUrl, accessToken: googleAccessToken },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const summaryPreview = data.summary.substring(0, 200) + "...";
+      const responseText = `Yatta~! I finished your notes! 📚✨ Here's the summary for "${data.videoTitle}":\n\n${summaryPreview}\n\nTap the button below to download the full report~! ☝️`;
+      
+      changeEmotion("proud");
+      setLastAoriText(responseText);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        text: responseText,
+        sender: "aori",
+        emotion: "proud",
+        timestamp: Date.now(),
+        summaryMarkdown: data.summary,
+      }]);
+      speakText(`Done! I finished summarizing ${data.videoTitle}. Tap download for the full report!`);
+    } catch (e: any) {
+      console.error("Lecture summary error:", e);
+      const errMsg = e?.message?.includes("No captions")
+        ? "Tch! This video doesn't have subtitles, so I can't summarize it. Try a video with captions, ne? 😤"
+        : `Mou! Something went wrong with the summary... ${e?.message || "try again later"} 😤`;
+      changeEmotion("angry");
+      setLastAoriText(errMsg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      speakText(errMsg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, changeEmotion, speakText, userId]);
+
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
@@ -595,6 +716,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setInput("");
     setIsTyping(true);
     if (!chatOpen && !fromVoice) setChatOpen(true);
+
+    // Check for YouTube link with summarize intent
+    const ytMatch = text.match(YOUTUBE_URL_REGEX);
+    const hasSummarizeIntent = /\b(summar|notes?|lecture|recap|study|explain this video|report)\b/i.test(text);
+    if (ytMatch && hasSummarizeIntent) {
+      setIsTyping(false); // handleLectureSummary manages its own typing state
+      handleLectureSummary(text, text);
+      return;
+    }
 
     const localTime = new Date().toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, weekday: "short", month: "short", day: "numeric" });
     const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -698,7 +828,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } finally {
       setIsTyping(false);
     }
-  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected]);
+  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected, handleLectureSummary]);
 
   const sendMessageWithText = useCallback((text: string) => sendMessageCore(text, true), [sendMessageCore]);
   const sendMessage = useCallback(() => { sendMessageCore(input.trim(), false); }, [sendMessageCore, input]);

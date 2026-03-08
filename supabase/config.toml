@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.aori-youtube]
 verify_jwt = false
+
+[functions.aori-lecture-summary]
+verify_jwt = false
