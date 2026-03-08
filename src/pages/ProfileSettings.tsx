@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { emotionCutouts } from "@/lib/aori-personality";
-import { ChevronLeft, LogOut, Save, User, Briefcase, Heart, Trash2 } from "lucide-react";
+import { ChevronLeft, LogOut, Save, User, Briefcase, Heart, Trash2, Phone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useContacts } from "@/hooks/useContacts";
 
 const HOBBY_OPTIONS = [
   "Gaming", "Anime", "Music", "Coding", "Reading", "Sports",
