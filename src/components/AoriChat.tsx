@@ -1334,9 +1334,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
 
         if (avg > SILENCE_THRESHOLD) {
-          speechDetected = true;
+          if (!speechDetected) {
+            speechDetected = true;
+            speechStartTime = Date.now();
+          }
           silenceStart = 0;
-        } else if (speechDetected) {
+        } else if (speechDetected && (Date.now() - speechStartTime > MIN_SPEECH_DURATION)) {
           if (!silenceStart) silenceStart = Date.now();
           else if (Date.now() - silenceStart > SILENCE_DURATION) {
             recorder.stop();
