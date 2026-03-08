@@ -581,24 +581,35 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         return;
       }
       try {
+        // Get user session token so edge function can look up user's own API key
+        let authToken = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) authToken = session.access_token;
+        } catch {}
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-tts`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              Authorization: `Bearer ${authToken}`,
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
             body: JSON.stringify({ text }),
           }
         );
       if (response.status === 429) {
-          ttsRateLimitedUntilRef.current = Date.now() + 3 * 60 * 1000; // 3 min cooldown instead of 30
+          ttsRateLimitedUntilRef.current = Date.now() + 3 * 60 * 1000;
+          console.warn("[TTS] All keys rate-limited, falling back to browser TTS for 3 min");
           await speakBrowserTTSAsync(text);
           return;
         }
-        if (!response.ok) { await speakBrowserTTSAsync(text); return; }
+        if (!response.ok) {
+          console.warn(`[TTS] Non-OK response: ${response.status}, falling back to browser TTS`);
+          await speakBrowserTTSAsync(text);
+          return;
+        }
         const data = await response.json();
         if (!data?.audio) { await speakBrowserTTSAsync(text); return; }
         setCachedAudio(cacheKey, data.audio);
