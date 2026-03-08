@@ -88,6 +88,41 @@ async function fetchTranscript(videoId: string): Promise<string | null> {
   }
 }
 
+async function fetchThumbnailsAsBase64(videoId: string): Promise<{ url: string; base64: string }[]> {
+  // YouTube provides thumbnails at fixed URLs: 0.jpg (default), 1.jpg, 2.jpg, 3.jpg (auto-picked frames)
+  // plus maxresdefault, hqdefault, mqdefault
+  const thumbUrls = [
+    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/0.jpg`,
+    `https://img.youtube.com/vi/${videoId}/1.jpg`,
+    `https://img.youtube.com/vi/${videoId}/2.jpg`,
+    `https://img.youtube.com/vi/${videoId}/3.jpg`,
+  ];
+
+  const results: { url: string; base64: string }[] = [];
+  const fetches = thumbUrls.map(async (url) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const buf = await res.arrayBuffer();
+      // Skip tiny placeholder images (YouTube returns a small default for missing thumbs)
+      if (buf.byteLength < 5000) return null;
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return { url, base64: btoa(binary) };
+    } catch {
+      return null;
+    }
+  });
+
+  const settled = await Promise.all(fetches);
+  for (const r of settled) {
+    if (r) results.push(r);
+  }
+  return results;
+}
+
 async function getVideoInfo(videoId: string, accessToken?: string): Promise<{ title: string; channel: string; duration: string } | null> {
   try {
     const headers: Record<string, string> = {};
@@ -157,18 +192,7 @@ serve(async (req) => {
     ]);
 
     const titleInfo = videoInfo ? `Title: "${videoInfo.title}" by ${videoInfo.channel}` : `Video ID: ${videoId}`;
-
-    if (!transcript || transcript.length < 50) {
-      console.log(`[Lecture Summary] No captions found for video ${videoId}`);
-      return new Response(JSON.stringify({
-        error: "This video doesn't have captions or subtitles available, so I can't generate a summary. Try a video with captions enabled!",
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    console.log(`[Lecture Summary] Transcript length: ${transcript.length} chars`);
+    const hasTranscript = transcript && transcript.length >= 50;
 
     const summarySystemPrompt = `You are a brilliant academic note-taker. Generate a comprehensive, well-structured lecture summary report.
 
@@ -196,12 +220,53 @@ Format the report as follows:
 
 Be thorough but concise. Use markdown formatting. If it's a technical/STEM lecture, include any formulas or equations mentioned. If it's humanities, focus on arguments and evidence.`;
 
-    // Truncate if too long
-    const maxChars = 50000;
-    const truncatedTranscript = transcript.length > maxChars
-      ? transcript.substring(0, maxChars) + "\n[... transcript truncated due to length]"
-      : transcript;
-    const userContent = `Please summarize this lecture:\n\n${titleInfo}\n\nTranscript:\n${truncatedTranscript}`;
+    let userContent: any;
+    let model = "google/gemini-2.5-flash";
+
+    if (hasTranscript) {
+      console.log(`[Lecture Summary] Transcript length: ${transcript!.length} chars`);
+      const maxChars = 50000;
+      const truncatedTranscript = transcript!.length > maxChars
+        ? transcript!.substring(0, maxChars) + "\n[... transcript truncated due to length]"
+        : transcript!;
+      userContent = `Please summarize this lecture:\n\n${titleInfo}\n\nTranscript:\n${truncatedTranscript}`;
+    } else {
+      // Fallback: fetch thumbnails and use Gemini vision to analyze the slides
+      console.log(`[Lecture Summary] No captions found, fetching thumbnails for visual analysis`);
+      const thumbnails = await fetchThumbnailsAsBase64(videoId);
+
+      if (thumbnails.length === 0) {
+        return new Response(JSON.stringify({
+          error: "This video has no captions and no thumbnails available. Try uploading the slides as a PDF instead!",
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log(`[Lecture Summary] Got ${thumbnails.length} thumbnails, using vision analysis`);
+      model = "google/gemini-2.5-flash";
+
+      // Build multimodal content with images
+      const contentParts: any[] = [];
+      for (const thumb of thumbnails) {
+        contentParts.push({
+          type: "image_url",
+          image_url: { url: `data:image/jpeg;base64,${thumb.base64}` },
+        });
+      }
+      contentParts.push({
+        type: "text",
+        text: `This video has no captions/subtitles. I've extracted ${thumbnails.length} thumbnail frames from the video. Please analyze these images carefully — they are slides/frames from a lecture video.\n\n${titleInfo}\n\nBased on what you can see in these slides (text, diagrams, labels, images), create a comprehensive lecture summary. Read all visible text on the slides and use it to build your summary.`,
+      });
+
+      userContent = contentParts;
+    }
+
+    const messages = [
+      { role: "system", content: summarySystemPrompt },
+      { role: "user", content: userContent },
+    ];
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -209,13 +274,7 @@ Be thorough but concise. Use markdown formatting. If it's a technical/STEM lectu
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: summarySystemPrompt },
-          { role: "user", content: userContent },
-        ],
-      }),
+      body: JSON.stringify({ model, messages }),
     });
 
     if (!aiRes.ok) {
@@ -246,7 +305,8 @@ Be thorough but concise. Use markdown formatting. If it's a technical/STEM lectu
       summary,
       videoTitle: videoInfo?.title || videoId,
       videoChannel: videoInfo?.channel || "Unknown",
-      transcriptLength: transcript.length,
+      transcriptLength: transcript?.length || 0,
+      usedThumbnailAnalysis: !hasTranscript,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

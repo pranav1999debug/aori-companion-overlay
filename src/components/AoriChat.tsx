@@ -797,15 +797,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const hasSummarizeIntent = /\b(summari[sz]e|summary|notes?|lecture|recap|study|explain this video|report|pdf|download)\b/i.test(text);
     const hasFollowUpSummaryIntent = /\b(i\s*want\s*(a\s*)?(pdf|summary|notes|report)|give\s*me\s*(a\s*)?(pdf|summary|notes|report)|do\s*it|seriously|im\s*serious|i'?m\s*serious|please\s*(summar|pdf|notes)|just\s*(summar|do\s*it))\b/i.test(text);
     
+    // Strip the full URL (including query params like ?si=...) not just the regex match
+    const fullUrlRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?[^\s]*|embed\/[^\s]*|shorts\/[^\s]*)|youtu\.be\/[^\s]*)/i;
+
     if (ytMatch && hasSummarizeIntent) {
       setIsTyping(false);
-      handleLectureSummary(text, text);
+      const extractedUrl = text.match(fullUrlRegex)?.[0] || ytMatch[0];
+      handleLectureSummary(extractedUrl, text);
       return;
     }
 
     // Bare YouTube link with no other intent — ask if they want a summary
-    // Strip the full URL (including query params like ?si=...) not just the regex match
-    const fullUrlRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?[^\s]*|embed\/[^\s]*|shorts\/[^\s]*)|youtu\.be\/[^\s]*)/i;
     const textWithoutUrl = ytMatch ? text.trim().replace(fullUrlRegex, "").trim() : text;
     if (ytMatch && !hasSummarizeIntent && textWithoutUrl.length < 10) {
       setIsTyping(false);
