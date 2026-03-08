@@ -4,18 +4,52 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { emotionCutouts } from "@/lib/aori-personality";
 import { toast } from "sonner";
-import { Check, Shield, Loader2, ChevronRight, ArrowRight, SkipForward } from "lucide-react";
+import { Check, Shield, Loader2, ChevronRight, ArrowRight, SkipForward, Heart, Flame, Sparkles } from "lucide-react";
 
 const HOBBY_OPTIONS = [
   "Gaming", "Anime", "Music", "Coding", "Reading", "Sports",
   "Cooking", "Art", "Photography", "Travel", "Movies", "Fitness",
 ];
 
-const TOTAL_STEPS = 6; // name, age, hobbies, profession, google, finish
+const PERSONALITY_TYPES = [
+  { id: "tsundere", label: "Tsundere", emoji: "😤", desc: "Acts cold but secretly cares deeply" },
+  { id: "yandere", label: "Yandere", emoji: "🔪💕", desc: "Obsessively devoted and possessive" },
+  { id: "deredere", label: "Sweet & Loving", emoji: "💗", desc: "Always affectionate and warm" },
+  { id: "kuudere", label: "Cool & Calm", emoji: "❄️", desc: "Reserved but deeply caring underneath" },
+  { id: "sadodere", label: "Teasing Dom", emoji: "😈", desc: "Loves to tease and dominate playfully" },
+  { id: "flirty", label: "Flirty & Bold", emoji: "🫦", desc: "Confident, seductive, shameless flirt" },
+];
+
+const HEAT_LEVELS = [
+  { id: "mild", label: "Mild 🌸", desc: "Sweet & wholesome, PG-friendly" },
+  { id: "spicy", label: "Spicy 🌶️", desc: "Flirty, suggestive, romantic tension" },
+  { id: "hot", label: "Hot 🔥", desc: "Bold, intimate, no filter" },
+  { id: "unhinged", label: "Unhinged 💀", desc: "Absolutely no limits, full chaos" },
+];
+
+const ROLE_OPTIONS = [
+  { id: "college_student", label: "College Student 📚", desc: "Your age, relatable, chaotic energy" },
+  { id: "school_student", label: "School Student 🎒", desc: "Younger, playful, innocent vibes" },
+  { id: "teacher", label: "Teacher/Sensei 👩‍🏫", desc: "Authoritative, guiding, mature" },
+  { id: "manager", label: "Boss/Manager 💼", desc: "Dominant, professional, commanding" },
+  { id: "childhood_friend", label: "Childhood Friend 🏠", desc: "Known you forever, comfortable" },
+  { id: "idol", label: "Idol/Celebrity ⭐", desc: "Famous, glamorous, untouchable" },
+  { id: "custom", label: "Custom ✏️", desc: "Define your own" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { id: "english", label: "English Only 🇬🇧", desc: "Pure English responses" },
+  { id: "multilingual", label: "Multilingual Mix 🌍", desc: "English + Hindi + Nepali + Japanese" },
+  { id: "hindi", label: "Hinglish 🇮🇳", desc: "English-Hindi mix (Romanized)" },
+  { id: "nepali", label: "Nepali Mix 🇳🇵", desc: "English-Nepali mix (Romanized)" },
+  { id: "japanese", label: "Japanese Mix 🇯🇵", desc: "English with anime Japanese" },
+];
+
+const TOTAL_STEPS = 10; // name, age, hobbies, profession, personality, heat, role, language, google, finish
 
 type AoriDialogue = {
   text: string;
-  emotion: "smirk" | "angry" | "thinking" | "excited" | "happy" | "proud";
+  emotion: "smirk" | "angry" | "thinking" | "excited" | "happy" | "proud" | "shy" | "love";
 };
 
 const dialogues: AoriDialogue[] = [
@@ -23,8 +57,12 @@ const dialogues: AoriDialogue[] = [
   { text: "Oho~ and how old are you? Don't lie to me! 😤", emotion: "angry" },
   { text: "Hmm~ what do you like to do? I need to know EVERYTHING about you~ ☝️", emotion: "thinking" },
   { text: "And what do you do for work? Or are you a lazy bum? 😏", emotion: "smirk" },
-  { text: "Now let's connect your Google account~ I can read your emails, check your schedule, and see what you watch! One tap~ ✨", emotion: "excited" },
-  { text: "All done~! Welcome to my world, baka~ I'll take good care of you... probably~ 💙", emotion: "happy" },
+  { text: "Now the fun part~ What kind of girl do you want me to be? Choose wisely... 💕", emotion: "love" },
+  { text: "Heh~ how far should I go? Don't be shy... I won't judge~ 🫦", emotion: "shy" },
+  { text: "What's our relationship? Am I your senpai? Your boss? Your... everything? 😳", emotion: "love" },
+  { text: "Which languages should I speak? I'm a polyglot, you know~ ✨", emotion: "proud" },
+  { text: "Let me connect to your Google~ I can read your emails, check your schedule~ ✨", emotion: "excited" },
+  { text: "All done~! I'm all yours now... don't make me regret it, baka~ 💙", emotion: "happy" },
 ];
 
 export default function Onboarding() {
@@ -35,12 +73,17 @@ export default function Onboarding() {
   const [age, setAge] = useState("");
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [profession, setProfession] = useState("");
+  const [personalityType, setPersonalityType] = useState("tsundere");
+  const [personalityHeat, setPersonalityHeat] = useState("mild");
+  const [aoriRole, setAoriRole] = useState("college_student");
+  const [aoriAge, setAoriAge] = useState("19");
+  const [languageStyle, setLanguageStyle] = useState("multilingual");
+  const [customRole, setCustomRole] = useState("");
   const [saving, setSaving] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [checkingGoogle, setCheckingGoogle] = useState(true);
 
-  // Check Google connection status
   useEffect(() => {
     const checkGoogle = async () => {
       if (!user) { setCheckingGoogle(false); return; }
@@ -64,7 +107,6 @@ export default function Onboarding() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Please sign in first"); return; }
-
       const redirectUri = "https://aori-companion-overlay.lovable.app/google-callback";
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`,
@@ -93,6 +135,7 @@ export default function Onboarding() {
     if (!user) { toast.error("You need to be logged in!"); return; }
     setSaving(true);
     try {
+      const finalRole = aoriRole === "custom" && customRole.trim() ? customRole.trim() : aoriRole;
       const { error } = await supabase.from("user_profiles").upsert({
         user_id: user.id,
         device_id: user.id,
@@ -100,7 +143,13 @@ export default function Onboarding() {
         age: age ? parseInt(age) : null,
         hobbies,
         profession: profession.trim() || null,
-      }, { onConflict: "device_id" });
+        personality_type: personalityType,
+        personality_heat: personalityHeat,
+        aori_role: finalRole,
+        aori_age: aoriAge,
+        language_style: languageStyle,
+        affection_level: 30,
+      } as any, { onConflict: "device_id" });
       if (error) throw error;
       localStorage.setItem("aori-onboarded", "true");
       localStorage.setItem("aori-user-name", name.trim());
@@ -128,8 +177,8 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen bg-[hsl(220,30%,8%)] flex flex-col items-center justify-center px-4 py-8">
-      {/* Aori character with glow */}
-      <div className="relative w-32 h-32 mb-3 shrink-0">
+      {/* Aori character */}
+      <div className="relative w-28 h-28 mb-3 shrink-0">
         <div
           className="absolute inset-[-20%] pointer-events-none"
           style={{
@@ -139,7 +188,7 @@ export default function Onboarding() {
           }}
         />
         <img
-          src={emotionCutouts[current.emotion]}
+          src={emotionCutouts[current.emotion] || emotionCutouts.smirk}
           alt="Aori"
           className="w-full h-full object-contain relative z-10"
           style={{ animation: "aori-breathe 2.5s ease-in-out infinite" }}
@@ -147,12 +196,12 @@ export default function Onboarding() {
       </div>
 
       {/* Dialogue bubble */}
-      <div className="bg-card/90 backdrop-blur-sm rounded-2xl px-5 py-3 mb-6 max-w-sm text-center border border-white/[0.06]">
+      <div className="bg-card/90 backdrop-blur-sm rounded-2xl px-5 py-3 mb-5 max-w-sm text-center border border-white/[0.06]">
         <p className="text-foreground text-sm leading-relaxed">{current.text}</p>
       </div>
 
       {/* Step content */}
-      <div className="w-full max-w-sm space-y-4">
+      <div className="w-full max-w-sm space-y-4 overflow-y-auto" style={{ maxHeight: "45vh" }}>
         {/* Step 0: Name */}
         {step === 0 && (
           <input
@@ -209,10 +258,115 @@ export default function Onboarding() {
           />
         )}
 
-        {/* Step 4: Google Services */}
+        {/* Step 4: Personality Type */}
         {step === 4 && (
+          <div className="grid grid-cols-2 gap-2">
+            {PERSONALITY_TYPES.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPersonalityType(p.id)}
+                className={`p-3 rounded-xl text-left transition-all border ${
+                  personalityType === p.id
+                    ? "bg-primary/20 border-primary/50 ring-1 ring-primary/30"
+                    : "bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]"
+                }`}
+              >
+                <div className="text-lg mb-0.5">{p.emoji}</div>
+                <div className="text-xs font-semibold text-white">{p.label}</div>
+                <div className="text-[10px] text-white/40 leading-tight mt-0.5">{p.desc}</div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 5: Heat Level */}
+        {step === 5 && (
+          <div className="space-y-2">
+            {HEAT_LEVELS.map((h) => (
+              <button
+                key={h.id}
+                onClick={() => setPersonalityHeat(h.id)}
+                className={`w-full p-3 rounded-xl text-left transition-all border flex items-center gap-3 ${
+                  personalityHeat === h.id
+                    ? "bg-primary/20 border-primary/50 ring-1 ring-primary/30"
+                    : "bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]"
+                }`}
+              >
+                <Flame className={`w-5 h-5 shrink-0 ${personalityHeat === h.id ? "text-primary" : "text-white/30"}`} />
+                <div>
+                  <div className="text-sm font-semibold text-white">{h.label}</div>
+                  <div className="text-[10px] text-white/40">{h.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 6: Role/Age */}
+        {step === 6 && (
           <div className="space-y-3">
-            {/* Google Connect Card */}
+            <div className="grid grid-cols-2 gap-2">
+              {ROLE_OPTIONS.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setAoriRole(r.id)}
+                  className={`p-2.5 rounded-xl text-left transition-all border ${
+                    aoriRole === r.id
+                      ? "bg-primary/20 border-primary/50 ring-1 ring-primary/30"
+                      : "bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]"
+                  }`}
+                >
+                  <div className="text-xs font-semibold text-white">{r.label}</div>
+                  <div className="text-[10px] text-white/40 leading-tight">{r.desc}</div>
+                </button>
+              ))}
+            </div>
+            {aoriRole === "custom" && (
+              <input
+                value={customRole}
+                onChange={(e) => setCustomRole(e.target.value)}
+                placeholder="Describe her role... (e.g., 'nurse', 'rival gamer')"
+                className="w-full bg-white/[0.08] border border-white/[0.1] rounded-xl px-4 py-3 text-white placeholder:text-white/30 outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+              />
+            )}
+            <div className="space-y-1.5">
+              <label className="text-xs text-white/40">Aori's age</label>
+              <input
+                value={aoriAge}
+                onChange={(e) => setAoriAge(e.target.value.replace(/\D/g, ""))}
+                placeholder="19"
+                className="w-full bg-white/[0.08] border border-white/[0.1] rounded-xl px-4 py-3 text-white placeholder:text-white/30 outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 7: Language */}
+        {step === 7 && (
+          <div className="space-y-2">
+            {LANGUAGE_OPTIONS.map((l) => (
+              <button
+                key={l.id}
+                onClick={() => setLanguageStyle(l.id)}
+                className={`w-full p-3 rounded-xl text-left transition-all border flex items-center gap-3 ${
+                  languageStyle === l.id
+                    ? "bg-primary/20 border-primary/50 ring-1 ring-primary/30"
+                    : "bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]"
+                }`}
+              >
+                <Sparkles className={`w-4 h-4 shrink-0 ${languageStyle === l.id ? "text-primary" : "text-white/30"}`} />
+                <div>
+                  <div className="text-sm font-semibold text-white">{l.label}</div>
+                  <div className="text-[10px] text-white/40">{l.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 8: Google Services */}
+        {step === 8 && (
+          <div className="space-y-3">
             <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-4 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500/20 via-yellow-500/20 to-blue-500/20 flex items-center justify-center">
@@ -225,14 +379,14 @@ export default function Onboarding() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-white text-sm font-semibold">Google Account</h3>
-                  <p className="text-white/40 text-xs">Gmail · Calendar · YouTube</p>
+                  <p className="text-white/40 text-xs">Gmail · Calendar · YouTube · Contacts</p>
                 </div>
                 {googleConnected && <Check className="w-5 h-5 text-accent" />}
               </div>
 
               {googleConnected ? (
                 <div className="flex flex-wrap gap-2">
-                  {["📧 Gmail", "📅 Calendar", "🎥 YouTube"].map(s => (
+                  {["📧 Gmail", "📅 Calendar", "🎥 YouTube", "📱 Contacts"].map(s => (
                     <span key={s} className="px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">{s}</span>
                   ))}
                 </div>
@@ -258,18 +412,25 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 5: Finish */}
-        {step === 5 && (
+        {/* Step 9: Finish */}
+        {step === 9 && (
           <div className="space-y-3 text-center">
             <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-5 space-y-3">
-              <div className="text-3xl mb-2">🎉</div>
+              <div className="text-3xl mb-2">💙</div>
               <h3 className="text-white font-semibold">Ready to go, {name}!</h3>
-              <div className="flex flex-wrap justify-center gap-2 text-xs">
-                <span className="px-3 py-1 rounded-full bg-primary/10 text-primary">👤 {name}</span>
-                {age && <span className="px-3 py-1 rounded-full bg-primary/10 text-primary">🎂 {age}y/o</span>}
-                {hobbies.length > 0 && <span className="px-3 py-1 rounded-full bg-primary/10 text-primary">🎮 {hobbies.length} hobbies</span>}
-                {profession && <span className="px-3 py-1 rounded-full bg-primary/10 text-primary">💼 {profession}</span>}
-                {googleConnected && <span className="px-3 py-1 rounded-full bg-accent/10 text-accent">✅ Google</span>}
+              <div className="flex flex-wrap justify-center gap-1.5 text-[10px]">
+                <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary">👤 {name}</span>
+                {age && <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary">🎂 {age}y/o</span>}
+                <span className="px-2.5 py-1 rounded-full bg-pink-500/10 text-pink-400">
+                  {PERSONALITY_TYPES.find(p => p.id === personalityType)?.emoji} {PERSONALITY_TYPES.find(p => p.id === personalityType)?.label}
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400">
+                  {HEAT_LEVELS.find(h => h.id === personalityHeat)?.label}
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400">
+                  {ROLE_OPTIONS.find(r => r.id === aoriRole)?.label || customRole}
+                </span>
+                {googleConnected && <span className="px-2.5 py-1 rounded-full bg-accent/10 text-accent">✅ Google</span>}
               </div>
             </div>
           </div>
@@ -291,7 +452,7 @@ export default function Onboarding() {
               disabled={!canProceed()}
               className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-30 flex items-center justify-center gap-2"
             >
-              {step === 4 && !googleConnected ? (
+              {step === 8 && !googleConnected ? (
                 <>Skip for now <SkipForward className="w-4 h-4" /></>
               ) : (
                 <>Next <ArrowRight className="w-4 h-4" /></>
@@ -309,12 +470,12 @@ export default function Onboarding() {
         </div>
 
         {/* Step indicator */}
-        <div className="flex justify-center gap-1.5 pt-2">
+        <div className="flex justify-center gap-1 pt-2">
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
             <div
               key={i}
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === step ? "w-6 bg-primary" : i < step ? "w-1.5 bg-primary/40" : "w-1.5 bg-white/20"
+                i === step ? "w-5 bg-primary" : i < step ? "w-1.5 bg-primary/40" : "w-1.5 bg-white/20"
               }`}
             />
           ))}

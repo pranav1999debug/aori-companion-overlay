@@ -36,6 +36,12 @@ interface UserProfile {
   age?: number;
   hobbies?: string[];
   profession?: string;
+  personality_type?: string;
+  personality_heat?: string;
+  aori_role?: string;
+  aori_age?: string;
+  language_style?: string;
+  affection_level?: number;
 }
 
 interface KnownFace {
@@ -228,11 +234,18 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         supabase.from("environment_memories").select("*").eq("user_id", userId),
       ]);
       if (profileRes.data) {
+        const d = profileRes.data as any;
         setUserProfile({
-          name: profileRes.data.name,
-          age: profileRes.data.age,
-          hobbies: profileRes.data.hobbies,
-          profession: profileRes.data.profession,
+          name: d.name,
+          age: d.age,
+          hobbies: d.hobbies,
+          profession: d.profession,
+          personality_type: d.personality_type || "tsundere",
+          personality_heat: d.personality_heat || "mild",
+          aori_role: d.aori_role || "college_student",
+          aori_age: d.aori_age || "19",
+          language_style: d.language_style || "multilingual",
+          affection_level: d.affection_level || 30,
         });
       }
       if (facesRes.data) setKnownFaces(facesRes.data.map((f: any) => ({ id: f.id, name: f.name, description: f.description })));

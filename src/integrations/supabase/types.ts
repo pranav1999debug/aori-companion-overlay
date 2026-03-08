@@ -133,32 +133,53 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          affection_level: number | null
           age: number | null
+          aori_age: string | null
+          aori_role: string | null
           created_at: string
+          custom_traits: string[] | null
           device_id: string
           hobbies: string[] | null
           id: string
+          language_style: string | null
           name: string
+          personality_heat: string | null
+          personality_type: string | null
           profession: string | null
           user_id: string | null
         }
         Insert: {
+          affection_level?: number | null
           age?: number | null
+          aori_age?: string | null
+          aori_role?: string | null
           created_at?: string
+          custom_traits?: string[] | null
           device_id: string
           hobbies?: string[] | null
           id?: string
+          language_style?: string | null
           name: string
+          personality_heat?: string | null
+          personality_type?: string | null
           profession?: string | null
           user_id?: string | null
         }
         Update: {
+          affection_level?: number | null
           age?: number | null
+          aori_age?: string | null
+          aori_role?: string | null
           created_at?: string
+          custom_traits?: string[] | null
           device_id?: string
           hobbies?: string[] | null
           id?: string
+          language_style?: string | null
           name?: string
+          personality_heat?: string | null
+          personality_type?: string | null
           profession?: string | null
           user_id?: string | null
         }
