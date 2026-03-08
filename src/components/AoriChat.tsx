@@ -36,6 +36,12 @@ interface UserProfile {
   age?: number;
   hobbies?: string[];
   profession?: string;
+  personality_type?: string;
+  personality_heat?: string;
+  aori_role?: string;
+  aori_age?: string;
+  language_style?: string;
+  affection_level?: number;
 }
 
 interface KnownFace {
