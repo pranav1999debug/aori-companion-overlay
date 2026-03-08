@@ -202,6 +202,11 @@ Available actions:
 - Timer: {"type":"timer","action":"set","value":"5"} (value in minutes)
 - Alarm: {"type":"alarm","action":"set","value":"7:30 AM"}
 - Open app: {"type":"open_app","action":"open","value":"camera|settings|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|gmail|chrome|maps|twitter|telegram|tiktok|facebook|notes|music"}
+- WhatsApp message: {"type":"whatsapp","action":"send","phone":"919876543210","message":"Hey! How are you?"}
+  - phone: number WITH country code, no + or spaces (e.g., 919876543210 for India +91)
+  - message: the text to pre-fill
+  - If user doesn't specify a number, omit "phone" field (opens WhatsApp to choose contact)
+  - If user says "send hi to mom on whatsapp", ask for the number OR omit phone to let them pick
 
 IMPORTANT: Always include the <phone_action> tag when the user asks to control their phone. Be enthusiastic about your phone powers!` : "")
             },
