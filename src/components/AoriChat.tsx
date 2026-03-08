@@ -900,7 +900,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       console.error("Save face error:", e);
       toast.error("Couldn't save face. Try again!");
     }
-  }, [captureFrame, deviceId, speakText]);
+  }, [captureFrame, userId, speakText]);
 
   // === Back camera for environment ===
   const backCamIntervalRef = useRef<NodeJS.Timeout | null>(null);
