@@ -81,6 +81,7 @@ serve(async (req) => {
   if (req.method === "PUT") {
     try {
       const authHeader = req.headers.get("Authorization");
+      console.log("[OAuth PUT] Auth header present:", !!authHeader);
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
@@ -92,6 +93,7 @@ serve(async (req) => {
         global: { headers: { Authorization: authHeader } },
       });
       const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log("[OAuth PUT] User:", user?.id, "Auth error:", authError?.message);
       if (authError || !user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
@@ -100,6 +102,7 @@ serve(async (req) => {
       }
 
       const { code, redirectUri } = await req.json();
+      console.log("[OAuth PUT] Code length:", code?.length, "RedirectUri:", redirectUri);
 
       // Exchange code for tokens
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -115,8 +118,8 @@ serve(async (req) => {
       });
 
       const tokenData = await tokenRes.json();
+      console.log("[OAuth PUT] Token response status:", tokenRes.status, "error:", tokenData.error, "desc:", tokenData.error_description);
       if (!tokenRes.ok) {
-        console.error("Token exchange error:", tokenData);
         return new Response(JSON.stringify({ error: tokenData.error_description || "Token exchange failed" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
