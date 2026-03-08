@@ -897,9 +897,33 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputChatRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = useCallback(async (file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
+    // Handle PDF files for lecture summarization
+    if (file.type === "application/pdf") {
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("PDF too large! Max 20MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1];
+        const userMsg: Message = {
+          id: Date.now(),
+          text: `📄 ${file.name}`,
+          sender: "user",
+          timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, userMsg]);
+        setInput("");
+        handlePdfSummary({ base64, fileName: file.name });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     if (!file.type.startsWith("image/")) {
-      toast.error("Only images are supported!");
+      toast.error("Only images and PDFs are supported!");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
