@@ -974,7 +974,32 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       changeEmotion(emotion);
       setLastAoriText(responseText);
       const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
-      setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now(), summaryMarkdown: solutionMd }]);
+      // Build quick replies from suggested actions
+      const quickReplies: QuickReply[] = [];
+      if (data.suggestedActions?.length) {
+        for (const sa of data.suggestedActions) {
+          quickReplies.push({
+            label: sa.label,
+            action: () => {
+              if (sa.action) {
+                executeAction(sa.action).then(success => {
+                  if (success) toast(`✨ Done: ${sa.label}`, { duration: 2000 });
+                });
+              }
+            },
+          });
+        }
+      }
+
+      setMessages((prev) => [...prev, {
+        id: Date.now() + 1,
+        text: responseText,
+        sender: "aori",
+        emotion,
+        timestamp: Date.now(),
+        summaryMarkdown: solutionMd,
+        quickReplies: quickReplies.length > 0 ? quickReplies : undefined,
+      }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
       if (voiceModeRef.current) {
         setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
