@@ -1236,15 +1236,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       {/* Aori Avatar (centered) */}
       <div
-        className="absolute z-10 select-none"
+        className="absolute z-10 select-none cursor-grab active:cursor-grabbing"
         style={{
-          left: "50%",
-          top: "calc(50% - 40px)",
+          left: avatarPos.x,
+          top: avatarPos.y,
           width: avatarSize,
           height: avatarSize,
-          transform: "translate(-50%, -50%)",
+          touchAction: "none",
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
         }}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
       >
         {/* Glowing aura */}
         <div
