@@ -1013,7 +1013,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     if (voiceModeRef.current) {
       voiceModeRef.current = false;
       setVoiceModeActive(false);
-      if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch {} recognitionRef.current = null; }
+      // Stop any active MediaRecorder
+      if (sttMediaRecorderRef.current && sttMediaRecorderRef.current.state === "recording") {
+        try { sttMediaRecorderRef.current.stop(); } catch {}
+      }
+      sttMediaRecorderRef.current = null;
+      if (sttStreamRef.current) { sttStreamRef.current.getTracks().forEach(t => t.stop()); sttStreamRef.current = null; }
       setIsListening(false);
       toast("🎤 Voice mode off", { duration: 2000 });
     } else {
