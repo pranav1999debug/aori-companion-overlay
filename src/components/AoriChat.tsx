@@ -673,6 +673,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           sessionMinutes: Math.round((Date.now() - sessionStartRef.current) / 60000),
           gmailSummary,
           calendarSummary,
+          youtubeSummary,
         },
       });
       if (error) throw error;
