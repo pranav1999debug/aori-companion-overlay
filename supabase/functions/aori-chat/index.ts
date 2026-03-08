@@ -105,7 +105,7 @@ serve(async (req) => {
     const isAcademic = ACADEMIC_REGEX.test(lastUserMsg);
 
     // Detect phone control intents
-    const PHONE_CONTROL_REGEX = /\b(turn on|turn off|switch on|switch off|toggle|enable|disable|open|launch|start|set|create|make)\b.*\b(flashlight|torch|light|volume|sound|alarm|timer|countdown|camera|settings|browser|chrome|maps|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|dialer|gmail|twitter|telegram|tiktok|facebook|notes|music|app)\b|\b(flashlight|torch|light|volume|alarm|timer)\b.*\b(on|off|up|down|mute|unmute|loud|quiet|set|start)\b|\b(open|launch|start)\b.*\b(app|application)\b/i;
+    const PHONE_CONTROL_REGEX = /\b(turn on|turn off|switch on|switch off|toggle|enable|disable|open|launch|start|set|create|make)\b.*\b(flashlight|torch|light|volume|sound|alarm|timer|countdown|camera|settings|browser|chrome|maps|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|dialer|gmail|twitter|telegram|tiktok|facebook|notes|music|app)\b|\b(flashlight|torch|light|volume|alarm|timer)\b.*\b(on|off|up|down|mute|unmute|loud|quiet|set|start)\b|\b(open|launch|start)\b.*\b(app|application)\b|\b(send|message|text|msg|whatsapp)\b.*\b(whatsapp|message|send|to)\b/i;
     const isPhoneControl = PHONE_CONTROL_REGEX.test(lastUserMsg);
 
     // Build dynamic context
@@ -202,6 +202,11 @@ Available actions:
 - Timer: {"type":"timer","action":"set","value":"5"} (value in minutes)
 - Alarm: {"type":"alarm","action":"set","value":"7:30 AM"}
 - Open app: {"type":"open_app","action":"open","value":"camera|settings|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|gmail|chrome|maps|twitter|telegram|tiktok|facebook|notes|music"}
+- WhatsApp message: {"type":"whatsapp","action":"send","phone":"919876543210","message":"Hey! How are you?"}
+  - phone: number WITH country code, no + or spaces (e.g., 919876543210 for India +91)
+  - message: the text to pre-fill
+  - If user doesn't specify a number, omit "phone" field (opens WhatsApp to choose contact)
+  - If user says "send hi to mom on whatsapp", ask for the number OR omit phone to let them pick
 
 IMPORTANT: Always include the <phone_action> tag when the user asks to control their phone. Be enthusiastic about your phone powers!` : "")
             },

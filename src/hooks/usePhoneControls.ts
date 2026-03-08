@@ -6,9 +6,11 @@ import { Capacitor } from "@capacitor/core";
 const isNative = Capacitor.isNativePlatform();
 
 interface PhoneAction {
-  type: "flashlight" | "volume" | "alarm" | "timer" | "open_app";
-  action: string; // on, off, toggle, up, down, mute, set
+  type: "flashlight" | "volume" | "alarm" | "timer" | "open_app" | "whatsapp";
+  action: string; // on, off, toggle, up, down, mute, set, send
   value?: string; // e.g., app name, volume level, timer minutes
+  phone?: string; // phone number for WhatsApp
+  message?: string; // message text for WhatsApp
 }
 
 export function usePhoneControls() {
@@ -246,6 +248,43 @@ export function usePhoneControls() {
     }
   }, [getAppLauncher]);
 
+  // === WhatsApp Message ===
+  const sendWhatsApp = useCallback(async (phone?: string, message?: string) => {
+    try {
+      // Build wa.me URL with optional phone number and pre-filled message
+      let url = "https://wa.me/";
+      if (phone) {
+        // Strip non-numeric chars except leading +
+        const cleaned = phone.replace(/[^\d]/g, "");
+        url += cleaned;
+      }
+      if (message) {
+        url += `?text=${encodeURIComponent(message)}`;
+      }
+
+      // On native, try app launcher first
+      if (isNative) {
+        const AppLauncher = await getAppLauncher();
+        if (AppLauncher) {
+          try {
+            await AppLauncher.openUrl({ url });
+            return true;
+          } catch {
+            // Fall through to window.open
+          }
+        }
+      }
+
+      // Fallback: open in browser/webapp
+      window.open(url, "_blank");
+      return true;
+    } catch (e) {
+      console.error("WhatsApp error:", e);
+      toast.error("Couldn't open WhatsApp");
+      return false;
+    }
+  }, [isNative, getAppLauncher]);
+
   // === Execute a phone action from AI response ===
   const executeAction = useCallback(async (action: PhoneAction): Promise<boolean> => {
     switch (action.type) {
@@ -266,10 +305,13 @@ export function usePhoneControls() {
       case "open_app":
         return openApp(action.value);
 
+      case "whatsapp":
+        return sendWhatsApp(action.phone, action.message);
+
       default:
         return false;
     }
-  }, [toggleFlashlight, setVolume, setAlarmOrTimer, openApp]);
+  }, [toggleFlashlight, setVolume, setAlarmOrTimer, openApp, sendWhatsApp]);
 
   return {
     executeAction,
