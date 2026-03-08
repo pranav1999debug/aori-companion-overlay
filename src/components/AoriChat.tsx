@@ -1031,7 +1031,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const responseText = data.text || "Hmm~ I can't quite see that... try again? 🤔";
         changeEmotion(emotion);
         setLastAoriText(responseText);
-        setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now() }]);
+        const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
+        setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now(), summaryMarkdown: solutionMd }]);
         setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
         speakText(responseText);
       } catch (e) {
