@@ -740,7 +740,7 @@ export default function AoriChat() {
       webcamIntervalRef.current = setInterval(() => analyzeFrame(), 60000);
       const msg = `Ara ara~ now I can see you, ${userName}! Don't do anything weird, baka~ 😏👁️`;
       setLastAoriText(msg);
-      setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "smirk" }]);
+      setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
     } catch { toast.error("Couldn't access your camera."); }
   }, [webcamEnabled, webcamStream, analyzeFrame, userName]);
 
