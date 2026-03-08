@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mic, Sparkles } from "lucide-react";
 
 export interface VoiceEntry {
@@ -14,6 +14,34 @@ interface VoiceTranscriptProps {
   isSpeaking: boolean;
 }
 
+function TypewriterText({ text, speed = 30 }: { text: string; speed?: number }) {
+  const [displayed, setDisplayed] = useState("");
+  const indexRef = useRef(0);
+
+  useEffect(() => {
+    setDisplayed("");
+    indexRef.current = 0;
+    const interval = setInterval(() => {
+      indexRef.current++;
+      if (indexRef.current <= text.length) {
+        setDisplayed(text.slice(0, indexRef.current));
+      } else {
+        clearInterval(interval);
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  }, [text, speed]);
+
+  return (
+    <>
+      {displayed}
+      {displayed.length < text.length && (
+        <span className="inline-block w-0.5 h-3.5 bg-primary/70 ml-0.5 animate-pulse align-middle" />
+      )}
+    </>
+  );
+}
+
 export default function VoiceTranscript({ entries, isListening, isSpeaking }: VoiceTranscriptProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -26,21 +54,23 @@ export default function VoiceTranscript({ entries, isListening, isSpeaking }: Vo
   if (entries.length === 0 && !isListening) return null;
 
   return (
-    <div className="absolute bottom-24 left-4 right-16 z-25 pointer-events-none" style={{ maxHeight: "40vh" }}>
+    <div className="absolute bottom-24 left-4 right-16 z-25 pointer-events-none" style={{ maxHeight: "45vh" }}>
       <div
         ref={scrollRef}
         className="flex flex-col gap-2 overflow-hidden"
-        style={{ maskImage: "linear-gradient(to bottom, transparent 0%, black 20%, black 100%)" }}
+        style={{ maskImage: "linear-gradient(to top, black 80%, transparent 100%)" }}
       >
         {entries.map((entry, i) => {
           const isLatest = i === entries.length - 1;
+          const isAoriLatest = isLatest && entry.sender === "aori";
           return (
             <div
               key={entry.id}
               className={`flex ${entry.sender === "user" ? "justify-end" : "justify-start"}`}
               style={{
                 animation: isLatest ? "voice-entry-in 0.3s ease-out" : undefined,
-                opacity: isLatest ? 1 : 0.5,
+                opacity: isLatest ? 1 : i === entries.length - 2 ? 0.6 : 0.35,
+                transition: "opacity 0.3s ease",
               }}
             >
               <div
@@ -55,7 +85,11 @@ export default function VoiceTranscript({ entries, isListening, isSpeaking }: Vo
                     Aori
                   </span>
                 )}
-                {entry.text}
+                {isAoriLatest ? (
+                  <TypewriterText text={entry.text} speed={25} />
+                ) : (
+                  entry.text
+                )}
               </div>
             </div>
           );
@@ -76,8 +110,8 @@ export default function VoiceTranscript({ entries, isListening, isSpeaking }: Vo
         </div>
       )}
 
-      {/* Speaking indicator */}
-      {isSpeaking && !isListening && (
+      {/* Speaking indicator — only when no latest aori entry is still typing */}
+      {isSpeaking && !isListening && entries.length > 0 && entries[entries.length - 1]?.sender !== "aori" && (
         <div className="flex justify-start mt-2" style={{ animation: "voice-entry-in 0.2s ease-out" }}>
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl rounded-bl-md bg-primary/[0.1] backdrop-blur-md border border-primary/20">
             <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
