@@ -37,7 +37,6 @@ export default function FloatingAoriHead() {
 
   const handlePointerDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
-      if (expanded) return;
 
       // Pinch-to-zoom: two fingers
       if ("touches" in e && e.touches.length === 2) {
