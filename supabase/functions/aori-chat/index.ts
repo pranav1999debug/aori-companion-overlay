@@ -158,6 +158,14 @@ serve(async (req) => {
 - Be dramatic about events you're not invited to~`;
     }
 
+    // YouTube context
+    if (youtubeSummary) {
+      dynamicContext += `\n\n**YOUTUBE CONTEXT (user's YouTube activity):**\n${youtubeSummary}
+- Reference YouTube ONLY when relevant (user mentions videos, boredom, recommendations, etc.)
+- Be opinionated about their taste: "You watch THAT? ...fine, it's kinda good I guess~"
+- Suggest watching stuff together~`;
+    }
+
     let response: Response | null = null;
     let lastError = "";
 
