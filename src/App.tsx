@@ -21,20 +21,25 @@ function RedirectIfOnboarded({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/onboarding" element={<RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded>} />
-          <Route path="/" element={<RequireOnboarding><Index /></RequireOnboarding>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const onboarded = localStorage.getItem("aori-onboarded") === "true";
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/onboarding" element={<RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded>} />
+            <Route path="/" element={<RequireOnboarding><div className="h-screen w-screen" /></RequireOnboarding>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+        {onboarded && <FloatingAoriHead />}
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
