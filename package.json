@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@capacitor-community/contacts": "^7.1.0",
     "@capacitor-community/keep-awake": "^8.0.0",
     "@capacitor/android": "^8.1.0",
     "@capacitor/app-launcher": "^8.0.1",
