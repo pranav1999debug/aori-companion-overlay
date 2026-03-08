@@ -13,6 +13,7 @@ import GoogleCallback from "./pages/GoogleCallback";
 import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
 import FloatingAoriHead from "./components/FloatingAoriHead";
+import DraggableCutout from "./components/DraggableCutout";
 
 const queryClient = new QueryClient();
 
@@ -132,7 +133,7 @@ function AppRoutes() {
           <RequireAuth><RedirectIfOnboarded><Onboarding /></RedirectIfOnboarded></RequireAuth>
         } />
         <Route path="/" element={
-          <RequireAuth><RequireOnboarding><div className="h-screen w-screen" /></RequireOnboarding></RequireAuth>
+          <RequireAuth><RequireOnboarding><div className="h-screen w-screen bg-background"><DraggableCutout /></div></RequireOnboarding></RequireAuth>
         } />
         <Route path="/setup" element={
           <RequireAuth><RequireOnboarding><SetupGuide /></RequireOnboarding></RequireAuth>
