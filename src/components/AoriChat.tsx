@@ -809,7 +809,6 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
     // Bare YouTube link with no other intent — ask if they want a summary
     const textWithoutUrl = ytMatch ? text.trim().replace(fullUrlRegex, "").trim() : text;
-    const textWithoutUrl = ytMatch ? text.trim().replace(fullUrlRegex, "").trim() : text;
     if (ytMatch && !hasSummarizeIntent && textWithoutUrl.length < 10) {
       setIsTyping(false);
       const ytUrl = ytMatch[0];
