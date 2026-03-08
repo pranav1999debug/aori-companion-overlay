@@ -33,11 +33,12 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     if (!name.trim()) { toast.error("Tell me your name, baka!"); return; }
+    if (!user) { toast.error("You need to be logged in!"); return; }
     setSaving(true);
-    const deviceId = getDeviceId();
     try {
       const { error } = await supabase.from("user_profiles").upsert({
-        device_id: deviceId,
+        user_id: user.id,
+        device_id: user.id,
         name: name.trim(),
         age: age ? parseInt(age) : null,
         hobbies,

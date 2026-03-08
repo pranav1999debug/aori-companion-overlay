@@ -5,7 +5,7 @@ import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personali
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { getDeviceId } from "@/pages/Onboarding";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ChatMessage {
   role: "user" | "assistant";
