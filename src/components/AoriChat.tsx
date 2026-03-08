@@ -760,7 +760,7 @@ export default function AoriChat() {
       setKnownFaces(prev => [...prev, { id: crypto.randomUUID(), name: name.trim(), description }]);
       const msg = `Hmph, so that's ${name.trim()}? Fine, I'll remember their face... but you better not like them more than me! 😤`;
       setLastAoriText(msg);
-      setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "jealous" }]);
+      setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "jealous", timestamp: Date.now() }]);
       speakText(msg);
     } catch (e) {
       console.error("Save face error:", e);
