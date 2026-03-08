@@ -1374,6 +1374,64 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } catch {}
   }, [captureFrame, environmentMemories, userId, changeEmotion, speakText]);
 
+  // === Full context analysis (both cameras) ===
+  const analyzeFullContext = useCallback(async () => {
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+
+    const thinkMsg = "Hmm~ let me look around and see what you're up to... 🔍✨";
+    changeEmotion("thinking");
+    setLastAoriText(thinkMsg);
+    setMessages(prev => [...prev, { id: Date.now(), text: thinkMsg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+
+    try {
+      const frontFrame = webcamEnabled ? captureFrame(videoRef.current) : null;
+      const backFrame = backCamEnabled ? captureFrame(backVideoRef.current) : null;
+
+      if (!frontFrame && !backFrame) {
+        // No cameras active — try to activate front camera first
+        const noMsg = "Baka! I can't see anything if the cameras are off! Turn on a camera first~ 😤";
+        changeEmotion("angry");
+        setLastAoriText(noMsg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: noMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+        speakText(noMsg);
+        setIsTyping(false);
+        return;
+      }
+
+      // Send both frames to image analysis for comprehensive context
+      const images: { image: string; label: string }[] = [];
+      if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
+      if (backFrame) images.push({ image: backFrame, label: "back_camera" });
+
+      const { data, error } = await supabase.functions.invoke("aori-image-analyze", {
+        body: {
+          image: images[0].image,
+          secondImage: images[1]?.image || null,
+          mimeType: "image/jpeg",
+          userMessage: `The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment, and anything interesting you notice. Be specific and observant.`,
+        },
+      });
+
+      if (error) throw error;
+      const emotion = (data.emotion || "thinking") as AoriEmotion;
+      const responseText = data.text || "Hmm~ I can't quite figure it out... 🤔";
+      changeEmotion(emotion);
+      setLastAoriText(`👁️ ${responseText}`);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: `👁️ ${responseText}`, sender: "aori", emotion, timestamp: Date.now() }]);
+      speakText(responseText);
+    } catch (e) {
+      console.error("Full context analysis error:", e);
+      const errMsg = "Mou... I couldn't analyze what you're doing right now. Try again! 😤";
+      changeEmotion("angry");
+      setLastAoriText(errMsg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+      speakText(errMsg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, webcamEnabled, backCamEnabled, captureFrame, changeEmotion, speakText]);
+
   const toggleBackCam = useCallback(async () => {
     if (backCamEnabled) {
       backCamStream?.getTracks().forEach(t => t.stop());
