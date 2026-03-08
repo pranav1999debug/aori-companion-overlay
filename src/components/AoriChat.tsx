@@ -1372,6 +1372,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
                 className={`p-2 rounded-full transition-colors ${voiceModeActive ? "bg-destructive/20 text-destructive animate-pulse" : "text-white/40 hover:text-white/70"}`}>
                 {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
+              <input type="file" ref={fileInputChatRef} accept="image/*" className="hidden" onChange={onFileChange} />
+              <button type="button" onClick={() => fileInputChatRef.current?.click()} className="p-2 rounded-full text-white/40 hover:text-white/70 transition-colors" title="Send image">
+                <ImagePlus className="w-5 h-5" />
+              </button>
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
