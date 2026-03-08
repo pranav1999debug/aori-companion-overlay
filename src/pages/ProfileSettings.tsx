@@ -73,6 +73,12 @@ export default function ProfileSettings() {
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [apiStatusLoading, setApiStatusLoading] = useState(false);
 
+  // User API key state
+  const [userApiKey, setUserApiKey] = useState("");
+  const [existingUserKey, setExistingUserKey] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState(false);
+  const [showKeyGuide, setShowKeyGuide] = useState(false);
+
   const fetchApiStatus = useCallback(async () => {
     setApiStatusLoading(true);
     try {
@@ -94,6 +100,62 @@ export default function ProfileSettings() {
       setApiStatusLoading(false);
     }
   }, []);
+
+  // Load user's existing API key
+  const loadUserKey = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("user_api_keys")
+      .select("api_key")
+      .eq("user_id", user.id)
+      .eq("service", "groq")
+      .maybeSingle();
+    if (data?.api_key) {
+      setExistingUserKey(data.api_key);
+      setUserApiKey(data.api_key);
+    }
+  }, [user]);
+
+  const saveUserKey = async () => {
+    if (!user || !userApiKey.trim()) {
+      toast.error("Please enter a valid API key");
+      return;
+    }
+    if (!userApiKey.startsWith("gsk_")) {
+      toast.error("Groq API keys start with 'gsk_'");
+      return;
+    }
+    setSavingKey(true);
+    try {
+      const { error } = await supabase.from("user_api_keys").upsert({
+        user_id: user.id,
+        service: "groq",
+        api_key: userApiKey.trim(),
+        label: "My Groq Key",
+        is_active: true,
+      } as any, { onConflict: "user_id,service" });
+      if (error) throw error;
+      setExistingUserKey(userApiKey.trim());
+      toast.success("API key saved! Your key will be used first 🚀");
+    } catch (e) {
+      console.error("Save key error:", e);
+      toast.error("Failed to save key");
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
+  const deleteUserKey = async () => {
+    if (!user) return;
+    try {
+      await supabase.from("user_api_keys").delete().eq("user_id", user.id).eq("service", "groq");
+      setExistingUserKey(null);
+      setUserApiKey("");
+      toast.success("API key removed");
+    } catch {
+      toast.error("Failed to remove key");
+    }
+  };
 
   useEffect(() => {
     if (user) loadContacts();
