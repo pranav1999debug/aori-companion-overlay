@@ -21,7 +21,7 @@ export default function ProfileSettings() {
   const [profession, setProfession] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const { contacts, syncing, syncFromPhone, loadContacts } = useContacts(user?.id || null);
+  const { contacts, syncing, syncFromGoogle, loadContacts } = useContacts(user?.id || null);
 
   useEffect(() => {
     if (user) loadContacts();
