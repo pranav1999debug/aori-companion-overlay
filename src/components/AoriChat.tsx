@@ -689,6 +689,20 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, [startListeningOnce]);
 
+  // Auto-activate voice mode when opened via long press
+  const autoVoiceTriggered = useRef(false);
+  useEffect(() => {
+    if (autoVoiceMode && !autoVoiceTriggered.current) {
+      autoVoiceTriggered.current = true;
+      if (!voiceModeRef.current) {
+        voiceModeRef.current = true;
+        setVoiceModeActive(true);
+        toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
+        startListeningOnce();
+      }
+    }
+  }, [autoVoiceMode, startListeningOnce]);
+
   // === Webcam (front) ===
   const captureFrame = useCallback((videoEl?: HTMLVideoElement | null): string | null => {
     const video = videoEl || videoRef.current;
