@@ -45,24 +45,28 @@ serve(async (req) => {
 
     let ttsResponse: Response | null = null;
 
-    for (const key of groqKeys) {
-      ttsResponse = await fetch("https://api.groq.com/openai/v1/audio/speech", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "canopylabs/orpheus-v1-english",
-          input: expressiveText,
-          voice: "hannah",
-          response_format: "wav",
-        }),
-      });
+    for (let i = 0; i < groqKeys.length; i++) {
+      const key = groqKeys[i];
+      try {
+        ttsResponse = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "canopylabs/orpheus-v1-english",
+            input: expressiveText,
+            voice: "hannah",
+            response_format: "wav",
+          }),
+        });
 
-      if (ttsResponse.ok) break;
-      if (ttsResponse.status === 429) { console.warn("TTS key rate limited, trying next..."); continue; }
-      break;
+        if (ttsResponse.ok) break;
+        console.warn(`TTS key ${i + 1} failed with status ${ttsResponse.status}, trying next...`);
+      } catch (fetchErr) {
+        console.warn(`TTS key ${i + 1} fetch error:`, fetchErr);
+      }
     }
 
     if (!ttsResponse || !ttsResponse.ok) {
