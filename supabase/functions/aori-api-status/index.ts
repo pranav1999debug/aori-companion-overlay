@@ -86,10 +86,11 @@ serve(async (req) => {
     const rateLimited = keyStatuses.filter(k => k.status === "rate_limited").length;
     const errored = keyStatuses.filter(k => k.status === "terms_required" || k.status === "error").length;
 
-    // Calculate overall exhaustion from keys that have usage data
+    // Calculate overall exhaustion - include all keys (available ones count as 0 used)
+    const allKeysLimit = keyStatuses.filter(k => k.status !== "terms_required" && k.status !== "error").length * 3600;
     const keysWithUsage = keyStatuses.filter(k => k.used !== null && k.limit !== null);
     const totalUsed = keysWithUsage.reduce((sum, k) => sum + (k.used || 0), 0);
-    const totalLimit = keysWithUsage.reduce((sum, k) => sum + (k.limit || 0), 0);
+    const totalLimit = allKeysLimit || (keysWithUsage.reduce((sum, k) => sum + (k.limit || 0), 0));
     const overallExhaustedPercent = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
 
     return new Response(
