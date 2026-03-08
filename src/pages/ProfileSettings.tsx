@@ -552,52 +552,83 @@ export default function ProfileSettings() {
                   </button>
                 </div>
 
-                {/* Overall usage bar */}
-                <div className="space-y-1">
+                {/* Overall usage */}
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Stored: {apiStatus.totalStored} keys</span>
-                    <span>{Math.round((apiStatus.rateLimited / Math.max(apiStatus.totalStored, 1)) * 100)}% exhausted</span>
+                    <span>Overall Token Usage</span>
+                    <span className="font-semibold text-foreground">{apiStatus.overallExhaustedPercent}% used</span>
                   </div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
-                        width: `${Math.round((apiStatus.available / Math.max(apiStatus.totalStored, 1)) * 100)}%`,
-                        background: apiStatus.available > 3
+                        width: `${apiStatus.overallExhaustedPercent}%`,
+                        background: apiStatus.overallExhaustedPercent < 50
                           ? "hsl(142 71% 45%)"
-                          : apiStatus.available > 0
+                          : apiStatus.overallExhaustedPercent < 80
                           ? "hsl(38 92% 50%)"
                           : "hsl(0 84% 60%)",
                       }}
                     />
                   </div>
+                  <div className="flex justify-between text-[9px] text-muted-foreground/60">
+                    <span>{apiStatus.totalUsed.toLocaleString()} tokens used</span>
+                    <span>{apiStatus.totalLimit.toLocaleString()} total capacity</span>
+                  </div>
                 </div>
 
-                {/* Per-key details */}
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {/* Per-key details with exhaustion bars */}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
                   {apiStatus.keys.map((k, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg bg-muted/30">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${
-                        k.status === "available" ? "bg-green-400" :
-                        k.status === "rate_limited" ? "bg-amber-400" :
-                        "bg-red-400"
-                      }`} />
-                      <span className="font-mono text-muted-foreground flex-1 truncate">{k.name}</span>
-                      {k.status === "rate_limited" && k.usedPercent !== null && (
-                        <span className="text-amber-400 font-medium">{k.usedPercent}%</span>
+                    <div key={i} className="py-1.5 px-2 rounded-lg bg-muted/30 space-y-1">
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                          k.status === "available" ? "bg-green-400" :
+                          k.status === "rate_limited" ? "bg-amber-400" :
+                          "bg-red-400"
+                        }`} />
+                        <span className="font-mono text-muted-foreground flex-1 truncate">{k.name}</span>
+                        {k.usedPercent !== null && (
+                          <span className={`font-semibold ${
+                            k.usedPercent >= 100 ? "text-red-400" :
+                            k.usedPercent >= 80 ? "text-amber-400" :
+                            "text-green-400"
+                          }`}>{k.usedPercent}%</span>
+                        )}
+                        {k.retryIn && (
+                          <span className="flex items-center gap-0.5 text-muted-foreground/70 text-[10px]">
+                            <Clock className="w-2.5 h-2.5" /> {k.retryIn}
+                          </span>
+                        )}
+                        {k.error && (
+                          <span className="flex items-center gap-0.5 text-red-400 text-[10px]">
+                            <AlertTriangle className="w-2.5 h-2.5" /> {k.error}
+                          </span>
+                        )}
+                        {k.status === "available" && k.usedPercent === null && (
+                          <span className="text-green-400 text-[10px]">✓ Ready</span>
+                        )}
+                      </div>
+                      {/* Per-key usage bar */}
+                      {k.usedPercent !== null && (
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(k.usedPercent, 100)}%`,
+                              background: k.usedPercent >= 100
+                                ? "hsl(0 84% 60%)"
+                                : k.usedPercent >= 80
+                                ? "hsl(38 92% 50%)"
+                                : "hsl(142 71% 45%)",
+                            }}
+                          />
+                        </div>
                       )}
-                      {k.retryIn && (
-                        <span className="flex items-center gap-0.5 text-muted-foreground/70">
-                          <Clock className="w-2.5 h-2.5" /> {k.retryIn}
-                        </span>
-                      )}
-                      {k.error && (
-                        <span className="flex items-center gap-0.5 text-red-400">
-                          <AlertTriangle className="w-2.5 h-2.5" /> {k.error}
-                        </span>
-                      )}
-                      {k.status === "available" && (
-                        <span className="text-green-400">✓</span>
+                      {k.used !== null && k.limit !== null && (
+                        <div className="flex justify-between text-[9px] text-muted-foreground/50">
+                          <span>{k.used.toLocaleString()} / {k.limit.toLocaleString()} tokens</span>
+                        </div>
                       )}
                     </div>
                   ))}
