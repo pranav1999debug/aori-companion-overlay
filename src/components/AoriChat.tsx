@@ -794,7 +794,7 @@ export default function AoriChat() {
           : `I remember this ${label}! Same messy spot, huh~ 😏`;
         changeEmotion(data.is_new ? "excited" : "smirk");
         setLastAoriText(msg);
-        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: data.is_new ? "excited" : "smirk" }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: data.is_new ? "excited" : "smirk", timestamp: Date.now() }]);
         speakText(msg);
       }
     } catch {}
