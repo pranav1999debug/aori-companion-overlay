@@ -317,7 +317,7 @@ IMPORTANT: Always include the <phone_action> tag when the user asks to control t
     }
 
     return new Response(
-      JSON.stringify({ text: cleanText || text, emotion, isAcademic, solutionMarkdown, phoneAction }),
+      JSON.stringify({ text: cleanText || text, emotion, isAcademic, solutionMarkdown, phoneAction, suggestedActions }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
