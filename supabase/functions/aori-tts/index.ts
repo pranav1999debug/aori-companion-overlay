@@ -63,9 +63,14 @@ serve(async (req) => {
         });
 
         if (ttsResponse.ok) break;
-        console.warn(`TTS key ${i + 1} failed with status ${ttsResponse.status}, trying next...`);
+        // Capture and log the actual error body from Groq
+        let errorBody = "";
+        try {
+          errorBody = await ttsResponse.text();
+        } catch {}
+        console.error(`[${new Date().toISOString()}] TTS key ${i + 1} failed | Status: ${ttsResponse.status} | Body: ${errorBody}`);
       } catch (fetchErr) {
-        console.warn(`TTS key ${i + 1} fetch error:`, fetchErr);
+        console.error(`[${new Date().toISOString()}] TTS key ${i + 1} fetch exception:`, fetchErr);
       }
     }
 
