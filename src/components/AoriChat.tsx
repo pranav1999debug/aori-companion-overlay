@@ -19,6 +19,7 @@ interface Message {
   emotion?: AoriEmotion;
   timestamp?: number;
   imageUrl?: string;
+  summaryMarkdown?: string;
 }
 
 interface UserProfile {
