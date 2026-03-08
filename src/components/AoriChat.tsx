@@ -12,6 +12,11 @@ interface ChatMessage {
   content: string;
 }
 
+interface QuickReply {
+  label: string;
+  action: () => void;
+}
+
 interface Message {
   id: number;
   text: string;
@@ -20,6 +25,7 @@ interface Message {
   timestamp?: number;
   imageUrl?: string;
   summaryMarkdown?: string;
+  quickReplies?: QuickReply[];
 }
 
 interface UserProfile {
