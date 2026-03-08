@@ -47,6 +47,56 @@ const formatTimestamp = (ts?: number) => {
   return d.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, month: "short", day: "numeric" });
 };
 
+const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i;
+
+const downloadMarkdownAsPdf = (markdown: string, title: string) => {
+  // Create a simple HTML document from markdown for printing as PDF
+  const html = markdown
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^- (.*$)/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>');
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    // Fallback: download as text file
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_summary.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${title} - Lecture Summary</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1a1a1a; line-height: 1.6; }
+        h1 { color: #1a1f2e; border-bottom: 2px solid #6366f1; padding-bottom: 8px; }
+        h2 { color: #4338ca; margin-top: 24px; }
+        h3 { color: #6366f1; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 4px; }
+        strong { color: #1e1b4b; }
+        @media print { body { margin: 20px; } }
+      </style>
+    </head>
+    <body>${html}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  setTimeout(() => printWindow.print(), 500);
+};
+
 const ChatBubble = ({ message }: { message: Message }) => {
   const isUser = message.sender === "user";
   return (
@@ -73,6 +123,15 @@ const ChatBubble = ({ message }: { message: Message }) => {
             <img src={message.imageUrl} alt="Uploaded" className="max-w-full max-h-48 rounded-lg mb-1.5 object-contain" />
           )}
           {message.text}
+          {message.summaryMarkdown && (
+            <button
+              onClick={() => downloadMarkdownAsPdf(message.summaryMarkdown!, "Lecture_Summary")}
+              className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors w-full justify-center"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download Summary PDF
+            </button>
+          )}
         </div>
       </div>
       {message.timestamp && (
