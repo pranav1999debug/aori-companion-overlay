@@ -1,11 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { emotionCutouts } from "@/lib/aori-personality";
-import { ChevronLeft, LogOut, Save, User, Briefcase, Heart, Trash2, Phone, Loader2, Flame, Sparkles } from "lucide-react";
+import { ChevronLeft, LogOut, Save, User, Briefcase, Heart, Trash2, Phone, Loader2, Flame, Sparkles, Activity, RefreshCw, Key, Clock, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useContacts } from "@/hooks/useContacts";
+
+interface KeyStatus {
+  name: string;
+  status: "available" | "rate_limited" | "terms_required" | "error";
+  usedPercent: number | null;
+  retryIn: string | null;
+  error: string | null;
+}
+
+interface ApiStatus {
+  totalStored: number;
+  available: number;
+  rateLimited: number;
+  errored: number;
+  keys: KeyStatus[];
+}
 
 const HOBBY_OPTIONS = [
   "Gaming", "Anime", "Music", "Coding", "Reading", "Sports",
