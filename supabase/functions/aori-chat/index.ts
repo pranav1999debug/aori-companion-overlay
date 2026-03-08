@@ -192,6 +192,7 @@ serve(async (req) => {
           model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: SYSTEM_PROMPT + dynamicContext 
+              + proactivePrompt
               + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
               + (isPhoneControl ? `\n\n**PHONE CONTROL MODE:** The user wants you to control their phone. You CAN do this! Respond with your usual personality (1-2 sentences), then on a NEW LINE at the very end, output a JSON action tag like this:
 <phone_action>{"type":"flashlight","action":"on"}</phone_action>
