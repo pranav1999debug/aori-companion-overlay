@@ -13,7 +13,6 @@ import GoogleCallback from "./pages/GoogleCallback";
 import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
 import AoriChat from "./components/AoriChat";
-import FloatingAoriHead from "./components/FloatingAoriHead";
 
 function AoriChatDashboard() {
   return (
@@ -154,7 +153,7 @@ function AppRoutes() {
         } />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      {user && onboarded && <FloatingAoriHead />}
+      
     </>
   );
 }
