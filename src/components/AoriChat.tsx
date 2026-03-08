@@ -1099,7 +1099,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
         if (!webcamEnabled) {
-          toggleWebcam();
+          toggleWebcamRef.current();
         } else {
           const msg = "Baka, the camera is already on! I can see you~ 😏";
           changeEmotion("smirk");
