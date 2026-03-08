@@ -86,7 +86,24 @@ serve(async (req) => {
 
   try {
     const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary } = await req.json();
+
+    // Try to get user's own API key first
+    const authHeader = req.headers.get("Authorization");
+    let userKey: string | null = null;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const sb = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data } = await sb.from("user_api_keys").select("api_key").eq("service", "groq").eq("is_active", true).maybeSingle();
+        if (data?.api_key) userKey = data.api_key;
+      } catch {}
+    }
+
     const groqKeys = [
+      ...(userKey ? [userKey] : []),
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
       Deno.env.get("GROQ_API_KEY_3"),
