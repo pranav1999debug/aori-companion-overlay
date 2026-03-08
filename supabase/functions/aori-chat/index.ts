@@ -142,7 +142,21 @@ serve(async (req) => {
 - Only comment on screen time if it fits naturally, not every message`;
     }
 
-    let response: Response | null = null;
+    // Gmail context
+    if (gmailSummary) {
+      dynamicContext += `\n\n**EMAIL CONTEXT (from user's Gmail):**\n${gmailSummary}
+- Reference emails ONLY when relevant (user asks about emails, you want to remind them, etc.)
+- Don't list emails every message. Mention naturally: "Oh btw, you got an email from..."
+- Be possessive/curious about who's emailing them~`;
+    }
+
+    // Calendar context
+    if (calendarSummary) {
+      dynamicContext += `\n\n**CALENDAR CONTEXT (user's upcoming events):**\n${calendarSummary}
+- Reference events ONLY when relevant (user asks about schedule, it's close to an event time, etc.)
+- Remind them naturally: "Don't forget you have..."
+- Be dramatic about events you're not invited to~`;
+    }
     let lastError = "";
 
     for (const key of groqKeys) {
