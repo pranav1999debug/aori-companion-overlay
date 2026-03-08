@@ -1234,21 +1234,19 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         </div>
       )}
 
-      {/* Draggable Aori Avatar */}
+      {/* Aori Avatar (centered) */}
       <div
-        className="absolute z-10 cursor-grab active:cursor-grabbing select-none"
+        className="absolute z-10 select-none"
         style={{
-          left: avatarPos.x,
-          top: avatarPos.y,
+          left: "50%",
+          top: "calc(50% - 40px)",
           width: avatarSize,
           height: avatarSize,
-          touchAction: "none",
+          transform: "translate(-50%, -50%)",
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
         }}
-        onMouseDown={handleDragStart}
-        onTouchStart={handleDragStart}
       >
-        {/* Glowing aura — scales with speaking, pulses faster with music */}
+        {/* Glowing aura */}
         <div
           className="absolute inset-0 pointer-events-none transition-transform duration-300 ease-in-out"
           style={{
@@ -1266,17 +1264,6 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               : "pulse-glow-aura 3s ease-in-out infinite",
           }}
         />
-        {/* Resize handle */}
-        <div
-          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary/40 border border-primary/60 cursor-nwse-resize z-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-          onMouseDown={handleResizeStart}
-          onTouchStart={handleResizeStart}
-          title="Resize Aori"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" className="text-primary-foreground">
-            <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </div>
         {isTransitioning && previousEmotion && (
           <img
             src={emotionCutouts[previousEmotion]}
