@@ -794,7 +794,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
     // Check for YouTube link with summarize intent
     const ytMatch = text.match(YOUTUBE_URL_REGEX);
-    const hasSummarizeIntent = /\b(summar|notes?|lecture|recap|study|explain this video|report|pdf|download)\b/i.test(text);
+    const hasSummarizeIntent = /\b(summari[sz]e|summary|notes?|lecture|recap|study|explain this video|report|pdf|download)\b/i.test(text);
     const hasFollowUpSummaryIntent = /\b(i\s*want\s*(a\s*)?(pdf|summary|notes|report)|give\s*me\s*(a\s*)?(pdf|summary|notes|report)|do\s*it|seriously|im\s*serious|i'?m\s*serious|please\s*(summar|pdf|notes)|just\s*(summar|do\s*it))\b/i.test(text);
     
     if (ytMatch && hasSummarizeIntent) {
