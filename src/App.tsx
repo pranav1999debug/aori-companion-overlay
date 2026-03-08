@@ -12,7 +12,7 @@ import SetupGuide from "./pages/SetupGuide";
 import GoogleCallback from "./pages/GoogleCallback";
 import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
-import FloatingAoriHead from "./components/FloatingAoriHead";
+
 import DraggableCutout from "./components/DraggableCutout";
 
 const queryClient = new QueryClient();
