@@ -1086,14 +1086,13 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
 
       // Voice command detection
-      const lowerTranscript = transcript.toLowerCase();
 
       // Camera commands
       const openFrontCam = /\b(open|turn on|start|enable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
       const closeFrontCam = /\b(close|turn off|stop|disable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
       const openBackCam = /\b(open|turn on|start|enable)\b.*back\s*camera\b/i.test(transcript);
       const closeBackCam = /\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(transcript);
-      const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha?|kya\s*ho\s*raha))\b/i.test(transcript);
+      const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha|kya\s*ho\s*raha)\b/i.test(transcript);
 
       if (openFrontCam) {
         const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
