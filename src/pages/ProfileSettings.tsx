@@ -588,12 +588,14 @@ export default function ProfileSettings() {
                           "bg-red-400"
                         }`} />
                         <span className="font-mono text-muted-foreground flex-1 truncate">{k.name}</span>
-                        {k.usedPercent !== null && (
+                        {k.used !== null && k.limit !== null && (
                           <span className={`font-semibold ${
-                            k.usedPercent >= 100 ? "text-red-400" :
-                            k.usedPercent >= 80 ? "text-amber-400" :
+                            (k.usedPercent ?? 0) >= 100 ? "text-red-400" :
+                            (k.usedPercent ?? 0) >= 80 ? "text-amber-400" :
                             "text-green-400"
-                          }`}>{k.usedPercent}%</span>
+                          }`}>
+                            {k.used.toLocaleString()} / {k.limit.toLocaleString()}
+                          </span>
                         )}
                         {k.retryIn && (
                           <span className="flex items-center gap-0.5 text-muted-foreground/70 text-[10px]">
