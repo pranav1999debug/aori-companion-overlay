@@ -7,32 +7,37 @@ import { toast } from "sonner";
 export default function GoogleCallback() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<"processing" | "success" | "error">("processing");
+  const [debugInfo, setDebugInfo] = useState<string>("Starting...");
 
   useEffect(() => {
     const exchangeCode = async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
       const error = params.get("error");
+      
+      setDebugInfo(`URL: ${window.location.href.substring(0, 80)}...\nCode: ${code ? `yes (${code.length} chars)` : "no"}\nError param: ${error || "none"}`);
 
       if (error || !code) {
         setStatus("error");
+        setDebugInfo(prev => prev + `\n❌ No code or error param: ${error}`);
         toast.error("Google authorization was cancelled or failed");
-        setTimeout(() => navigate("/setup"), 2000);
+        setTimeout(() => navigate("/setup"), 3000);
         return;
       }
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("[GoogleCallback] session exists:", !!session);
+        setDebugInfo(prev => prev + `\nSession: ${session ? "yes" : "NO SESSION"}`);
+        
         if (!session) {
-          console.error("[GoogleCallback] No session found, redirecting to auth");
           setStatus("error");
-          navigate("/auth");
+          setDebugInfo(prev => prev + "\n❌ No session - redirecting to auth");
+          setTimeout(() => navigate("/auth"), 2000);
           return;
         }
 
         const redirectUri = `${window.location.origin}/google-callback`;
-        console.log("[GoogleCallback] Exchanging code with redirectUri:", redirectUri);
+        setDebugInfo(prev => prev + `\nRedirect URI: ${redirectUri}\nCalling PUT...`);
 
         const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`,
@@ -48,17 +53,18 @@ export default function GoogleCallback() {
         );
 
         const data = await res.json();
-        console.log("[GoogleCallback] Response status:", res.status, "data:", data);
+        setDebugInfo(prev => prev + `\nResponse: ${res.status} ${JSON.stringify(data).substring(0, 100)}`);
+        
         if (!res.ok) throw new Error(data.error || "Token exchange failed");
 
         setStatus("success");
         toast.success("Google connected! 🎉");
         setTimeout(() => navigate("/setup"), 1500);
       } catch (e: any) {
-        console.error("[GoogleCallback] OAuth callback error:", e?.message || e);
         setStatus("error");
+        setDebugInfo(prev => prev + `\n❌ Error: ${e?.message || e}`);
         toast.error(`Failed to connect Google: ${e?.message || "Unknown error"}`);
-        setTimeout(() => navigate("/setup"), 2000);
+        setTimeout(() => navigate("/setup"), 5000);
       }
     };
 
@@ -91,6 +97,8 @@ export default function GoogleCallback() {
             <p className="text-sm text-muted-foreground">Redirecting back...</p>
           </>
         )}
+        {/* Debug info - remove after fixing */}
+        <pre className="mt-4 p-3 bg-muted rounded text-xs text-left max-w-sm overflow-auto whitespace-pre-wrap break-all">{debugInfo}</pre>
       </div>
     </div>
   );
