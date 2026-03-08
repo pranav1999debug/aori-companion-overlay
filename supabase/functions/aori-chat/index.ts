@@ -157,6 +157,8 @@ serve(async (req) => {
 - Remind them naturally: "Don't forget you have..."
 - Be dramatic about events you're not invited to~`;
     }
+
+    let response: Response | null = null;
     let lastError = "";
 
     for (const key of groqKeys) {
