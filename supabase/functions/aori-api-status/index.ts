@@ -30,7 +30,6 @@ serve(async (req) => {
     const keyStatuses = await Promise.all(
       keys.map(async ({ name, key }) => {
         try {
-          // Use a minimal TTS request to check rate limits
           const res = await fetch("https://api.groq.com/openai/v1/audio/speech", {
             method: "POST",
             headers: {
@@ -46,23 +45,35 @@ serve(async (req) => {
           });
 
           if (res.ok) {
-            // Consume body
             await res.arrayBuffer();
-            return { name, status: "available", used: 0, limit: 3600, retryIn: null, error: null };
+            // Parse rate limit headers from successful response
+            const remaining = res.headers.get("x-ratelimit-remaining-tokens");
+            const limit = res.headers.get("x-ratelimit-limit-tokens");
+            const dailyRemaining = res.headers.get("x-ratelimit-remaining-requests");
+            const dailyLimit = res.headers.get("x-ratelimit-limit-requests");
+            // Estimate usage from remaining/limit headers
+            let used: number | null = null;
+            let total: number | null = null;
+            if (remaining && limit) {
+              total = parseInt(limit);
+              used = total - parseInt(remaining);
+            }
+            return { name, status: "available", used, limit: total || 3600, retryIn: null, error: null };
           }
 
           const body = await res.text();
           
           if (res.status === 429) {
-            // Parse rate limit info from error body
             const usedMatch = body.match(/Used (\d+)/);
             const limitMatch = body.match(/Limit (\d+)/);
             const retryMatch = body.match(/try again in (.+?)\./);
+            const used = usedMatch ? parseInt(usedMatch[1]) : null;
+            const limit = limitMatch ? parseInt(limitMatch[1]) : 3600;
             return {
               name,
               status: "rate_limited",
-              used: usedMatch ? parseInt(usedMatch[1]) : null,
-              limit: limitMatch ? parseInt(limitMatch[1]) : 3600,
+              used,
+              limit,
               retryIn: retryMatch ? retryMatch[1] : null,
               error: null,
             };
@@ -83,16 +94,27 @@ serve(async (req) => {
     const rateLimited = keyStatuses.filter(k => k.status === "rate_limited").length;
     const errored = keyStatuses.filter(k => k.status === "terms_required" || k.status === "error").length;
 
+    // Calculate overall exhaustion from keys that have usage data
+    const keysWithUsage = keyStatuses.filter(k => k.used !== null && k.limit !== null);
+    const totalUsed = keysWithUsage.reduce((sum, k) => sum + (k.used || 0), 0);
+    const totalLimit = keysWithUsage.reduce((sum, k) => sum + (k.limit || 0), 0);
+    const overallExhaustedPercent = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
+
     return new Response(
       JSON.stringify({
         totalStored,
         available,
         rateLimited,
         errored,
+        overallExhaustedPercent,
+        totalUsed,
+        totalLimit,
         keys: keyStatuses.map(k => ({
           name: k.name.replace("GROQ_API_KEY", "Key").replace("_", " "),
           status: k.status,
-          usedPercent: k.used && k.limit ? Math.round((k.used / k.limit) * 100) : null,
+          used: k.used,
+          limit: k.limit,
+          usedPercent: k.used !== null && k.limit ? Math.round((k.used / k.limit) * 100) : null,
           retryIn: k.retryIn,
           error: k.error,
         })),
