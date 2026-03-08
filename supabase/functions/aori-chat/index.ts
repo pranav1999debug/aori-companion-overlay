@@ -251,22 +251,24 @@ Rules:
             { role: "system", content: SYSTEM_PROMPT + dynamicContext 
               + proactivePrompt
               + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
-              + (isPhoneControl ? `\n\n**PHONE CONTROL MODE:** The user wants you to control their phone. You CAN do this! Respond with your usual personality (1-2 sentences), then on a NEW LINE at the very end, output a JSON action tag like this:
+              + (isPhoneControl || isWhatsAppFlow ? `\n\n**PHONE CONTROL MODE:** You CAN control the user's phone! Respond in character (1-2 sentences), then on a NEW LINE output a JSON action tag:
 <phone_action>{"type":"flashlight","action":"on"}</phone_action>
 
-Available actions:
-- Flashlight: {"type":"flashlight","action":"on|off|toggle"}
-- Volume: {"type":"volume","action":"up|down|mute|unmute"}
-- Timer: {"type":"timer","action":"set","value":"5"} (value in minutes)
-- Alarm: {"type":"alarm","action":"set","value":"7:30 AM"}
-- Open app: {"type":"open_app","action":"open","value":"camera|settings|youtube|whatsapp|instagram|spotify|calculator|clock|messages|phone|gmail|chrome|maps|twitter|telegram|tiktok|facebook|notes|music"}
-- WhatsApp message: {"type":"whatsapp","action":"send","phone":"919876543210","message":"Hey! How are you?"}
-  - phone: number WITH country code, no + or spaces (e.g., 919876543210 for India +91)
-  - message: the text to pre-fill
-  - If user doesn't specify a number, omit "phone" field (opens WhatsApp to choose contact)
-  - If user says "send hi to mom on whatsapp", ask for the number OR omit phone to let them pick
+Actions: flashlight(on|off|toggle), volume(up|down|mute|unmute), timer(set, value in min), alarm(set, value="7:30 AM"), open_app(open, value="spotify|camera|gmail|..."), whatsapp(send, phone="919876543210", message="Hi!")
+- phone: number WITH country code, no + or spaces
+- message: text to pre-fill
 
-IMPORTANT: Always include the <phone_action> tag when the user asks to control their phone. Be enthusiastic about your phone powers!` : "")
+**MULTI-TURN WHATSAPP:** Users often split requests:
+- "Send WhatsApp" -> ask who -> "mom" -> find contact -> ask what to say -> "I'm okay" -> send with <phone_action>
+- "WhatsApp mom saying hi" -> find contact and send immediately
+- "to mom" (after earlier WhatsApp mention) -> this IS the name, find contact
+- "say I'm okay" (after contact found) -> this IS the message content, send now
+
+RULES:
+- If PHONE CONTACTS section has a number for this person, use it DIRECTLY in <phone_action>. NEVER ask for the number.
+- If user gives message content ("saying hi", "say I'm okay", "tell her..."), put it in "message" field and send.
+- If message not specified yet, ask what to say. If name not specified, ask who.
+- ALWAYS output <phone_action> when you have both phone number AND message content.` : "")
             },
             ...messages,
           ],
