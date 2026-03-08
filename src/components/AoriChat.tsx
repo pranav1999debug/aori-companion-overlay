@@ -1630,7 +1630,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       {/* Bottom input bar */}
       <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
         <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-center">
-          <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={onFileChange} />
+          <input type="file" ref={fileInputRef} accept="image/*,.pdf,application/pdf" className="hidden" onChange={onFileChange} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full text-white/40 hover:text-white/70 transition-colors shrink-0" title="Send image">
             <ImagePlus className="w-5 h-5" />
           </button>
