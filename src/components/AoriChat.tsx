@@ -933,7 +933,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         speakText(msg);
       }
     } catch {}
-  }, [captureFrame, environmentMemories, deviceId, changeEmotion, speakText]);
+  }, [captureFrame, environmentMemories, userId, changeEmotion, speakText]);
 
   const toggleBackCam = useCallback(async () => {
     if (backCamEnabled) {
