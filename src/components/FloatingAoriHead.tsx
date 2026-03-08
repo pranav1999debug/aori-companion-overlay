@@ -37,7 +37,6 @@ export default function FloatingAoriHead() {
 
   const handlePointerDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
-      if (expanded) return;
 
       // Pinch-to-zoom: two fingers
       if ("touches" in e && e.touches.length === 2) {
@@ -117,10 +116,10 @@ export default function FloatingAoriHead() {
         }
 
         if (dragRef.current) {
-          // Short tap → open chat
+          // Short tap → toggle chat
           if (!dragRef.current.moved && !longPressFired.current) {
-            setExpanded(true);
-            setVoiceActivated(false);
+            setExpanded((prev) => !prev);
+            if (expanded) setVoiceActivated(false);
           }
         }
 
@@ -173,49 +172,48 @@ export default function FloatingAoriHead() {
 
   return (
     <>
-      {!expanded && (
+      {/* Always show the small head — even when chat is expanded */}
+      <div
+        ref={containerRef}
+        className="fixed z-[10000] cursor-grab active:cursor-grabbing select-none"
+        style={{
+          left: pos.x,
+          top: pos.y,
+          width: headSize,
+          height: headSize,
+          touchAction: "none",
+          transition: dragRef.current?.moved ? "none" : "left 0.3s ease-out, top 0.3s ease-out, width 0.15s ease-out, height 0.15s ease-out",
+        }}
+        onMouseDown={handlePointerDown}
+        onTouchStart={handlePointerDown}
+      >
+        {/* Glow ring */}
         <div
-          ref={containerRef}
-          className="fixed z-[9999] cursor-grab active:cursor-grabbing select-none"
+          className="absolute inset-[-4px] rounded-full"
           style={{
-            left: pos.x,
-            top: pos.y,
-            width: headSize,
-            height: headSize,
-            touchAction: "none",
-            transition: dragRef.current?.moved ? "none" : "left 0.3s ease-out, top 0.3s ease-out, width 0.15s ease-out, height 0.15s ease-out",
+            background: "radial-gradient(circle, hsl(var(--primary) / 0.4) 0%, transparent 70%)",
+            filter: "blur(6px)",
+            animation: "pulse-glow-aura 3s ease-in-out infinite",
           }}
-          onMouseDown={handlePointerDown}
-          onTouchStart={handlePointerDown}
+        />
+        {/* Avatar circle */}
+        <div
+          className="w-full h-full rounded-full overflow-hidden ring-2 ring-primary/60 shadow-lg shadow-primary/20 bg-card"
+          style={{ animation: "aori-breathe 2.5s ease-in-out infinite" }}
         >
-          {/* Glow ring */}
-          <div
-            className="absolute inset-[-4px] rounded-full"
-            style={{
-              background: "radial-gradient(circle, hsl(var(--primary) / 0.4) 0%, transparent 70%)",
-              filter: "blur(6px)",
-              animation: "pulse-glow-aura 3s ease-in-out infinite",
-            }}
+          <img
+            src={emotionCutouts.smirk}
+            alt="Aori"
+            className="w-full h-full object-cover object-top"
+            draggable={false}
           />
-          {/* Avatar circle */}
-          <div
-            className="w-full h-full rounded-full overflow-hidden ring-2 ring-primary/60 shadow-lg shadow-primary/20 bg-card"
-            style={{ animation: "aori-breathe 2.5s ease-in-out infinite" }}
-          >
-            <img
-              src={emotionCutouts.smirk}
-              alt="Aori"
-              className="w-full h-full object-cover object-top"
-              draggable={false}
-            />
-          </div>
-          {/* Online indicator dot */}
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-accent ring-2 ring-card" />
-          </span>
         </div>
-      )}
+        {/* Online indicator dot */}
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-accent ring-2 ring-card" />
+        </span>
+      </div>
 
       {expanded && (
         <div className="fixed inset-0 z-[9998]">
