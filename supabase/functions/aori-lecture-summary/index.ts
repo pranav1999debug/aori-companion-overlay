@@ -251,7 +251,8 @@ Be thorough but concise. Use markdown formatting. If it's a technical/STEM lectu
       summary,
       videoTitle: videoInfo?.title || videoId,
       videoChannel: videoInfo?.channel || "Unknown",
-      transcriptLength: transcript.length,
+      transcriptLength: transcript?.length || 0,
+      usedVideoAnalysis: usedFallback,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
