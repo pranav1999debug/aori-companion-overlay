@@ -109,6 +109,20 @@ export default function FloatingAoriHead() {
     [expanded, pos, snapToEdge]
   );
 
+  // Keep screen awake while chat is expanded
+  useEffect(() => {
+    if (expanded) {
+      KeepAwake.keepAwake().catch(() => {
+        // Silently fail on web/unsupported platforms
+      });
+    } else {
+      KeepAwake.allowSleep().catch(() => {});
+    }
+    return () => {
+      KeepAwake.allowSleep().catch(() => {});
+    };
+  }, [expanded]);
+
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
