@@ -3,6 +3,20 @@ import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Inf
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import dashboardBg from "@/assets/dashboard-bg.jpg";
+import bgHappy from "@/assets/bg-happy.jpg";
+import bgSad from "@/assets/bg-sad.jpg";
+import bgAngry from "@/assets/bg-angry.jpg";
+import bgLove from "@/assets/bg-love.jpg";
+import bgSleepy from "@/assets/bg-sleepy.jpg";
+import bgExcited from "@/assets/bg-excited.jpg";
+import bgThinking from "@/assets/bg-thinking.jpg";
+import bgProud from "@/assets/bg-proud.jpg";
+import bgShy from "@/assets/bg-shy.jpg";
+import bgJealous from "@/assets/bg-jealous.jpg";
+import bgEmbarrassed from "@/assets/bg-embarrassed.jpg";
+import bgShock from "@/assets/bg-shock.jpg";
+import bgSmirk from "@/assets/bg-smirk.jpg";
+import bgConfused from "@/assets/bg-confused.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
