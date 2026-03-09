@@ -477,7 +477,7 @@ CRITICAL RULES:
     }
 
     return new Response(
-      JSON.stringify({ text: cleanText || text, emotion, isAcademic, solutionMarkdown, phoneAction, suggestedActions }),
+      JSON.stringify({ text: cleanText || text, emotion, isAcademic, solutionMarkdown, phoneAction, suggestedActions, imagePrompt }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
