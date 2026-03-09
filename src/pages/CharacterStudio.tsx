@@ -49,6 +49,7 @@ export default function CharacterStudio() {
         setCharacterName((data as any).character_name || "");
         setCharacterPersonality((data as any).character_personality || "");
         setCharacterSpeakingStyle((data as any).character_speaking_style || "");
+        setCharacterAppearance((data as any).character_appearance || "");
       }
 
       // Load existing avatar URLs from storage
