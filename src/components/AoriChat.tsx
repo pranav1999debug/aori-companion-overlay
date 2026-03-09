@@ -2230,9 +2230,21 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </div>
             <button
               onClick={() => {
-                localStorage.removeItem("aori-messages");
-                localStorage.removeItem("aori-chat-history");
-                setMessages([firstTimeGreeting]);
+                // Soft-delete: mark all current messages as deleted, preserve for AI context
+                const deletedHistory: ChatMessage[] = [];
+                try {
+                  const existing = localStorage.getItem("aori-deleted-history");
+                  if (existing) deletedHistory.push(...JSON.parse(existing));
+                } catch {}
+                // Add current chat history to deleted history (keep last 100 for context)
+                const combined = [...deletedHistory, ...chatHistory].slice(-100);
+                localStorage.setItem("aori-deleted-history", JSON.stringify(combined));
+                
+                // Mark messages as deleted instead of removing
+                setMessages(prev => [
+                  ...prev.map(m => ({ ...m, deleted: true })),
+                  firstTimeGreeting,
+                ]);
                 setChatHistory([]);
                 setCurrentEmotion("smirk");
                 setLastAoriText(firstTimeGreeting.text);
