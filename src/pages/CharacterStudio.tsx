@@ -27,7 +27,13 @@ export default function CharacterStudio() {
   const [customAvatars, setCustomAvatars] = useState<Record<string, string>>({});
   const [uploadingEmotion, setUploadingEmotion] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const baseImageInputRef = useRef<HTMLInputElement>(null);
   const [selectedEmotion, setSelectedEmotion] = useState<AoriEmotion | null>(null);
+
+  // Generation state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generatingEmotion, setGeneratingEmotion] = useState<string | null>(null);
 
   // Load existing character data
   useEffect(() => {
