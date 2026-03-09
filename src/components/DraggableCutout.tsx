@@ -119,7 +119,7 @@ export default function DraggableCutout() {
         src={emotionCutouts.happy}
         alt="Aori"
         className="w-full h-full object-contain drop-shadow-lg"
-        style={{ animation: "aori-breathe 2.5s ease-in-out infinite" }}
+        style={{ animation: "aori-breathe 2.5s ease-in-out infinite", mixBlendMode: "multiply" }}
         draggable={false}
       />
     </div>
