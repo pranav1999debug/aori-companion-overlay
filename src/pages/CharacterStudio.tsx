@@ -445,12 +445,23 @@ export default function CharacterStudio() {
                           <Upload className="w-3.5 h-3.5" />
                         </button>
                         {customAvatars[emotion] && (
-                          <button
-                            onClick={() => handleRemoveAvatar(emotion)}
-                            className="p-1.5 rounded-full bg-white/20 text-white hover:bg-destructive/60 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <>
+                            <a
+                              href={customAvatars[emotion]}
+                              download={`${emotion}.png`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                            <button
+                              onClick={() => handleRemoveAvatar(emotion)}
+                              className="p-1.5 rounded-full bg-white/20 text-white hover:bg-destructive/60 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
                       </>
                     )}
