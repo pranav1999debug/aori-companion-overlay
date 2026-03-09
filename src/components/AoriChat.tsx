@@ -2310,10 +2310,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </button>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.filter(msg => !msg.deleted).map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} />)}
+            {messages.filter(msg => !msg.deleted).map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} getAvatarFn={getAvatar} />)}
             {isTyping && (
               <div className="flex gap-2 items-end" style={{ animation: "slide-up 0.3s ease-out" }}>
-                <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
+                <img src={getAvatar(currentEmotion)} alt={companionName} className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
                 <div className="bg-white/[0.06] px-4 py-3 rounded-2xl rounded-bl-md">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: "0ms" }} />
