@@ -153,7 +153,7 @@ const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   setTimeout(() => printWindow.print(), 800);
 };
 
-const ChatBubble = ({ message, onDismissQuickReplies, onImageClick }: { message: Message; onDismissQuickReplies?: (id: number) => void; onImageClick?: (src: string) => void }) => {
+const ChatBubble = ({ message, onDismissQuickReplies, onImageClick, getAvatarFn }: { message: Message; onDismissQuickReplies?: (id: number) => void; onImageClick?: (src: string) => void; getAvatarFn?: (e: AoriEmotion) => string }) => {
   const isUser = message.sender === "user";
   return (
     <div
@@ -163,8 +163,8 @@ const ChatBubble = ({ message, onDismissQuickReplies, onImageClick }: { message:
       <div className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"} items-end`}>
         {!isUser && message.emotion && (
           <img
-            src={emotionCutouts[message.emotion]}
-            alt="Aori"
+            src={getAvatarFn ? getAvatarFn(message.emotion) : emotionCutouts[message.emotion]}
+            alt="Companion"
             className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30 shrink-0"
           />
         )}
