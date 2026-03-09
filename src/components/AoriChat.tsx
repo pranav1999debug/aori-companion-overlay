@@ -3,6 +3,20 @@ import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Inf
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import dashboardBg from "@/assets/dashboard-bg.jpg";
+import bgHappy from "@/assets/bg-happy.jpg";
+import bgSad from "@/assets/bg-sad.jpg";
+import bgAngry from "@/assets/bg-angry.jpg";
+import bgLove from "@/assets/bg-love.jpg";
+import bgSleepy from "@/assets/bg-sleepy.jpg";
+import bgExcited from "@/assets/bg-excited.jpg";
+import bgThinking from "@/assets/bg-thinking.jpg";
+import bgProud from "@/assets/bg-proud.jpg";
+import bgShy from "@/assets/bg-shy.jpg";
+import bgJealous from "@/assets/bg-jealous.jpg";
+import bgEmbarrassed from "@/assets/bg-embarrassed.jpg";
+import bgShock from "@/assets/bg-shock.jpg";
+import bgSmirk from "@/assets/bg-smirk.jpg";
+import bgConfused from "@/assets/bg-confused.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -315,7 +329,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
   const companionName = userProfile?.character_name || localStorage.getItem("aori-character-name") || "Aori";
   const getAvatar = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] || emotionCutouts[emotion], [customAvatarMap]);
-  const getBgImage = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] ? dashboardBg : emotionImages[emotion], [customAvatarMap]);
+  const customEmotionBgs: Record<AoriEmotion, string> = {
+    happy: bgHappy, sad: bgSad, angry: bgAngry, love: bgLove, sleepy: bgSleepy,
+    excited: bgExcited, thinking: bgThinking, proud: bgProud, shy: bgShy,
+    jealous: bgJealous, embarrassed: bgEmbarrassed, shock: bgShock, smirk: bgSmirk, confused: bgConfused,
+  };
+  const getBgImage = useCallback((emotion: AoriEmotion) => {
+    if (Object.keys(customAvatarMap).length > 0) return customEmotionBgs[emotion] || dashboardBg;
+    return emotionImages[emotion];
+  }, [customAvatarMap]);
 
   const returningGreetings: { text: string; emotion: AoriEmotion }[] = [
     { text: `Oh~ ${userName}'s back! Missed me that much, huh? 😏💙`, emotion: "smirk" },
