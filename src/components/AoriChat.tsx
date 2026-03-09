@@ -1904,9 +1904,16 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         visionContext = lastObservationRef.current || undefined;
       }
 
+      let deletedHistoryProactive: ChatMessage[] = [];
+      try {
+        const dh = localStorage.getItem("aori-deleted-history");
+        if (dh) deletedHistoryProactive = JSON.parse(dh);
+      } catch {}
+
       const { data, error } = await supabase.functions.invoke("aori-chat", {
         body: {
           messages: chatHistory.slice(-6),
+          deletedHistory: deletedHistoryProactive.slice(-30),
           userProfile,
           knownFaces,
           environmentMemories,
