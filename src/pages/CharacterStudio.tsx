@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AoriEmotion, emotionCutouts, emotionLabels } from "@/lib/aori-personality";
-import { ChevronLeft, Save, Upload, Trash2, Loader2, Sparkles, MessageSquare, Palette, Image as ImageIcon, RotateCcw } from "lucide-react";
+import { ChevronLeft, Save, Upload, Trash2, Loader2, Sparkles, MessageSquare, Palette, Image as ImageIcon, RotateCcw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 
 const EMOTIONS: AoriEmotion[] = [
   "happy", "smirk", "excited", "angry", "shy", "sad", "love",
@@ -26,7 +27,13 @@ export default function CharacterStudio() {
   const [customAvatars, setCustomAvatars] = useState<Record<string, string>>({});
   const [uploadingEmotion, setUploadingEmotion] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const baseImageInputRef = useRef<HTMLInputElement>(null);
   const [selectedEmotion, setSelectedEmotion] = useState<AoriEmotion | null>(null);
+
+  // Generation state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generatingEmotion, setGeneratingEmotion] = useState<string | null>(null);
 
   // Load existing character data
   useEffect(() => {
@@ -204,6 +211,89 @@ export default function CharacterStudio() {
     setSelectedEmotion(null);
   }, [selectedEmotion, handleUploadAvatar]);
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleGenerateAll = useCallback(async (file: File) => {
+    if (!user) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files allowed!");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Max 5MB per image!");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationProgress(0);
+
+    try {
+      const base64 = await fileToBase64(file);
+      let completed = 0;
+
+      for (const emotion of EMOTIONS) {
+        setGeneratingEmotion(emotion);
+        try {
+          const { data, error } = await supabase.functions.invoke("aori-generate-expressions", {
+            body: { baseImage: base64, emotion, userId: user.id },
+          });
+
+          if (error) {
+            console.error(`Error generating ${emotion}:`, error);
+            toast.error(`Failed to generate ${emotionLabels[emotion]}`);
+          } else if (data?.imageUrl) {
+            setCustomAvatars(prev => ({ ...prev, [emotion]: data.imageUrl }));
+          } else if (data?.error) {
+            console.error(`${emotion} error:`, data.error);
+            if (data.error.includes("Rate limited")) {
+              toast.error("Rate limited! Waiting before continuing...");
+              await new Promise(r => setTimeout(r, 5000));
+              // Retry once
+              const { data: retryData } = await supabase.functions.invoke("aori-generate-expressions", {
+                body: { baseImage: base64, emotion, userId: user.id },
+              });
+              if (retryData?.imageUrl) {
+                setCustomAvatars(prev => ({ ...prev, [emotion]: retryData.imageUrl }));
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Failed ${emotion}:`, err);
+        }
+
+        completed++;
+        setGenerationProgress(Math.round((completed / EMOTIONS.length) * 100));
+        
+        // Small delay between requests to avoid rate limiting
+        if (completed < EMOTIONS.length) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+
+      toast.success("All expressions generated! ✨");
+    } catch (e) {
+      console.error("Generation error:", e);
+      toast.error("Generation failed. Try again!");
+    } finally {
+      setIsGenerating(false);
+      setGeneratingEmotion(null);
+      setGenerationProgress(0);
+    }
+  }, [user]);
+
+  const onBaseImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleGenerateAll(file);
+    e.target.value = "";
+  }, [handleGenerateAll]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -241,6 +331,7 @@ export default function CharacterStudio() {
       </div>
 
       <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={onFileChange} />
+      <input type="file" ref={baseImageInputRef} accept="image/*" className="hidden" onChange={onBaseImageChange} />
 
       {/* Form */}
       <div className="flex-1 px-4 pb-4 space-y-5 overflow-y-auto">
@@ -295,7 +386,35 @@ export default function CharacterStudio() {
           <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <ImageIcon className="w-3.5 h-3.5" /> Emotion Avatars
           </label>
-          <p className="text-[11px] text-muted-foreground/60">Upload custom images for each emotion. Transparent PNGs work best. Leave empty to use defaults.</p>
+          <p className="text-[11px] text-muted-foreground/60">Upload custom images for each emotion, or upload one image to auto-generate all expressions with AI.</p>
+
+          {/* Generate All Button */}
+          <button
+            onClick={() => baseImageInputRef.current?.click()}
+            disabled={isGenerating}
+            className="w-full py-3 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating {generatingEmotion ? emotionLabels[generatingEmotion as AoriEmotion] : ""}...
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-4 h-4" />
+                Upload 1 Image → Generate All 14 Expressions
+              </>
+            )}
+          </button>
+
+          {isGenerating && (
+            <div className="space-y-1">
+              <Progress value={generationProgress} className="h-2" />
+              <p className="text-[11px] text-muted-foreground/60 text-center">
+                {generationProgress}% — {Math.round(generationProgress / 100 * EMOTIONS.length)}/{EMOTIONS.length} emotions
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-2">
             {EMOTIONS.map((emotion) => (
