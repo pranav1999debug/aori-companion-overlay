@@ -41,33 +41,46 @@ serve(async (req) => {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
-    const ext = mimeType?.includes("webm") ? "webm" : "wav";
-    const blob = new Blob([bytes], { type: mimeType || "audio/webm" });
+    const ext = mimeType?.includes("webm") ? "webm" : mimeType?.includes("ogg") ? "ogg" : "wav";
+    const contentType = mimeType || "audio/webm";
+    const file = new File([bytes], `audio.${ext}`, { type: contentType });
 
     const formData = new FormData();
-    formData.append("file", blob, `audio.${ext}`);
+    formData.append("file", file);
     formData.append("model", "whisper-large-v3");
     formData.append("response_format", "verbose_json");
 
     let response: Response | null = null;
+    let lastErrorBody = "";
 
     for (const key of groqKeys) {
-      response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}` },
-        body: formData,
-      });
+      try {
+        response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}` },
+          body: formData,
+        });
 
-      if (response.ok) break;
-      if (response.status === 429) { console.warn("STT key rate limited, trying next..."); continue; }
-      break;
+        if (response.ok) break;
+        
+        lastErrorBody = await response.text();
+        console.error(`[STT] Key failed with ${response.status}: ${lastErrorBody}`);
+        
+        if (response.status === 429) { continue; }
+        // For 400 errors, try next key in case it's a transient issue
+        if (response.status === 400) { continue; }
+        break;
+      } catch (fetchErr) {
+        console.error(`[STT] Fetch error:`, fetchErr);
+        continue;
+      }
     }
 
     if (!response || !response.ok) {
       const status = response?.status || 500;
-      console.error("All STT keys failed:", status);
+      console.error(`[STT] All keys failed. Last error: ${lastErrorBody}`);
       return new Response(
-        JSON.stringify({ error: status === 429 ? "Rate limited on all keys" : `STT API error: ${status}` }),
+        JSON.stringify({ error: status === 429 ? "Rate limited on all keys" : `STT API error: ${status}`, details: lastErrorBody }),
         { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
