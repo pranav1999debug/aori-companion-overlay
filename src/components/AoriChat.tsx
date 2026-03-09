@@ -33,6 +33,8 @@ interface Message {
   emotion?: AoriEmotion;
   timestamp?: number;
   imageUrl?: string;
+  generatedImageUrl?: string;
+  generatingImage?: boolean;
   summaryMarkdown?: string;
   quickReplies?: QuickReply[];
 }
