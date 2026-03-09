@@ -1401,6 +1401,38 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, []);
 
+  const convertToWav = useCallback(async (blob: Blob): Promise<Blob> => {
+    const audioCtx = new AudioContext({ sampleRate: 16000 });
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const numChannels = 1; // mono
+    const sampleRate = audioBuffer.sampleRate;
+    const samples = audioBuffer.getChannelData(0);
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    // WAV header
+    const writeString = (offset: number, str: string) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    await audioCtx.close();
+    return new Blob([buffer], { type: 'audio/wav' });
+  }, []);
+
   const processSTTResult = useCallback(async (audioBlob: Blob) => {
     if (audioBlob.size < 5000) {
       // Too small, likely silence — restart listening
@@ -1409,8 +1441,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
 
     try {
+      // Convert to WAV to ensure valid audio headers
+      const wavBlob = await convertToWav(audioBlob);
+
       // Convert blob to base64
-      const buffer = await audioBlob.arrayBuffer();
+      const buffer = await wavBlob.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       let binary = "";
       for (let i = 0; i < bytes.length; i++) {
@@ -1427,7 +1462,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ audio: audioBase64, mimeType: audioBlob.type }),
+          body: JSON.stringify({ audio: audioBase64, mimeType: "audio/wav" }),
         }
       );
 
