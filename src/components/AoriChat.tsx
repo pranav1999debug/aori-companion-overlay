@@ -51,6 +51,9 @@ interface UserProfile {
   aori_age?: string;
   language_style?: string;
   affection_level?: number;
+  character_name?: string;
+  character_personality?: string;
+  character_speaking_style?: string;
 }
 
 interface KnownFace {
