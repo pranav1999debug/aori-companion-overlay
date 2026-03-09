@@ -69,6 +69,7 @@ interface UserProfile {
   character_name?: string;
   character_personality?: string;
   character_speaking_style?: string;
+  character_appearance?: string;
 }
 
 interface KnownFace {
