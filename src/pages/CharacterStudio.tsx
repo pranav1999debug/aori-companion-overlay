@@ -22,6 +22,7 @@ export default function CharacterStudio() {
   const [characterName, setCharacterName] = useState("");
   const [characterPersonality, setCharacterPersonality] = useState("");
   const [characterSpeakingStyle, setCharacterSpeakingStyle] = useState("");
+  const [characterAppearance, setCharacterAppearance] = useState("");
 
   // Custom avatars per emotion
   const [customAvatars, setCustomAvatars] = useState<Record<string, string>>({});
