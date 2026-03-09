@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.aori-image-gen]
 verify_jwt = false
+
+[functions.aori-generate-expressions]
+verify_jwt = false
