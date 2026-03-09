@@ -384,6 +384,21 @@ export default function CharacterStudio() {
           <p className="text-[11px] text-muted-foreground/60">Defines speech patterns, catchphrases, and language quirks.</p>
         </div>
 
+        {/* Character Appearance */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <ImageIcon className="w-3.5 h-3.5" /> Character Appearance
+          </label>
+          <textarea
+            value={characterAppearance}
+            onChange={(e) => setCharacterAppearance(e.target.value)}
+            placeholder="Describe what your character looks like for image generation. e.g. 'A realistic young woman with long brown hair, brown eyes, fair skin, wearing a white hoodie. Ultra realistic photography style.'"
+            rows={3}
+            className="w-full px-4 py-3 rounded-xl bg-card border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+          />
+          <p className="text-[11px] text-muted-foreground/60">This is used for AI image generation. Describe hair, eyes, skin, outfit, and art style (realistic/anime).</p>
+        </div>
+
         <div className="h-px bg-border/50 my-2" />
 
         {/* Avatar Grid */}
