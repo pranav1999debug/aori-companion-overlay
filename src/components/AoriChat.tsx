@@ -250,6 +250,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [knownFaces, setKnownFaces] = useState<KnownFace[]>([]);
   const [environmentMemories, setEnvironmentMemories] = useState<EnvironmentMemory[]>([]);
+  const [customAvatarMap, setCustomAvatarMap] = useState<Record<string, string>>({});
   const [musicDetected, setMusicDetected] = useState(false);
   const musicAnalyserRef = useRef<AnalyserNode | null>(null);
   const musicStreamRef = useRef<MediaStream | null>(null);
