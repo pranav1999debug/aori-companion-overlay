@@ -7,23 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BASE_INSTRUCTION = "Using this face as reference for the character's appearance, generate a full upper-body portrait CUTOUT (head, shoulders, and upper torso visible) of this same person/character on a CLEAN SOLID WHITE BACKGROUND with NO other elements, NO shadows, NO scenery — just the character isolated on pure white so the background can be removed. Keep the exact same face, hair, and style. The character should be wearing a casual outfit. IMPORTANT: The facial expression MUST match the emotion described below — change the face accordingly while keeping the same person's identity.";
+const BASE_INSTRUCTION = `Using this face as the ONLY reference for the character's identity, generate a FULL-BODY illustration from HEAD TO TOES of this exact same character. The character must be standing on a PURE CLEAN WHITE BACKGROUND (#FFFFFF) with ABSOLUTELY NOTHING else — no ground, no shadows, no scenery, no props, no gradients, no effects. Just the character floating on solid white like a sticker cutout ready to be placed on any background. Show the ENTIRE body: head, torso, arms, hands, legs, feet — all visible. The character should wear a casual stylish outfit. The BODY LANGUAGE and POSE must strongly reflect the emotion below, not just the face. Keep the character's face, hair color, and identity identical to the reference image. CRITICAL: Change both the FACIAL EXPRESSION and the FULL BODY POSE to match the emotion.`;
 
 const EMOTION_PROMPTS: Record<string, string> = {
-  happy: `${BASE_INSTRUCTION} Expression: HAPPY — bright wide smile, raised cheeks, sparkling cheerful eyes, joyful and warm look.`,
-  smirk: `${BASE_INSTRUCTION} Expression: SMIRK — one corner of the mouth raised in a smug half-smile, one eyebrow slightly raised, mischievous confident look.`,
-  excited: `${BASE_INSTRUCTION} Expression: EXCITED — wide open sparkling eyes, big open-mouth smile, energetic and thrilled look, slightly leaning forward.`,
-  angry: `${BASE_INSTRUCTION} Expression: ANGRY — deeply furrowed brows, narrowed fierce eyes, clenched jaw or gritted teeth, tense frustrated look.`,
-  shy: `${BASE_INSTRUCTION} Expression: SHY — looking slightly away or downward, visible blush on cheeks, small timid smile, bashful and nervous body language.`,
-  sad: `${BASE_INSTRUCTION} Expression: SAD — downturned mouth corners, droopy watery eyes, slightly furrowed brows, melancholic sorrowful look.`,
-  love: `${BASE_INSTRUCTION} Expression: IN LOVE — heart-eyes or dreamy half-closed eyes, deep blush, warm adoring smile, swooning romantic look.`,
-  proud: `${BASE_INSTRUCTION} Expression: PROUD — chin tilted slightly up, confident satisfied grin, chest slightly puffed, eyes gleaming with self-assurance.`,
-  thinking: `${BASE_INSTRUCTION} Expression: THINKING — eyes looking upward or to the side, one hand touching chin, slightly pursed or neutral lips, contemplative curious look.`,
-  confused: `${BASE_INSTRUCTION} Expression: CONFUSED — head tilted to one side, one eyebrow raised higher than the other, slight frown, bewildered puzzled look.`,
-  sleepy: `${BASE_INSTRUCTION} Expression: SLEEPY — heavy half-closed droopy eyelids, open yawning mouth, relaxed slouching posture, tired drowsy look.`,
-  jealous: `${BASE_INSTRUCTION} Expression: JEALOUS — narrowed suspicious side-glancing eyes, slight pout or pressed lips, arms crossed, envious displeased look.`,
-  embarrassed: `${BASE_INSTRUCTION} Expression: EMBARRASSED — bright red blush across cheeks, wide surprised eyes, hands near face trying to hide, flustered panicked look.`,
-  shock: `${BASE_INSTRUCTION} Expression: SHOCKED — extremely wide open eyes, jaw dropped open mouth, raised eyebrows, startled frozen look.`,
+  happy: `${BASE_INSTRUCTION} Emotion: HAPPY — beaming wide smile, eyes sparkling with joy, arms open or hands clasped together cheerfully, relaxed upright posture, maybe a little bounce in stance. Whole body radiates warmth and friendliness.`,
+  smirk: `${BASE_INSTRUCTION} Emotion: SMIRK — one corner of mouth raised smugly, one eyebrow cocked, arms crossed confidently or one hand on hip, weight shifted to one leg, cocky relaxed lean. Body says "I know something you don't."`,
+  excited: `${BASE_INSTRUCTION} Emotion: EXCITED — huge open-mouth grin, wide sparkling eyes, fists pumped up or arms raised in celebration, leaning forward on toes, energetic dynamic pose. Whole body bursting with enthusiasm.`,
+  angry: `${BASE_INSTRUCTION} Emotion: ANGRY — deeply furrowed brows, gritted teeth or snarl, clenched fists at sides, tense shoulders raised, feet planted wide in aggressive stance, leaning forward slightly. Body is coiled with fury.`,
+  shy: `${BASE_INSTRUCTION} Emotion: SHY — looking down or to the side, visible blush, one arm holding the other arm, knees slightly turned inward, shoulders hunched in, small timid smile. Body language screams bashful and nervous.`,
+  sad: `${BASE_INSTRUCTION} Emotion: SAD — downturned mouth, watery droopy eyes, shoulders slumped forward, arms hanging limp or hugging self, head tilted down, weight sagging. Whole body looks defeated and melancholic.`,
+  love: `${BASE_INSTRUCTION} Emotion: IN LOVE — dreamy half-closed eyes with hearts or sparkles, deep blush, hands clasped near chest or cheek, slight swaying pose, knees slightly bent inward. Body melting with adoration.`,
+  proud: `${BASE_INSTRUCTION} Emotion: PROUD — chin up, confident grin, chest puffed out, hands on hips in a power pose or arms crossed with satisfaction, feet planted firmly, tall upright posture. Body exudes self-assurance.`,
+  thinking: `${BASE_INSTRUCTION} Emotion: THINKING — eyes looking up or to the side, one hand on chin or touching temple, slight head tilt, other arm supporting the thinking arm, weight shifted to one leg. Contemplative curious stance.`,
+  confused: `${BASE_INSTRUCTION} Emotion: CONFUSED — head tilted, one eyebrow raised, slight frown, one hand scratching head or palms up in a shrug gesture, off-balance stance. Body says "I have no idea what's going on."`,
+  sleepy: `${BASE_INSTRUCTION} Emotion: SLEEPY — heavy droopy eyelids, yawning mouth, one hand rubbing eye, slouched posture, head tilting to one side, knees slightly bent as if about to fall asleep standing. Body is completely drained.`,
+  jealous: `${BASE_INSTRUCTION} Emotion: JEALOUS — narrowed side-glancing eyes, slight pout, arms tightly crossed, body turned slightly away but eyes looking back, tense hunched shoulders. Envious and displeased body language.`,
+  embarrassed: `${BASE_INSTRUCTION} Emotion: EMBARRASSED — bright red face, wide panicked eyes, both hands covering cheeks or mouth, knees turned inward, body shrinking and cringing. Full-body flustered reaction.`,
+  shock: `${BASE_INSTRUCTION} Emotion: SHOCKED — jaw dropped wide open, eyes huge and round, hands up near face with fingers spread, body leaning back, one foot stepping back. Completely frozen startled pose.`,
 };
 
 serve(async (req) => {
