@@ -2083,6 +2083,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           height: avatarSize,
           touchAction: "none",
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
+          mixBlendMode: Object.keys(customAvatarMap).length > 0 ? "multiply" : undefined,
         }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
@@ -2110,7 +2111,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             src={getAvatar(previousEmotion)}
             alt={`${companionName} ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-            style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", mixBlendMode: "multiply", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
+            style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
             draggable={false}
           />
         )}
@@ -2119,7 +2120,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           src={getAvatar(currentEmotion)}
           alt={`${companionName} ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-          style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", mixBlendMode: "multiply", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
+          style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
         />
         {/* Resize handle */}
