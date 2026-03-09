@@ -42,7 +42,7 @@ export default function CharacterStudio() {
     const load = async () => {
       const { data } = await supabase
         .from("user_profiles")
-        .select("character_name, character_personality, character_speaking_style")
+        .select("character_name, character_personality, character_speaking_style, character_appearance")
         .eq("user_id", user.id)
         .single();
       if (data) {
