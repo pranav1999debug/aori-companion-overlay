@@ -2110,7 +2110,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             src={getAvatar(previousEmotion)}
             alt={`${companionName} ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-            style={{ animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
+            style={{
+              animation: "avatar-fade-out 0.5s ease-in-out forwards",
+              ...(Object.keys(customAvatarMap).length > 0 ? { mixBlendMode: "multiply" as const } : {}),
+            }}
             draggable={false}
           />
         )}
