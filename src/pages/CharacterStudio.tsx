@@ -22,6 +22,7 @@ export default function CharacterStudio() {
   const [characterName, setCharacterName] = useState("");
   const [characterPersonality, setCharacterPersonality] = useState("");
   const [characterSpeakingStyle, setCharacterSpeakingStyle] = useState("");
+  const [characterAppearance, setCharacterAppearance] = useState("");
 
   // Custom avatars per emotion
   const [customAvatars, setCustomAvatars] = useState<Record<string, string>>({});
@@ -41,13 +42,14 @@ export default function CharacterStudio() {
     const load = async () => {
       const { data } = await supabase
         .from("user_profiles")
-        .select("character_name, character_personality, character_speaking_style")
+        .select("character_name, character_personality, character_speaking_style, character_appearance")
         .eq("user_id", user.id)
         .single();
       if (data) {
         setCharacterName((data as any).character_name || "");
         setCharacterPersonality((data as any).character_personality || "");
         setCharacterSpeakingStyle((data as any).character_speaking_style || "");
+        setCharacterAppearance((data as any).character_appearance || "");
       }
 
       // Load existing avatar URLs from storage
@@ -145,6 +147,7 @@ export default function CharacterStudio() {
           character_name: characterName.trim() || null,
           character_personality: characterPersonality.trim() || null,
           character_speaking_style: characterSpeakingStyle.trim() || null,
+          character_appearance: characterAppearance.trim() || null,
         } as any)
         .eq("user_id", user.id);
       if (error) throw error;
@@ -176,6 +179,7 @@ export default function CharacterStudio() {
           character_name: null,
           character_personality: null,
           character_speaking_style: null,
+          character_appearance: null,
         } as any)
         .eq("user_id", user.id);
 
@@ -192,6 +196,7 @@ export default function CharacterStudio() {
       setCharacterName("");
       setCharacterPersonality("");
       setCharacterSpeakingStyle("");
+      setCharacterAppearance("");
       setCustomAvatars({});
       localStorage.removeItem("aori-character-name");
       toast.success("Reset to default Aori~ 💙");
@@ -377,6 +382,21 @@ export default function CharacterStudio() {
             className="w-full px-4 py-3 rounded-xl bg-card border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50 resize-none"
           />
           <p className="text-[11px] text-muted-foreground/60">Defines speech patterns, catchphrases, and language quirks.</p>
+        </div>
+
+        {/* Character Appearance */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <ImageIcon className="w-3.5 h-3.5" /> Character Appearance
+          </label>
+          <textarea
+            value={characterAppearance}
+            onChange={(e) => setCharacterAppearance(e.target.value)}
+            placeholder="Describe what your character looks like for image generation. e.g. 'A realistic young woman with long brown hair, brown eyes, fair skin, wearing a white hoodie. Ultra realistic photography style.'"
+            rows={3}
+            className="w-full px-4 py-3 rounded-xl bg-card border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+          />
+          <p className="text-[11px] text-muted-foreground/60">This is used for AI image generation. Describe hair, eyes, skin, outfit, and art style (realistic/anime).</p>
         </div>
 
         <div className="h-px bg-border/50 my-2" />

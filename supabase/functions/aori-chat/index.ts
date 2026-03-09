@@ -265,13 +265,20 @@ These settings OVERRIDE the base personality. If heat is "unhinged", you have NO
           dynamicContext += `\n- SPEAKING STYLE: ${userProfile.character_speaking_style}`;
           dynamicContext += `\n  This overrides the default language/speaking patterns. Follow these speech patterns exactly.`;
         }
+        if (userProfile.character_appearance) {
+          dynamicContext += `\n- PHYSICAL APPEARANCE: ${userProfile.character_appearance}`;
+          dynamicContext += `\n  Use this EXACT description for ALL image prompts. This is what the character looks like.`;
+        }
         // Override image generation appearance
+        const appearanceDesc = userProfile.character_appearance 
+          ? userProfile.character_appearance 
+          : "a character matching the personality described above";
         dynamicContext += `\n\n**IMAGE GENERATION OVERRIDE (CRITICAL):**
 - When generating <image_prompt> tags, NEVER describe the character as "blue-haired anime girl" or mention "Aori".
-- Instead, describe the character as "${charName}" and use the personality/appearance described above.
-- If the personality description mentions specific appearance traits (hair color, eye color, outfit, etc.), USE those in every image prompt.
-- If no specific appearance is described, use a generic description that matches the personality tone.
-- Match the art style to the character: if the character sounds anime-inspired, use anime style. If realistic, use realistic style. If the user asks for a specific style, follow that.
+- The character's EXACT appearance is: ${appearanceDesc}
+- EVERY image prompt MUST describe the character using these physical traits: ${appearanceDesc}
+- If the appearance says "realistic" or describes a real person, use "ultra realistic photography, studio lighting" style.
+- If the appearance says "anime" or describes an anime character, use anime art style.
 - The character in generated images MUST match the custom character, NOT the default blue-haired Aori.`;
       }
     }

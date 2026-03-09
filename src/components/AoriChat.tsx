@@ -69,6 +69,7 @@ interface UserProfile {
   character_name?: string;
   character_personality?: string;
   character_speaking_style?: string;
+  character_appearance?: string;
 }
 
 interface KnownFace {
@@ -296,6 +297,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           character_name: d.character_name || undefined,
           character_personality: d.character_personality || undefined,
           character_speaking_style: d.character_speaking_style || undefined,
+          character_appearance: d.character_appearance || undefined,
         });
         // Load custom avatars from storage
         if (d.user_id) {
