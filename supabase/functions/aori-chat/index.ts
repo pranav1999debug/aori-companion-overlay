@@ -118,7 +118,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary } = await req.json();
+    const { messages, deletedHistory, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary } = await req.json();
 
     // Try to get user's own API key first
     const authHeader = req.headers.get("Authorization");
