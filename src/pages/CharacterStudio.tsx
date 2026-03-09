@@ -331,6 +331,7 @@ export default function CharacterStudio() {
       </div>
 
       <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={onFileChange} />
+      <input type="file" ref={baseImageInputRef} accept="image/*" className="hidden" onChange={onBaseImageChange} />
 
       {/* Form */}
       <div className="flex-1 px-4 pb-4 space-y-5 overflow-y-auto">
