@@ -2091,7 +2091,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             alt={`${companionName} ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             style={{
-              ...(Object.keys(customAvatarMap).length === 0 ? { filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))" } : { mixBlendMode: "multiply" as const }),
+              ...(Object.keys(customAvatarMap).length === 0 ? { filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))" } : {}),
               animation: "avatar-fade-out 0.5s ease-in-out forwards",
             }}
             draggable={false}
@@ -2103,7 +2103,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           alt={`${companionName} ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
           style={{
-            ...(Object.keys(customAvatarMap).length === 0 ? { filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))" } : { mixBlendMode: "multiply" as const }),
+            ...(Object.keys(customAvatarMap).length === 0 ? { filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))" } : {}),
             animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
           }}
           draggable={false}
