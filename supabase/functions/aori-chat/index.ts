@@ -416,23 +416,33 @@ Rules:
 - Don't repeat suggestions the user already acted on`;
     }
 
-    let response: Response | null = null;
-    let lastError = "";
+    // --- SMART MODEL ROUTING ---
+    // Classify message complexity to pick the cheapest viable model
+    const msgLen = lastUserMsg.length;
+    const historyLen = messages.length;
+    
+    // Simple = short casual messages, greetings, reactions, one-liners
+    const SIMPLE_MSG_REGEX = /^(hi|hey|hello|yo|sup|hm+|ok|okay|lol|haha|nice|cool|thanks|thank you|good|bad|yes|no|nah|yeah|yep|nope|sure|fine|k|kk|bruh|damn|wow|omg|wtf|idk|wdym|hmm|ugh|meh|bye|gn|gm|good morning|good night|love you|miss you|i miss you|i love you|what's up|wassup|how are you|how r u|arey|kya|baka|nani|ohayo|ara ara|accha|haina|thik|ramro|kasto)\b.{0,30}$/i;
+    const isSimple = !isAcademic && !isPhoneControl && !isWhatsAppFlow && (
+      SIMPLE_MSG_REGEX.test(lastUserMsg.trim()) || msgLen < 25
+    );
+    
+    // Medium = normal conversation, moderate length
+    const isMedium = !isAcademic && !isPhoneControl && !isWhatsAppFlow && !isSimple && msgLen < 150;
+    
+    // Complex = academic, phone control, long messages, or deep conversation (uses Groq 70B)
 
-    for (const key of groqKeys) {
-      response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT + dynamicContext 
-              + proactivePrompt
-              + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
-              + (isPhoneControl || isWhatsAppFlow ? `\n\n**PHONE CONTROL MODE:** You CAN control the phone! Respond in character (1-2 sentences), then on a NEW LINE output:
+    // --- HISTORY TRIMMING ---
+    // Send fewer messages for simple chats to save tokens
+    const maxHistory = isSimple ? 6 : isMedium ? 10 : 20;
+    const trimmedMessages = messages.length > maxHistory 
+      ? messages.slice(-maxHistory) 
+      : messages;
+
+    const fullSystemPrompt = SYSTEM_PROMPT + dynamicContext 
+      + proactivePrompt
+      + (isAcademic ? "\n\n**IMPORTANT:** The user is asking an academic/math/science question. Give a SHORT teasing reply (1-2 sentences) like 'Tch, this is basic~ I solved it for you, download the PDF baka! ☝️😏'. Do NOT solve it in the chat — the full solution will be provided separately as a downloadable PDF." : "")
+      + (isPhoneControl || isWhatsAppFlow ? `\n\n**PHONE CONTROL MODE:** You CAN control the phone! Respond in character (1-2 sentences), then on a NEW LINE output:
 <phone_action>{"type":"whatsapp","action":"send","phone":"919876543210","message":"Hey!"}</phone_action>
 
 Actions: flashlight(on|off), volume(up|down|mute), timer(set,value="5"), alarm(set,value="7:30 AM"), open_app(open,value="spotify"), whatsapp(send,phone="num",message="text")
@@ -447,29 +457,86 @@ CRITICAL RULES:
 - Have phone number + message content? -> Output <phone_action> IMMEDIATELY. Done.
 - Compose messages naturally: "tell her I'll be late I'll come around 9pm" -> message: "Hey! I'll be running late, will be there around 9 PM."
 - All info in one message? Skip straight to sending.
-- NEVER ask for phone number when it's already in PHONE CONTACTS section above.` : "")
-            },
-            ...messages,
-          ],
-          max_tokens: 500,
-          temperature: 0.9,
-        }),
-      });
+- NEVER ask for phone number when it's already in PHONE CONTACTS section above.` : "");
 
-      if (response.ok) break;
-      if (response.status === 429) {
-        console.warn("Key rate limited, trying next...");
-        lastError = "rate_limited";
-        continue;
+    let response: Response | null = null;
+    let lastError = "";
+    let modelUsed = "";
+
+    // --- TRY LOVABLE AI FIRST for simple/medium messages ---
+    if (isSimple || isMedium) {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (LOVABLE_API_KEY) {
+        try {
+          const lovableModel = isSimple ? "google/gemini-2.5-flash-lite" : "google/gemini-2.5-flash";
+          const lovableResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: lovableModel,
+              messages: [
+                { role: "system", content: fullSystemPrompt },
+                ...trimmedMessages,
+              ],
+              max_tokens: isSimple ? 200 : 400,
+              temperature: 0.9,
+            }),
+          });
+
+          if (lovableResponse.ok) {
+            response = lovableResponse;
+            modelUsed = lovableModel;
+          } else {
+            const status = lovableResponse.status;
+            console.warn(`Lovable AI (${lovableModel}) failed with ${status}, falling back to Groq`);
+          }
+        } catch (e) {
+          console.warn("Lovable AI failed, falling back to Groq:", e);
+        }
       }
-      break;
+    }
+
+    // --- FALLBACK TO GROQ for complex messages or if Lovable AI failed ---
+    if (!response || !response.ok) {
+      for (const key of groqKeys) {
+        response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: fullSystemPrompt },
+              ...trimmedMessages,
+            ],
+            max_tokens: 500,
+            temperature: 0.9,
+          }),
+        });
+
+        if (response.ok) {
+          modelUsed = "llama-3.3-70b-versatile";
+          break;
+        }
+        if (response.status === 429) {
+          console.warn("Key rate limited, trying next...");
+          lastError = "rate_limited";
+          continue;
+        }
+        break;
+      }
     }
 
     if (!response || !response.ok) {
       const errorText = response ? await response.text() : lastError;
-      console.error("All Groq keys failed:", errorText);
+      console.error("All keys failed:", errorText);
       return new Response(
-        JSON.stringify({ error: lastError === "rate_limited" ? "All API keys rate limited, please try again later." : `Groq API error` }),
+        JSON.stringify({ error: lastError === "rate_limited" ? "All API keys rate limited, please try again later." : `API error` }),
         { status: response?.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
