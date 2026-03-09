@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BASE_INSTRUCTION = "Using this face as reference for the character's appearance, generate a full upper-body portrait (head, shoulders, and upper torso visible) of this same person/character. Keep the exact same face, hair, and style. The character should be wearing a casual outfit. IMPORTANT: The facial expression MUST match the emotion described below — change the face accordingly while keeping the same person's identity.";
+const BASE_INSTRUCTION = "Using this face as reference for the character's appearance, generate a full upper-body portrait CUTOUT (head, shoulders, and upper torso visible) of this same person/character on a CLEAN SOLID WHITE BACKGROUND with NO other elements, NO shadows, NO scenery — just the character isolated on pure white so the background can be removed. Keep the exact same face, hair, and style. The character should be wearing a casual outfit. IMPORTANT: The facial expression MUST match the emotion described below — change the face accordingly while keeping the same person's identity.";
 
 const EMOTION_PROMPTS: Record<string, string> = {
   happy: `${BASE_INSTRUCTION} Expression: HAPPY — bright wide smile, raised cheeks, sparkling cheerful eyes, joyful and warm look.`,
