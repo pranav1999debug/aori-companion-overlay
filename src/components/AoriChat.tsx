@@ -2269,6 +2269,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               <button type="button" onClick={() => fileInputChatRef.current?.click()} className="p-2 rounded-full text-white/40 hover:text-white/70 transition-colors" title="Send image">
                 <ImagePlus className="w-5 h-5" />
               </button>
+              <button type="button" onClick={() => { setInput("Draw me "); }} className="p-2 rounded-full text-white/40 hover:text-accent/80 transition-colors" title="Generate image">
+                <Paintbrush className="w-5 h-5" />
+              </button>
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
