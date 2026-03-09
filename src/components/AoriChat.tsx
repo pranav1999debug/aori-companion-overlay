@@ -2083,7 +2083,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           height: avatarSize,
           touchAction: "none",
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
-          mixBlendMode: undefined,
+          ...(Object.keys(customAvatarMap).length > 0 ? { mixBlendMode: "multiply" as const } : {}),
         }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
