@@ -231,7 +231,11 @@ export default function ProfileSettings() {
       } as any, { onConflict: "device_id" });
       if (error) throw error;
       localStorage.setItem("aori-user-name", name.trim());
-      toast.success("Profile updated! Aori approves~ 💙");
+      // Clear conversation history so AI adapts to new personality/affection settings
+      localStorage.removeItem("aori-messages");
+      localStorage.removeItem("aori-chat-history");
+      localStorage.removeItem("aori-deleted-history");
+      toast.success("Profile updated! Chat reset to apply new settings~ 💙");
     } catch (e) {
       console.error("Save error:", e);
       toast.error("Couldn't save. Try again!");
