@@ -2280,6 +2280,44 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           </div>
         </div>
       )}
+
+      {/* Image Lightbox */}
+      {lightboxSrc && (
+        <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setLightboxSrc(null)}>
+          <div className="relative max-w-[90vw] max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <img src={lightboxSrc} alt="Full size" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+            <div className="absolute top-3 right-3 flex gap-2">
+              <button
+                onClick={() => {
+                  const src = lightboxSrc;
+                  if (src.startsWith("data:")) {
+                    const link = document.createElement("a");
+                    link.href = src;
+                    link.download = `aori-image-${Date.now()}.png`;
+                    link.click();
+                  } else {
+                    fetch(src).then(r => r.blob()).then(blob => {
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `aori-image-${Date.now()}.png`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                    }).catch(() => window.open(src, '_blank'));
+                  }
+                  toast.success("Saving image~! 💾✨");
+                }}
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors backdrop-blur-sm"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+              <button onClick={() => setLightboxSrc(null)} className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors backdrop-blur-sm">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
