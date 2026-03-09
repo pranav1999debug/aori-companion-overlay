@@ -1355,15 +1355,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     e.target.value = "";
   }, [handleFileUpload]);
 
-  // Voice STT via MediaRecorder + Whisper (aori-stt)
+  // Voice STT via browser SpeechRecognition
   const recognitionRef = useRef<any>(null);
   const voiceMusicAnalyserRef = useRef<AnalyserNode | null>(null);
   const voiceMusicIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const voiceAudioCtxRef = useRef<AudioContext | null>(null);
-  const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const sttChunksRef = useRef<Blob[]>([]);
-  const sttSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const sttStreamRef = useRef<MediaStream | null>(null);
 
   // Interrupt words that stop Aori mid-speech
   const INTERRUPT_WORDS = /\b(aori|stop|shut up|chup|bas|ruk|ruko)\b/i;
@@ -1401,306 +1397,177 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, []);
 
-  const convertToWav = useCallback(async (blob: Blob): Promise<Blob> => {
-    const audioCtx = new AudioContext({ sampleRate: 16000 });
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    const numChannels = 1; // mono
-    const sampleRate = audioBuffer.sampleRate;
-    const samples = audioBuffer.getChannelData(0);
-    const buffer = new ArrayBuffer(44 + samples.length * 2);
-    const view = new DataView(buffer);
-    // WAV header
-    const writeString = (offset: number, str: string) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + samples.length * 2, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * 2, true);
-    view.setUint16(32, numChannels * 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, samples.length * 2, true);
-    for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    }
-    await audioCtx.close();
-    return new Blob([buffer], { type: 'audio/wav' });
-  }, []);
-
-  const processSTTResult = useCallback(async (audioBlob: Blob) => {
-    if (audioBlob.size < 5000) {
-      // Too small, likely silence — restart listening
+  const handleTranscript = useCallback(async (transcript: string) => {
+    if (!transcript.trim()) {
       if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
       return;
     }
 
-    try {
-      // Convert to WAV — if this fails, the audio is corrupted and will fail at Groq anyway
-      let blobToSend: Blob;
-      try {
-        blobToSend = await convertToWav(audioBlob);
-      } catch (wavErr) {
-        console.warn("[STT] WAV conversion failed, audio likely corrupted — skipping:", wavErr);
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
-        return;
-      }
-
-      // Send as FormData (binary) instead of base64 JSON
-      const formData = new FormData();
-      const ext = blobToSend.type.includes("wav") ? "wav" : blobToSend.type.includes("ogg") ? "ogg" : "webm";
-      formData.append("file", blobToSend, `audio.${ext}`);
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-stt`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        console.error("STT failed:", response.status);
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
-        return;
-      }
-
-      const data = await response.json();
-      const transcript = data.text?.trim();
-
-      if (!transcript) {
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
-        return;
-      }
-
-      // Check for interrupt words
-      if (isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
-        stopSpeaking();
-        interruptCountRef.current += 1;
-        const { text: reaction, emotion } = getInterruptReaction();
-        changeEmotion(emotion);
-        setLastAoriText(reaction);
-        setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
-        setVoiceEntries(prev => [...prev.slice(-3),
-          { id: Date.now() - 1, text: transcript, sender: "user", timestamp: Date.now() },
-          { id: Date.now(), text: reaction, sender: "aori", timestamp: Date.now() },
-        ]);
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
-        return;
-      }
-
-      // Voice command detection
-
-      // Camera commands
-      const openFrontCam = /\b(open|turn on|start|enable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
-      const closeFrontCam = /\b(close|turn off|stop|disable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
-      const openBackCam = /\b(open|turn on|start|enable)\b.*back\s*camera\b/i.test(transcript);
-      const closeBackCam = /\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(transcript);
-      const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha|kya\s*ho\s*raha)\b/i.test(transcript);
-
-      if (openFrontCam) {
-        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
-        setMessages(prev => [...prev, userMsg]);
-        if (!webcamEnabled) {
-          toggleWebcamRef.current();
-        } else {
-          const msg = "Baka, the camera is already on! I can see you~ 😏";
-          changeEmotion("smirk");
-          setLastAoriText(msg);
-          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
-          speakText(msg);
-        }
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
-        return;
-      }
-
-      if (closeFrontCam) {
-        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
-        setMessages(prev => [...prev, userMsg]);
-        if (webcamEnabled) {
-          toggleWebcamRef.current();
-          const msg = "Fine~ I'll stop watching you... for now 😏";
-          changeEmotion("smirk");
-          setLastAoriText(msg);
-          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
-          speakText(msg);
-        } else {
-          const msg = "The camera is already off, silly~ 😅";
-          changeEmotion("happy");
-          setLastAoriText(msg);
-          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
-          speakText(msg);
-        }
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
-        return;
-      }
-
-      if (openBackCam) {
-        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
-        setMessages(prev => [...prev, userMsg]);
-        if (!backCamEnabled) {
-          toggleBackCamRef.current();
-        } else {
-          const msg = "The back camera is already running! I can see your surroundings~ 📷";
-          changeEmotion("smirk");
-          setLastAoriText(msg);
-          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
-          speakText(msg);
-        }
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
-        return;
-      }
-
-      if (closeBackCam) {
-        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
-        setMessages(prev => [...prev, userMsg]);
-        if (backCamEnabled) {
-          toggleBackCamRef.current();
-          const msg = "Back camera off~ I'll stop snooping around 😏";
-          changeEmotion("smirk");
-          setLastAoriText(msg);
-          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
-          speakText(msg);
-        } else {
-          const msg = "Back camera is already off~ 📷";
-          changeEmotion("happy");
-          setLastAoriText(msg);
-          setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
-          speakText(msg);
-        }
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
-        return;
-      }
-
-      if (whatAmIDoing) {
-        const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
-        setMessages(prev => [...prev, userMsg]);
-        analyzeFullContextRef.current();
-        return;
-      }
-
-      // Add to voice transcript overlay
-      if (voiceModeRef.current) {
-        setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
-      }
-      sendMessageWithText(transcript);
-    } catch (e) {
-      console.error("STT processing error:", e);
-      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+    // Check for interrupt words
+    if (isSpeakingRef.current && INTERRUPT_WORDS.test(transcript)) {
+      stopSpeaking();
+      interruptCountRef.current += 1;
+      const { text: reaction, emotion } = getInterruptReaction();
+      changeEmotion(emotion);
+      setLastAoriText(reaction);
+      setMessages(prev => [...prev, { id: Date.now(), text: reaction, sender: "aori", emotion, timestamp: Date.now() }]);
+      setVoiceEntries(prev => [...prev.slice(-3),
+        { id: Date.now() - 1, text: transcript, sender: "user", timestamp: Date.now() },
+        { id: Date.now(), text: reaction, sender: "aori", timestamp: Date.now() },
+      ]);
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1500);
+      return;
     }
-  }, [convertToWav, sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled]);
+
+    // Voice command detection — Camera commands
+    const openFrontCam = /\b(open|turn on|start|enable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
+    const closeFrontCam = /\b(close|turn off|stop|disable)\b.*(front\s*)?camera\b/i.test(transcript) && !/back/i.test(transcript);
+    const openBackCam = /\b(open|turn on|start|enable)\b.*back\s*camera\b/i.test(transcript);
+    const closeBackCam = /\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(transcript);
+    const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha|kya\s*ho\s*raha)\b/i.test(transcript);
+
+    if (openFrontCam) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (!webcamEnabled) {
+        toggleWebcamRef.current();
+      } else {
+        const msg = "Baka, the camera is already on! I can see you~ 😏";
+        changeEmotion("smirk");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+
+    if (closeFrontCam) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (webcamEnabled) {
+        toggleWebcamRef.current();
+        const msg = "Fine~ I'll stop watching you... for now 😏";
+        changeEmotion("smirk");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+        speakText(msg);
+      } else {
+        const msg = "The camera is already off, silly~ 😅";
+        changeEmotion("happy");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+
+    if (openBackCam) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (!backCamEnabled) {
+        toggleBackCamRef.current();
+      } else {
+        const msg = "The back camera is already running! I can see your surroundings~ 📷";
+        changeEmotion("smirk");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+
+    if (closeBackCam) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (backCamEnabled) {
+        toggleBackCamRef.current();
+        const msg = "Back camera off~ I'll stop snooping around 😏";
+        changeEmotion("smirk");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
+        speakText(msg);
+      } else {
+        const msg = "Back camera is already off~ 📷";
+        changeEmotion("happy");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+
+    if (whatAmIDoing) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      analyzeFullContextRef.current();
+      return;
+    }
+
+    // Add to voice transcript overlay
+    if (voiceModeRef.current) {
+      setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
+    }
+    sendMessageWithText(transcript);
+  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled]);
 
   const startListeningOnce = useCallback(async () => {
     if (isTyping || isSpeakingRef.current) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      sttStreamRef.current = stream;
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast.error("Speech recognition not supported on this browser");
+        return;
+      }
 
-      // Determine supported mime type
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : "audio/wav";
+      const recognition = new SpeechRecognition();
+      recognition.lang = "hi-IN"; // Hindi primary — also recognizes English words naturally
+      recognition.interimResults = false;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
 
-      const recorder = new MediaRecorder(stream, { mimeType });
-      sttMediaRecorderRef.current = recorder;
-      let finalBlob: Blob | null = null;
+      recognitionRef.current = recognition;
+      setIsListening(true);
+      if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) finalBlob = e.data;
+      let resultHandled = false;
+
+      recognition.onresult = (event: any) => {
+        resultHandled = true;
+        const transcript = event.results[0]?.[0]?.transcript || "";
+        console.log("[STT] Browser recognized:", transcript);
+        setIsListening(false);
+        handleTranscript(transcript);
       };
 
-      recorder.onstop = () => {
-        // Clean up stream
-        stream.getTracks().forEach(t => t.stop());
-        sttStreamRef.current = null;
-
+      recognition.onerror = (event: any) => {
+        console.warn("[STT] Recognition error:", event.error);
         setIsListening(false);
-        if (finalBlob && finalBlob.size > 0) {
-          processSTTResult(finalBlob);
-        } else if (voiceModeRef.current) {
+        if (event.error === "no-speech" || event.error === "aborted") {
+          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
+        } else {
+          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        if (!resultHandled && voiceModeRef.current && !isSpeakingRef.current) {
           setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
         }
       };
 
-      recorder.onerror = () => {
-        setIsListening(false);
-        stream.getTracks().forEach(t => t.stop());
-        sttStreamRef.current = null;
-        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
-      };
-
-      recorder.start(); // single complete blob on stop
-      setIsListening(true);
-      if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
-
-      // Use audio level detection for auto-stop
-      const audioCtx = new AudioContext();
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-      let speechDetected = false;
-      let speechStartTime = 0;
-      let silenceStart = 0;
-      const SILENCE_THRESHOLD = 25;
-      const MIN_SPEECH_DURATION = 500; // at least 0.5s of speech before we consider stopping
-      const SILENCE_DURATION = 1800; // 1.8s of silence after speech = stop
-      const MAX_RECORD_TIME = 15000; // 15s max
-
-      const startTime = Date.now();
-
-      const checkAudio = () => {
-        if (!sttMediaRecorderRef.current || sttMediaRecorderRef.current.state !== "recording") return;
-
-        // Max time check
-        if (Date.now() - startTime > MAX_RECORD_TIME) {
-          recorder.stop();
-          audioCtx.close().catch(() => {});
-          return;
-        }
-
-        analyser.getByteFrequencyData(dataArray);
-        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-
-        if (avg > SILENCE_THRESHOLD) {
-          if (!speechDetected) {
-            speechDetected = true;
-            speechStartTime = Date.now();
-          }
-          silenceStart = 0;
-        } else if (speechDetected && (Date.now() - speechStartTime > MIN_SPEECH_DURATION)) {
-          if (!silenceStart) silenceStart = Date.now();
-          else if (Date.now() - silenceStart > SILENCE_DURATION) {
-            recorder.stop();
-            audioCtx.close().catch(() => {});
-            return;
-          }
-        }
-
-        requestAnimationFrame(checkAudio);
-      };
-      requestAnimationFrame(checkAudio);
-
+      recognition.start();
     } catch (e) {
-      console.error("Mic access error:", e);
-      toast.error("Couldn't access microphone!");
+      console.error("Speech recognition error:", e);
+      toast.error("Couldn't start speech recognition!");
       setIsListening(false);
     }
-  }, [isTyping, processSTTResult]);
+  }, [isTyping, handleTranscript]);
 
   useEffect(() => { startListeningOnceRef.current = startListeningOnce; }, [startListeningOnce]);
 
@@ -1744,12 +1611,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     if (voiceModeRef.current) {
       voiceModeRef.current = false;
       setVoiceModeActive(false);
-      // Stop any active MediaRecorder
-      if (sttMediaRecorderRef.current && sttMediaRecorderRef.current.state === "recording") {
-        try { sttMediaRecorderRef.current.stop(); } catch {}
+      // Stop any active SpeechRecognition
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
       }
-      sttMediaRecorderRef.current = null;
-      if (sttStreamRef.current) { sttStreamRef.current.getTracks().forEach(t => t.stop()); sttStreamRef.current = null; }
       setIsListening(false);
       setVoiceEntries([]);
       toast("🎤 Voice mode off", { duration: 2000 });
