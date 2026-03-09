@@ -1355,15 +1355,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     e.target.value = "";
   }, [handleFileUpload]);
 
-  // Voice STT via MediaRecorder + Whisper (aori-stt)
+  // Voice STT via browser SpeechRecognition
   const recognitionRef = useRef<any>(null);
   const voiceMusicAnalyserRef = useRef<AnalyserNode | null>(null);
   const voiceMusicIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const voiceAudioCtxRef = useRef<AudioContext | null>(null);
-  const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const sttChunksRef = useRef<Blob[]>([]);
-  const sttSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const sttStreamRef = useRef<MediaStream | null>(null);
 
   // Interrupt words that stop Aori mid-speech
   const INTERRUPT_WORDS = /\b(aori|stop|shut up|chup|bas|ruk|ruko)\b/i;
