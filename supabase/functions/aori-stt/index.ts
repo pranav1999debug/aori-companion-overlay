@@ -12,7 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    const { audio, mimeType } = await req.json();
     const groqKeys = [
       Deno.env.get("GROQ_API_KEY"),
       Deno.env.get("GROQ_API_KEY_2"),
@@ -27,56 +26,52 @@ serve(async (req) => {
     ].filter(Boolean) as string[];
     if (!groqKeys.length) throw new Error("No GROQ API keys configured");
 
-    if (!audio) {
-      return new Response(
-        JSON.stringify({ error: "No audio provided" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    let audioFile: File;
+    const contentType = req.headers.get("content-type") || "";
 
-    // Decode base64 audio to binary
-    const binaryStr = atob(audio);
-    const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
-    }
-
-    console.log(`[STT] Audio size: ${bytes.length} bytes, mimeType: ${mimeType || "not provided"}, first4: ${Array.from(bytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
-
-    // Detect actual format from magic bytes
-    let detectedType = mimeType || "audio/webm";
-    let ext = "webm";
-    
-    // Check magic bytes
-    if (bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
-      // EBML header = WebM/Matroska
-      detectedType = "audio/webm";
-      ext = "webm";
-    } else if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
-      // OggS header
-      detectedType = "audio/ogg";
-      ext = "ogg";
-    } else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
-      // RIFF header = WAV
-      detectedType = "audio/wav";
-      ext = "wav";
+    if (contentType.includes("multipart/form-data")) {
+      // Client sent FormData with binary audio file directly
+      const formData = await req.formData();
+      const file = formData.get("file");
+      if (!file || !(file instanceof File)) {
+        return new Response(
+          JSON.stringify({ error: "No audio file in form data" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      audioFile = file;
     } else {
-      // Unknown format — try sending as webm anyway
-      console.warn(`[STT] Unknown magic bytes, defaulting to webm`);
+      // Legacy: JSON with base64-encoded audio
+      const { audio, mimeType } = await req.json();
+      if (!audio) {
+        return new Response(
+          JSON.stringify({ error: "No audio provided" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const binaryStr = atob(audio);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      const ext = mimeType?.includes("wav") ? "wav" : mimeType?.includes("ogg") ? "ogg" : "webm";
+      const fileType = mimeType || "audio/webm";
+      audioFile = new File([bytes], `audio.${ext}`, { type: fileType });
     }
 
-    console.log(`[STT] Detected format: ${detectedType} (.${ext})`);
+    // Log audio info
+    const fileBytes = new Uint8Array(await audioFile.slice(0, 4).arrayBuffer());
+    const first4 = Array.from(fileBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    console.log(`[STT] Audio size: ${audioFile.size} bytes, type: ${audioFile.type}, name: ${audioFile.name}, first4: ${first4}`);
 
-    // Build FormData with a proper File object for each attempt
-    // (FormData can only be consumed once by fetch, so we rebuild per key)
     let response: Response | null = null;
     let lastErrorBody = "";
 
     for (const key of groqKeys) {
       try {
-        const file = new File([bytes.buffer], `audio.${ext}`, { type: detectedType });
+        // Rebuild FormData for each attempt (FormData is consumed by fetch)
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", audioFile);
         formData.append("model", "whisper-large-v3-turbo");
         formData.append("response_format", "verbose_json");
 
@@ -92,8 +87,7 @@ serve(async (req) => {
         console.error(`[STT] Key failed with ${response.status}: ${lastErrorBody}`);
         
         if (response.status === 429) { continue; }
-        // 400 = bad audio data, won't fix with another key
-        if (response.status === 400) { break; }
+        if (response.status === 400) { break; } // bad audio won't fix with another key
         break;
       } catch (fetchErr) {
         console.error(`[STT] Fetch error:`, fetchErr);
@@ -103,7 +97,7 @@ serve(async (req) => {
 
     if (!response || !response.ok) {
       const status = response?.status || 500;
-      console.error(`[STT] All keys failed. Last error: ${lastErrorBody}`);
+      console.error(`[STT] Failed. Last error: ${lastErrorBody}`);
       return new Response(
         JSON.stringify({ error: status === 429 ? "Rate limited on all keys" : `STT API error: ${status}`, details: lastErrorBody }),
         { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
