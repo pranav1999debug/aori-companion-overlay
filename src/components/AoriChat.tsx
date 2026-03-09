@@ -1220,13 +1220,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       // Generate image if prompt was provided
       if (data.imagePrompt) {
-        // Pass character style context if custom character is set
-        const hasCustomChar = userProfile?.character_name || userProfile?.character_personality;
-        const characterStyle = hasCustomChar
-          ? "Ultra realistic photography, natural lighting, sharp focus, high detail, cinematic quality."
-          : undefined;
         supabase.functions.invoke("aori-image-gen", {
-          body: { prompt: data.imagePrompt, characterStyle },
+          body: { prompt: data.imagePrompt },
         }).then(({ data: imgData, error: imgError }) => {
           if (!imgError && imgData?.imageUrl) {
             setMessages(prev => prev.map(m =>
