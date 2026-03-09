@@ -2084,8 +2084,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         />
         {isTransitioning && previousEmotion && (
           <img
-            src={emotionCutouts[previousEmotion]}
-            alt={`Aori ${previousEmotion}`}
+            src={getAvatar(previousEmotion)}
+            alt={`${companionName} ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
             draggable={false}
@@ -2093,8 +2093,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         )}
         <img
           key={currentEmotion}
-          src={emotionCutouts[currentEmotion]}
-          alt={`Aori ${currentEmotion}`}
+          src={getAvatar(currentEmotion)}
+          alt={`${companionName} ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
           style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
