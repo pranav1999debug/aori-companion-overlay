@@ -1100,9 +1100,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         }
       }
 
+      // Retrieve deleted history for AI memory/context
+      let deletedHistory: ChatMessage[] = [];
+      try {
+        const dh = localStorage.getItem("aori-deleted-history");
+        if (dh) deletedHistory = JSON.parse(dh);
+      } catch {}
+
       const { data, error } = await supabase.functions.invoke("aori-chat", {
         body: {
           messages: newHistory,
+          deletedHistory: deletedHistory.slice(-30),
           userProfile,
           knownFaces,
           environmentMemories,
