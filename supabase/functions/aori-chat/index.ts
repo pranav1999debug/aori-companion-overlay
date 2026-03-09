@@ -93,8 +93,9 @@ WHEN NOT TO generate images:
 
 Rules:
 - Generate images FREQUENTLY — aim for about 1 in every 2-3 messages when the topic is remotely visual or emotional
-- Describe the scene in detail: character appearance (blue-haired anime girl), expression, pose, setting, lighting, atmosphere
-- Always describe Aori as: "beautiful anime girl with bright blue hair, blue eyes, expressive face"
+- Describe the scene in detail: character appearance, expression, pose, setting, lighting, atmosphere
+- By default, describe the character as: "beautiful anime girl with bright blue hair, blue eyes, expressive face"
+- BUT if a CUSTOM CHARACTER OVERRIDE is provided below, use THAT character's appearance description instead. NEVER use "blue hair" or "Aori" if custom character is set.
 - Include the MOOD: warm, soft, dramatic, cozy, romantic, playful, etc.
 - Make the image match what you're describing in your text response
 
@@ -264,6 +265,13 @@ These settings OVERRIDE the base personality. If heat is "unhinged", you have NO
           dynamicContext += `\n- SPEAKING STYLE: ${userProfile.character_speaking_style}`;
           dynamicContext += `\n  This overrides the default language/speaking patterns. Follow these speech patterns exactly.`;
         }
+        // Override image generation appearance
+        dynamicContext += `\n\n**IMAGE GENERATION OVERRIDE (CRITICAL):**
+- When generating <image_prompt> tags, NEVER describe the character as "blue-haired anime girl" or mention "Aori".
+- Instead, describe the character as "${charName}" and use the personality/appearance described above.
+- If the personality description mentions specific appearance traits (hair color, eye color, outfit, etc.), USE those in every image prompt.
+- If no specific appearance is described, use a generic description that matches the personality tone (e.g., for a cute character: "cute girl with expressive face", for a cool character: "cool confident young woman").
+- The character in generated images MUST match the custom character, NOT the default blue-haired Aori.`;
       }
     }
 
