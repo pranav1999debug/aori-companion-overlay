@@ -12,12 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, characterStyle } = await req.json();
+    const { prompt } = await req.json();
     if (!prompt) throw new Error("No prompt provided");
 
-    // If characterStyle is provided (from custom character), use it; otherwise default to anime
-    const styleSuffix = characterStyle || "Anime illustration style, soft pastel colors, kawaii aesthetic, detailed and expressive, studio quality anime art.";
-    const enhancedPrompt = `${prompt}. ${styleSuffix}`;
+    const enhancedPrompt = `${prompt}. High quality, detailed and expressive, studio quality art.`;
     const encoded = encodeURIComponent(enhancedPrompt);
     const imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
 
