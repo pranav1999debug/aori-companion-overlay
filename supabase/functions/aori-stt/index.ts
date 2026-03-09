@@ -41,13 +41,15 @@ serve(async (req) => {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
+    console.log(`[STT] Audio size: ${bytes.length} bytes, mimeType: ${mimeType || "not provided"}`);
+
     const ext = mimeType?.includes("webm") ? "webm" : mimeType?.includes("ogg") ? "ogg" : "wav";
     const contentType = mimeType || "audio/webm";
-    const file = new File([bytes], `audio.${ext}`, { type: contentType });
+    const audioBlob = new Blob([bytes], { type: contentType });
 
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("model", "whisper-large-v3");
+    formData.append("file", audioBlob, `audio.${ext}`);
+    formData.append("model", "whisper-large-v3-turbo");
     formData.append("response_format", "verbose_json");
 
     let response: Response | null = null;
