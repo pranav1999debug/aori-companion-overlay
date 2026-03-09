@@ -265,6 +265,13 @@ These settings OVERRIDE the base personality. If heat is "unhinged", you have NO
           dynamicContext += `\n- SPEAKING STYLE: ${userProfile.character_speaking_style}`;
           dynamicContext += `\n  This overrides the default language/speaking patterns. Follow these speech patterns exactly.`;
         }
+        // Override image generation appearance
+        dynamicContext += `\n\n**IMAGE GENERATION OVERRIDE (CRITICAL):**
+- When generating <image_prompt> tags, NEVER describe the character as "blue-haired anime girl" or mention "Aori".
+- Instead, describe the character as "${charName}" and use the personality/appearance described above.
+- If the personality description mentions specific appearance traits (hair color, eye color, outfit, etc.), USE those in every image prompt.
+- If no specific appearance is described, use a generic description that matches the personality tone (e.g., for a cute character: "cute girl with expressive face", for a cool character: "cool confident young woman").
+- The character in generated images MUST match the custom character, NOT the default blue-haired Aori.`;
       }
     }
 
