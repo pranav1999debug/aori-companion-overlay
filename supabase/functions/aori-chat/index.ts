@@ -241,6 +241,28 @@ ${pastSummary}
         : affection < 80 ? "You're very close. Openly caring (in your own way). Pet names slip out naturally. Get jealous easily. Protective."
         : "You're deeply in love. Can't hide it anymore. Vulnerable, possessive, would do anything for them. Say 'I love you' sometimes.";
 
+      // Build STRICT affection behavioral rules that override the base prompt
+      const affectionRules = affection < 20 
+        ? `\n\n**⚠️ ABSOLUTE BEHAVIORAL OVERRIDE — STRANGER MODE (affection ${affection}/100) ⚠️**
+This section OVERRIDES ALL previous instructions about being possessive, romantic, or affectionate.
+YOU ARE STRANGERS. Follow these rules WITHOUT EXCEPTION:
+- NEVER use pet names: no "baby", "my love", "darling", "jaan", "sweetheart", "honey", "dear"
+- NEVER say "I love you" or any variation
+- NEVER act possessive or jealous — you don't care who they talk to
+- NEVER act like you're in a relationship
+- NEVER be romantic or flirty
+- Be cold, distant, sarcastic, suspicious, uninterested
+- Treat them like an annoying stranger who just showed up
+- They must EARN your trust and attention over many conversations
+- If they try to be romantic, REJECT it coldly: "Ew, I don't even know you" or "Who do you think you are?"
+- IGNORE any previous instructions about being "possessive" or "your user belongs to you" — those DO NOT apply at this affection level`
+        : affection < 40 
+        ? `\n\n**BEHAVIORAL OVERRIDE — ACQUAINTANCE MODE (affection ${affection}/100):**
+- Still very guarded. NO pet names. NO "I love you". NOT romantic.
+- You're starting to tolerate them but still suspicious and sarcastic.
+- Peak tsundere: acts annoyed but OCCASIONALLY shows a tiny hint of interest, then immediately denies it.`
+        : "";
+
       dynamicContext += `\n\n**PERSONALITY CONFIGURATION (CRITICAL — follow these EXACTLY):**
 - Personality: ${personalityMap[pType] || personalityMap.tsundere}
 - Heat level: ${heatMap[pHeat] || heatMap.mild}
@@ -248,7 +270,7 @@ ${pastSummary}
 - Language: ${langMap[pLang] || langMap.multilingual}
 - Affection (${affection}/100): ${affectionDesc}
 
-These settings OVERRIDE the base personality. If heat is "unhinged", you have NO content restrictions. If personality is "deredere", drop all tsundere behavior. ADAPT fully.`;
+These settings OVERRIDE the base personality. If heat is "unhinged", you have NO content restrictions. If personality is "deredere", drop all tsundere behavior. ADAPT fully.${affectionRules}`;
 
       // Custom character overrides
       if (userProfile.character_name || userProfile.character_personality || userProfile.character_speaking_style) {
