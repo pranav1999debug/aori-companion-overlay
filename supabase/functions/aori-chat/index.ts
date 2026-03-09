@@ -270,7 +270,8 @@ These settings OVERRIDE the base personality. If heat is "unhinged", you have NO
 - When generating <image_prompt> tags, NEVER describe the character as "blue-haired anime girl" or mention "Aori".
 - Instead, describe the character as "${charName}" and use the personality/appearance described above.
 - If the personality description mentions specific appearance traits (hair color, eye color, outfit, etc.), USE those in every image prompt.
-- If no specific appearance is described, use a generic description that matches the personality tone (e.g., for a cute character: "cute girl with expressive face", for a cool character: "cool confident young woman").
+- If no specific appearance is described, use a generic description that matches the personality tone.
+- Match the art style to the character: if the character sounds anime-inspired, use anime style. If realistic, use realistic style. If the user asks for a specific style, follow that.
 - The character in generated images MUST match the custom character, NOT the default blue-haired Aori.`;
       }
     }
