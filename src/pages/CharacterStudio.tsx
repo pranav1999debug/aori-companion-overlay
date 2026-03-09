@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AoriEmotion, emotionCutouts, emotionLabels } from "@/lib/aori-personality";
-import { ChevronLeft, Save, Upload, Trash2, Loader2, Sparkles, MessageSquare, Palette, Image as ImageIcon, RotateCcw, Wand2 } from "lucide-react";
+import { ChevronLeft, Save, Upload, Trash2, Loader2, Sparkles, MessageSquare, Palette, Image as ImageIcon, RotateCcw, Wand2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 
