@@ -1127,20 +1127,44 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         }
       }
 
+      const msgId = Date.now() + 1;
       setMessages((prev) => [...prev, {
-        id: Date.now() + 1,
+        id: msgId,
         text: responseText,
         sender: "aori",
         emotion,
         timestamp: Date.now(),
         summaryMarkdown: solutionMd,
         quickReplies: quickReplies.length > 0 ? quickReplies : undefined,
+        generatingImage: !!data.imagePrompt,
       }]);
       setChatHistory((prev) => [...prev, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
       if (voiceModeRef.current) {
-        setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now() + 1, text: responseText, sender: "aori", timestamp: Date.now() }]);
+        setVoiceEntries(prev => [...prev.slice(-3), { id: msgId, text: responseText, sender: "aori", timestamp: Date.now() }]);
       }
       speakText(responseText);
+
+      // Generate image if prompt was provided
+      if (data.imagePrompt) {
+        supabase.functions.invoke("aori-image-gen", {
+          body: { prompt: data.imagePrompt },
+        }).then(({ data: imgData, error: imgError }) => {
+          if (!imgError && imgData?.imageUrl) {
+            setMessages(prev => prev.map(m =>
+              m.id === msgId ? { ...m, generatedImageUrl: imgData.imageUrl, generatingImage: false } : m
+            ));
+          } else {
+            // Remove loading state silently
+            setMessages(prev => prev.map(m =>
+              m.id === msgId ? { ...m, generatingImage: false } : m
+            ));
+          }
+        }).catch(() => {
+          setMessages(prev => prev.map(m =>
+            m.id === msgId ? { ...m, generatingImage: false } : m
+          ));
+        });
+      }
       // Execute phone action if present
       if (data.phoneAction) {
         try {
