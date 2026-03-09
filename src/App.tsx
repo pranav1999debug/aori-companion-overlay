@@ -152,6 +152,9 @@ function AppRoutes() {
         <Route path="/profile" element={
           <RequireAuth><RequireOnboarding><ProfileSettings /></RequireOnboarding></RequireAuth>
         } />
+        <Route path="/character" element={
+          <RequireAuth><RequireOnboarding><CharacterStudio /></RequireOnboarding></RequireAuth>
+        } />
         <Route path="*" element={<NotFound />} />
       </Routes>
       
