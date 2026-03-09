@@ -1441,12 +1441,14 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
 
     try {
-      // Try WAV conversion first for guaranteed valid headers
-      let blobToSend = audioBlob;
+      // Convert to WAV — if this fails, the audio is corrupted and will fail at Groq anyway
+      let blobToSend: Blob;
       try {
         blobToSend = await convertToWav(audioBlob);
       } catch (wavErr) {
-        console.warn("[STT] WAV conversion failed, sending original blob:", wavErr);
+        console.warn("[STT] WAV conversion failed, audio likely corrupted — skipping:", wavErr);
+        if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
+        return;
       }
 
       // Send as FormData (binary) instead of base64 JSON
