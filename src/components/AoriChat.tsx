@@ -1602,7 +1602,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
       };
 
-      recorder.start(250); // collect data every 250ms
+      recorder.start(); // single complete blob on stop (ensures valid WebM header)
       setIsListening(true);
       if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
 
