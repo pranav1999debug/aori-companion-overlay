@@ -147,6 +147,7 @@ export default function CharacterStudio() {
           character_name: characterName.trim() || null,
           character_personality: characterPersonality.trim() || null,
           character_speaking_style: characterSpeakingStyle.trim() || null,
+          character_appearance: characterAppearance.trim() || null,
         } as any)
         .eq("user_id", user.id);
       if (error) throw error;
