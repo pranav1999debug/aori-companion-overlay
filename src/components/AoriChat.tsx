@@ -2053,16 +2053,14 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       {/* Aori Avatar (centered) */}
       <div
-        className="absolute select-none cursor-grab active:cursor-grabbing"
+        className="absolute z-10 select-none cursor-grab active:cursor-grabbing"
         style={{
           left: avatarPos.x,
           top: avatarPos.y,
           width: avatarSize,
           height: avatarSize,
           touchAction: "none",
-          zIndex: 10,
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
-          ...(Object.keys(customAvatarMap).length > 0 ? { mixBlendMode: "multiply" as const } : {}),
         }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
@@ -2090,10 +2088,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             src={getAvatar(previousEmotion)}
             alt={`${companionName} ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-            style={{
-              ...(Object.keys(customAvatarMap).length === 0 ? { filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))" } : {}),
-              animation: "avatar-fade-out 0.5s ease-in-out forwards",
-            }}
+            style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", mixBlendMode: "multiply", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
             draggable={false}
           />
         )}
@@ -2102,10 +2097,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           src={getAvatar(currentEmotion)}
           alt={`${companionName} ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-          style={{
-            ...(Object.keys(customAvatarMap).length === 0 ? { filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))" } : {}),
-            animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined,
-          }}
+          style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", mixBlendMode: "multiply", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
         />
         {/* Resize handle */}
