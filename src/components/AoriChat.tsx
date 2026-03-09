@@ -312,6 +312,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   }, [userId, loadContacts]);
 
   const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
+  const companionName = userProfile?.character_name || localStorage.getItem("aori-character-name") || "Aori";
+  const getAvatar = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] || emotionCutouts[emotion], [customAvatarMap]);
+  const getBgImage = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] ? customAvatarMap[emotion] : emotionImages[emotion], [customAvatarMap]);
 
   const returningGreetings: { text: string; emotion: AoriEmotion }[] = [
     { text: `Oh~ ${userName}'s back! Missed me that much, huh? 😏💙`, emotion: "smirk" },
