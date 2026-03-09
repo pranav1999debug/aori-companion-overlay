@@ -7,23 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BASE_INSTRUCTION = "Using this face as reference for the character's appearance, generate a full upper-body portrait (head, shoulders, and upper torso visible) of this same person/character. Keep the exact same face, hair, and style. The character should be wearing a casual outfit.";
+const BASE_INSTRUCTION = "Using this face as reference for the character's appearance, generate a full upper-body portrait (head, shoulders, and upper torso visible) of this same person/character. Keep the exact same face, hair, and style. The character should be wearing a casual outfit. IMPORTANT: The facial expression MUST match the emotion described below — change the face accordingly while keeping the same person's identity.";
 
 const EMOTION_PROMPTS: Record<string, string> = {
-  happy: `${BASE_INSTRUCTION} Show a happy, joyful expression with a bright smile and cheerful eyes.`,
-  smirk: `${BASE_INSTRUCTION} Show a smug, mischievous smirk with one eyebrow slightly raised.`,
-  excited: `${BASE_INSTRUCTION} Show an excited, energetic expression with wide sparkling eyes and an open enthusiastic smile.`,
-  angry: `${BASE_INSTRUCTION} Show an angry, frustrated expression with furrowed brows, narrowed eyes, and a frown.`,
-  shy: `${BASE_INSTRUCTION} Show a shy, bashful expression with a slight blush, averted gaze, and a small nervous smile.`,
-  sad: `${BASE_INSTRUCTION} Show a sad, melancholic expression with downturned mouth and droopy eyes.`,
-  love: `${BASE_INSTRUCTION} Show a loving, adoring expression with sparkling eyes, a warm dreamy smile, and a deep blush.`,
-  proud: `${BASE_INSTRUCTION} Show a proud, confident expression with chin slightly raised and a satisfied grin.`,
-  thinking: `${BASE_INSTRUCTION} Show a thoughtful, contemplative expression with one hand near the chin and eyes looking upward.`,
-  confused: `${BASE_INSTRUCTION} Show a confused, puzzled expression with a tilted head and raised eyebrow.`,
-  sleepy: `${BASE_INSTRUCTION} Show a sleepy, drowsy expression with half-closed droopy eyes and a yawn.`,
-  jealous: `${BASE_INSTRUCTION} Show a jealous, envious expression with narrowed suspicious eyes and a slight pout.`,
-  embarrassed: `${BASE_INSTRUCTION} Show an embarrassed, flustered expression with a deep blush and wide surprised eyes.`,
-  shock: `${BASE_INSTRUCTION} Show a shocked, surprised expression with wide open eyes and an open mouth.`,
+  happy: `${BASE_INSTRUCTION} Expression: HAPPY — bright wide smile, raised cheeks, sparkling cheerful eyes, joyful and warm look.`,
+  smirk: `${BASE_INSTRUCTION} Expression: SMIRK — one corner of the mouth raised in a smug half-smile, one eyebrow slightly raised, mischievous confident look.`,
+  excited: `${BASE_INSTRUCTION} Expression: EXCITED — wide open sparkling eyes, big open-mouth smile, energetic and thrilled look, slightly leaning forward.`,
+  angry: `${BASE_INSTRUCTION} Expression: ANGRY — deeply furrowed brows, narrowed fierce eyes, clenched jaw or gritted teeth, tense frustrated look.`,
+  shy: `${BASE_INSTRUCTION} Expression: SHY — looking slightly away or downward, visible blush on cheeks, small timid smile, bashful and nervous body language.`,
+  sad: `${BASE_INSTRUCTION} Expression: SAD — downturned mouth corners, droopy watery eyes, slightly furrowed brows, melancholic sorrowful look.`,
+  love: `${BASE_INSTRUCTION} Expression: IN LOVE — heart-eyes or dreamy half-closed eyes, deep blush, warm adoring smile, swooning romantic look.`,
+  proud: `${BASE_INSTRUCTION} Expression: PROUD — chin tilted slightly up, confident satisfied grin, chest slightly puffed, eyes gleaming with self-assurance.`,
+  thinking: `${BASE_INSTRUCTION} Expression: THINKING — eyes looking upward or to the side, one hand touching chin, slightly pursed or neutral lips, contemplative curious look.`,
+  confused: `${BASE_INSTRUCTION} Expression: CONFUSED — head tilted to one side, one eyebrow raised higher than the other, slight frown, bewildered puzzled look.`,
+  sleepy: `${BASE_INSTRUCTION} Expression: SLEEPY — heavy half-closed droopy eyelids, open yawning mouth, relaxed slouching posture, tired drowsy look.`,
+  jealous: `${BASE_INSTRUCTION} Expression: JEALOUS — narrowed suspicious side-glancing eyes, slight pout or pressed lips, arms crossed, envious displeased look.`,
+  embarrassed: `${BASE_INSTRUCTION} Expression: EMBARRASSED — bright red blush across cheeks, wide surprised eyes, hands near face trying to hide, flustered panicked look.`,
+  shock: `${BASE_INSTRUCTION} Expression: SHOCKED — extremely wide open eyes, jaw dropped open mouth, raised eyebrows, startled frozen look.`,
 };
 
 serve(async (req) => {
