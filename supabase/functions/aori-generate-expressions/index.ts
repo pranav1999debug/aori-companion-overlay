@@ -7,21 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const BASE_INSTRUCTION = "Using this face as reference for the character's appearance, generate a full upper-body portrait (head, shoulders, and upper torso visible) of this same person/character. Keep the exact same face, hair, and style. The character should be wearing a casual outfit.";
+
 const EMOTION_PROMPTS: Record<string, string> = {
-  happy: "Edit this character image to show a happy, joyful expression with a bright smile and cheerful eyes. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  smirk: "Edit this character image to show a smug, mischievous smirk expression with one eyebrow slightly raised. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  excited: "Edit this character image to show an excited, energetic expression with wide sparkling eyes and an open enthusiastic smile. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  angry: "Edit this character image to show an angry, frustrated expression with furrowed brows, narrowed eyes, and a frown or gritted teeth. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  shy: "Edit this character image to show a shy, bashful expression with a slight blush, averted gaze, and a small nervous smile. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  sad: "Edit this character image to show a sad, melancholic expression with downturned mouth, droopy eyes, and a sorrowful look. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  love: "Edit this character image to show a loving, adoring expression with heart-shaped or sparkling eyes, a warm dreamy smile, and a deep blush. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  proud: "Edit this character image to show a proud, confident expression with chin slightly raised, a satisfied grin, and eyes gleaming with self-assurance. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  thinking: "Edit this character image to show a thoughtful, contemplative expression with one hand near the chin, eyes looking upward, and a curious pondering look. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  confused: "Edit this character image to show a confused, puzzled expression with a tilted head, raised eyebrow, and a bewildered or uncertain look. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  sleepy: "Edit this character image to show a sleepy, drowsy expression with half-closed droopy eyes, a yawn or relaxed mouth, and a tired look. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  jealous: "Edit this character image to show a jealous, envious expression with narrowed suspicious eyes, a slight pout, and a displeased or covetous look. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  embarrassed: "Edit this character image to show an embarrassed, flustered expression with a deep blush, wide surprised eyes, and hands near the face in a flustered gesture. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
-  shock: "Edit this character image to show a shocked, surprised expression with wide open eyes, an open mouth in surprise, and raised eyebrows. Keep the same character, outfit, art style, and proportions exactly the same. Only change the facial expression.",
+  happy: `${BASE_INSTRUCTION} Show a happy, joyful expression with a bright smile and cheerful eyes.`,
+  smirk: `${BASE_INSTRUCTION} Show a smug, mischievous smirk with one eyebrow slightly raised.`,
+  excited: `${BASE_INSTRUCTION} Show an excited, energetic expression with wide sparkling eyes and an open enthusiastic smile.`,
+  angry: `${BASE_INSTRUCTION} Show an angry, frustrated expression with furrowed brows, narrowed eyes, and a frown.`,
+  shy: `${BASE_INSTRUCTION} Show a shy, bashful expression with a slight blush, averted gaze, and a small nervous smile.`,
+  sad: `${BASE_INSTRUCTION} Show a sad, melancholic expression with downturned mouth and droopy eyes.`,
+  love: `${BASE_INSTRUCTION} Show a loving, adoring expression with sparkling eyes, a warm dreamy smile, and a deep blush.`,
+  proud: `${BASE_INSTRUCTION} Show a proud, confident expression with chin slightly raised and a satisfied grin.`,
+  thinking: `${BASE_INSTRUCTION} Show a thoughtful, contemplative expression with one hand near the chin and eyes looking upward.`,
+  confused: `${BASE_INSTRUCTION} Show a confused, puzzled expression with a tilted head and raised eyebrow.`,
+  sleepy: `${BASE_INSTRUCTION} Show a sleepy, drowsy expression with half-closed droopy eyes and a yawn.`,
+  jealous: `${BASE_INSTRUCTION} Show a jealous, envious expression with narrowed suspicious eyes and a slight pout.`,
+  embarrassed: `${BASE_INSTRUCTION} Show an embarrassed, flustered expression with a deep blush and wide surprised eyes.`,
+  shock: `${BASE_INSTRUCTION} Show a shocked, surprised expression with wide open eyes and an open mouth.`,
 };
 
 serve(async (req) => {
