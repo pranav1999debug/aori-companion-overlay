@@ -2273,11 +2273,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       {chatOpen && (
         <div className="absolute inset-0 z-40 flex flex-col bg-[hsl(220,25%,6%)]/95 backdrop-blur-xl" style={{ animation: "slide-up 0.25s ease-out" }}>
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
-            <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40 bg-white/10" />
+            <img src={getAvatar(currentEmotion)} alt={companionName} className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40 bg-white/10" />
             <div className="flex-1 min-w-0">
-              <h2 className="font-display font-bold text-white text-sm">Aori Tatsumi</h2>
+              <h2 className="font-display font-bold text-white text-sm">{companionName === "Aori" ? "Aori Tatsumi" : companionName}</h2>
               <p className="text-xs text-white/40">
-                {isTyping ? "typing..." : `Your stubborn companion, ${userName} 💙`}
+                {isTyping ? "typing..." : `Your companion, ${userName} 💙`}
               </p>
             </div>
             <button
