@@ -1595,7 +1595,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       console.error("STT processing error:", e);
       if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
     }
-  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled]);
+  }, [convertToWav, sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled]);
 
   const startListeningOnce = useCallback(async () => {
     if (isTyping || isSpeakingRef.current) return;
