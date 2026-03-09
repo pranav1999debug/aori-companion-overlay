@@ -2120,7 +2120,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           src={getAvatar(currentEmotion)}
           alt={`${companionName} ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-          style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
+          style={{ animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
         />
         {/* Resize handle */}
