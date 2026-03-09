@@ -582,63 +582,80 @@ export default function ProfileSettings() {
                   </div>
                 </div>
 
-                {/* Per-key details with exhaustion bars */}
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {apiStatus.keys.map((k, i) => (
-                    <div key={i} className="py-1.5 px-2 rounded-lg bg-muted/30 space-y-1">
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${
-                          k.status === "available" ? "bg-green-400" :
-                          k.status === "rate_limited" ? "bg-amber-400" :
-                          "bg-red-400"
-                        }`} />
-                        <span className="font-mono text-muted-foreground flex-1 truncate">{k.name}</span>
-                        {k.used !== null && k.limit !== null && (
-                          <span className={`font-semibold ${
-                            (k.usedPercent ?? 0) >= 100 ? "text-red-400" :
-                            (k.usedPercent ?? 0) >= 80 ? "text-amber-400" :
-                            "text-green-400"
-                          }`}>
-                            {k.used.toLocaleString()} / {k.limit.toLocaleString()}
-                          </span>
-                        )}
-                        {k.retryIn && (
-                          <span className="flex items-center gap-0.5 text-muted-foreground/70 text-[10px]">
-                            <Clock className="w-2.5 h-2.5" /> {k.retryIn}
-                          </span>
-                        )}
-                        {k.error && (
-                          <span className="flex items-center gap-0.5 text-red-400 text-[10px]">
-                            <AlertTriangle className="w-2.5 h-2.5" /> {k.error}
-                          </span>
-                        )}
-                        {k.status === "available" && k.usedPercent === null && (
-                          <span className="text-green-400 text-[10px]">✓ Ready</span>
-                        )}
-                      </div>
-                      {/* Per-key usage bar */}
-                      {k.usedPercent !== null && (
-                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(k.usedPercent, 100)}%`,
-                              background: k.usedPercent >= 100
-                                ? "hsl(0 84% 60%)"
-                                : k.usedPercent >= 80
-                                ? "hsl(38 92% 50%)"
-                                : "hsl(142 71% 45%)",
-                            }}
-                          />
-                        </div>
-                      )}
-                      {k.used !== null && k.limit !== null && (
-                        <div className="flex justify-between text-[9px] text-muted-foreground/50">
-                          <span>{k.used.toLocaleString()} / {k.limit.toLocaleString()} tokens</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                {/* Merged consumption chart */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground">Per-Key Token Consumption</p>
+                  <div className="w-full h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={apiStatus.keys.map((k) => ({
+                          name: k.name.replace("Key ", "K"),
+                          used: k.used ?? 0,
+                          remaining: k.limit ? Math.max((k.limit) - (k.used ?? 0), 0) : 0,
+                          status: k.status,
+                          usedPercent: k.usedPercent ?? 0,
+                          retryIn: k.retryIn,
+                          error: k.error,
+                        }))}
+                        margin={{ top: 4, right: 4, bottom: 4, left: -20 }}
+                      >
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                            fontSize: "11px",
+                            color: "hsl(var(--foreground))",
+                          }}
+                          formatter={(value: number, name: string) => [
+                            `${value.toLocaleString()} tokens`,
+                            name === "used" ? "Used" : "Remaining",
+                          ]}
+                          labelFormatter={(label) => `Key: ${label}`}
+                        />
+                        <Bar dataKey="used" stackId="a" radius={[0, 0, 0, 0]}>
+                          {apiStatus.keys.map((k, i) => (
+                            <Cell
+                              key={i}
+                              fill={
+                                k.status === "error" || k.status === "terms_required"
+                                  ? "hsl(0 84% 60%)"
+                                  : (k.usedPercent ?? 0) >= 95
+                                  ? "hsl(0 84% 60%)"
+                                  : (k.usedPercent ?? 0) >= 80
+                                  ? "hsl(38 92% 50%)"
+                                  : "hsl(142 71% 45%)"
+                              }
+                            />
+                          ))}
+                        </Bar>
+                        <Bar dataKey="remaining" stackId="a" radius={[4, 4, 0, 0]}>
+                          {apiStatus.keys.map((_, i) => (
+                            <Cell key={i} fill="hsl(var(--muted))" />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Legend */}
+                  <div className="flex items-center justify-center gap-4 text-[9px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: "hsl(142 71% 45%)" }} /> &lt;80%</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: "hsl(38 92% 50%)" }} /> 80-95%</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: "hsl(0 84% 60%)" }} /> &gt;95% / Error</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: "hsl(var(--muted))" }} /> Remaining</span>
+                  </div>
                 </div>
               </>
             )}
