@@ -1578,10 +1578,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       const recorder = new MediaRecorder(stream, { mimeType });
       sttMediaRecorderRef.current = recorder;
-      sttChunksRef.current = [];
+      let finalBlob: Blob | null = null;
 
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) sttChunksRef.current.push(e.data);
+        if (e.data.size > 0) finalBlob = e.data;
       };
 
       recorder.onstop = () => {
@@ -1589,10 +1589,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         stream.getTracks().forEach(t => t.stop());
         sttStreamRef.current = null;
 
-        const blob = new Blob(sttChunksRef.current, { type: mimeType });
-        sttChunksRef.current = [];
         setIsListening(false);
-        processSTTResult(blob);
+        if (finalBlob && finalBlob.size > 0) {
+          processSTTResult(finalBlob);
+        } else if (voiceModeRef.current) {
+          setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
+        }
       };
 
       recorder.onerror = () => {
@@ -1602,7 +1604,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
       };
 
-      recorder.start(); // single complete blob on stop (ensures valid WebM header)
+      recorder.start(); // single complete blob on stop
       setIsListening(true);
       if (voiceModeRef.current) toast("🎤 Listening...", { duration: 2000 });
 
