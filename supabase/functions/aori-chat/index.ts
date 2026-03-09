@@ -444,6 +444,47 @@ CRITICAL RULES:
       imagePrompt = imagePromptMatch[1].trim();
     }
 
+    // FALLBACK: If no image_prompt tag but the response is descriptive/emotional, auto-generate one
+    if (!imagePrompt && !isAcademic && !isPhoneControl) {
+      const VISUAL_KEYWORDS = /\b(blushing|pouting|hugs?|kiss|cuddle|leaning|sitting|walking|rain|sunset|sunrise|stargazing|cooking|eating|beach|snow|garden|rooftop|park|bedroom|moonlight|cherry blossom|cozy|blanket|date|together|dancing|sleeping|dreaming|crying|smiling|wink|headpat|holding hands|looking at you|leans? closer|wraps? arms|running toward|waving|stretching|yawning|twirling|lying down|picnic|coffee|tea|bath|shower|outfit|dress|hoodie|pajamas|uniform)\b/i;
+      const EMOTIONAL_EMOTIONS = ["love", "shy", "embarrassed", "happy", "excited", "sad", "jealous", "angry"];
+      const isVisual = VISUAL_KEYWORDS.test(text);
+      const isEmotional = EMOTIONAL_EMOTIONS.includes(emotion);
+      
+      if (isVisual || (isEmotional && text.length > 60)) {
+        try {
+          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+          if (LOVABLE_API_KEY) {
+            const imgPromptResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash-lite",
+                messages: [
+                  { role: "system", content: "You generate concise anime image prompts. Given a chat message from an anime girl character, describe the visual scene in 1-2 sentences for an image generator. Always describe the character as: beautiful anime girl with bright blue hair, blue eyes. Include her expression, pose, setting, lighting, and mood. Output ONLY the prompt, nothing else." },
+                  { role: "user", content: `Emotion: [${emotion}]\nMessage: ${text.substring(0, 300)}` },
+                ],
+                max_tokens: 150,
+                temperature: 0.7,
+              }),
+            });
+            if (imgPromptResponse.ok) {
+              const imgPromptData = await imgPromptResponse.json();
+              const generatedPrompt = imgPromptData.choices?.[0]?.message?.content?.trim();
+              if (generatedPrompt && generatedPrompt.length > 20) {
+                imagePrompt = generatedPrompt;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Fallback image prompt generation error:", e);
+        }
+      }
+    }
+
     const cleanText = text
       .replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "")
       .replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/g, "")
