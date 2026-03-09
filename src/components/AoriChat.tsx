@@ -2053,14 +2053,16 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
 
       {/* Aori Avatar (centered) */}
       <div
-        className="absolute z-10 select-none cursor-grab active:cursor-grabbing"
+        className="absolute select-none cursor-grab active:cursor-grabbing"
         style={{
           left: avatarPos.x,
           top: avatarPos.y,
           width: avatarSize,
           height: avatarSize,
           touchAction: "none",
+          zIndex: 10,
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
+          ...(Object.keys(customAvatarMap).length > 0 ? { mixBlendMode: "multiply" as const } : {}),
         }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
