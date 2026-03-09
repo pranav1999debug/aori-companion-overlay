@@ -7,7 +7,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BASE_INSTRUCTION = `Using this face as the ONLY reference for the character's identity and ART STYLE, generate a FULL-BODY illustration from HEAD TO TOES of this EXACT same character. CRITICAL: You MUST preserve the EXACT SAME ART STYLE as the reference image — if the reference is a REALISTIC photo/render, generate a REALISTIC output. If the reference is anime/cartoon, generate anime/cartoon. Do NOT convert realistic images to anime or vice versa. The character must be standing on a PERFECTLY PURE SOLID WHITE BACKGROUND (#FFFFFF) with ABSOLUTELY NOTHING else — no ground, no shadows, no scenery, no props, no gradients, no checkerboard, no patterns, no effects. Just the character isolated on flat pure white. Show the ENTIRE body: head, torso, arms, hands, legs, feet — all visible. The character should wear a casual stylish outfit consistent with the reference. The BODY LANGUAGE and POSE must strongly reflect the emotion below, not just the face. Keep the character's face, hair color, skin tone, and identity identical to the reference image. CRITICAL: Change both the FACIAL EXPRESSION and the FULL BODY POSE to match the emotion.`;
+const BASE_INSTRUCTION = `Use the uploaded image as the ONLY face reference. CRITICAL IDENTITY PRESERVATION: Preserve the EXACT facial identity, facial proportions, eye shape, lips, nose, hair color, hair style, and skin tone. The generated person must clearly be the SAME individual as the reference photo — use strong identity preservation.
+
+CRITICAL ART STYLE MATCH: You MUST preserve the EXACT SAME ART STYLE as the reference image. If the reference is a REALISTIC photo/render, generate ultra realistic photography with high detail and 85mm portrait lens look, realistic skin texture, and natural lighting. If the reference is anime/cartoon/illustrated, generate in that SAME anime/cartoon style. Do NOT convert between styles.
+
+Generate a FULL BODY version of this person from HEAD TO TOES with natural realistic body proportions. Show the ENTIRE body: head, torso, arms, hands, legs, feet — all clearly visible. The character should wear a casual stylish outfit consistent with the reference.
+
+BACKGROUND: PERFECTLY PURE SOLID WHITE BACKGROUND (#FFFFFF). No environment, no room, no objects, no shadows, no ground plane, no gradients, no checkerboard, no patterns, no effects. Completely isolated subject on flat pure white — PNG cutout style.
+
+The FACIAL EXPRESSION and FULL BODY POSE must both strongly reflect the emotion below. Change BOTH the face AND the body language to match.`;
 
 const EMOTION_PROMPTS: Record<string, string> = {
   happy: `${BASE_INSTRUCTION} Emotion: HAPPY — beaming wide smile, eyes sparkling with joy, arms open or hands clasped together cheerfully, relaxed upright posture, maybe a little bounce in stance. Whole body radiates warmth and friendliness.`,
