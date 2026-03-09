@@ -498,6 +498,23 @@ CRITICAL RULES:
         try {
           const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
           if (LOVABLE_API_KEY) {
+            // Build character description based on custom character or default
+            const hasCustomChar = userProfile?.character_name || userProfile?.character_appearance;
+            let charDesc: string;
+            let styleNote: string;
+            if (userProfile?.character_appearance) {
+              charDesc = userProfile.character_appearance;
+              styleNote = charDesc.toLowerCase().includes("anime") 
+                ? "Use anime art style." 
+                : "Use ultra realistic photography style, studio lighting, photorealistic.";
+            } else if (userProfile?.character_name && userProfile.character_name !== "Aori") {
+              charDesc = `a character named ${userProfile.character_name}`;
+              styleNote = "Match the art style to the character's personality.";
+            } else {
+              charDesc = "beautiful anime girl with bright blue hair, blue eyes";
+              styleNote = "Use anime art style.";
+            }
+
             const imgPromptResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
               headers: {
@@ -507,7 +524,7 @@ CRITICAL RULES:
               body: JSON.stringify({
                 model: "google/gemini-2.5-flash-lite",
                 messages: [
-                  { role: "system", content: "You generate concise anime image prompts. Given a chat message from an anime girl character, describe the visual scene in 1-2 sentences for an image generator. Always describe the character as: beautiful anime girl with bright blue hair, blue eyes. Include her expression, pose, setting, lighting, and mood. Output ONLY the prompt, nothing else." },
+                  { role: "system", content: `You generate concise image prompts. Given a chat message from a character, describe the visual scene in 1-2 sentences for an image generator. Always describe the character as: ${charDesc}. ${styleNote} Include her expression, pose, setting, lighting, and mood. Output ONLY the prompt, nothing else.` },
                   { role: "user", content: `Emotion: [${emotion}]\nMessage: ${text.substring(0, 300)}` },
                 ],
                 max_tokens: 150,
