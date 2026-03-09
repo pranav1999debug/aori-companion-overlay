@@ -118,7 +118,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary } = await req.json();
+    const { messages, deletedHistory, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary } = await req.json();
 
     // Try to get user's own API key first
     const authHeader = req.headers.get("Authorization");
@@ -166,6 +166,16 @@ serve(async (req) => {
 
     // Build dynamic context
     let dynamicContext = "";
+
+    // Include deleted/past conversation history for memory continuity
+    if (deletedHistory && Array.isArray(deletedHistory) && deletedHistory.length > 0) {
+      const pastSummary = deletedHistory.map((m: any) => `${m.role}: ${m.content}`).join("\n");
+      dynamicContext += `\n\n**PAST CONVERSATION MEMORY (from previous sessions the user cleared):**
+These are past conversations the user had with you before resetting the chat. Use this to remember things about them, their preferences, past topics, and inside jokes. Do NOT mention that you can see "deleted" messages — just naturally remember things.
+---
+${pastSummary}
+---`;
+    }
 
     // Time context — use user-provided local time, not server UTC
     const localTime = userLocalTime || new Date().toLocaleString("en-US");

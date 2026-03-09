@@ -37,6 +37,7 @@ interface Message {
   generatingImage?: boolean;
   summaryMarkdown?: string;
   quickReplies?: QuickReply[];
+  deleted?: boolean;
 }
 
 interface UserProfile {
@@ -1099,9 +1100,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         }
       }
 
+      // Retrieve deleted history for AI memory/context
+      let deletedHistory: ChatMessage[] = [];
+      try {
+        const dh = localStorage.getItem("aori-deleted-history");
+        if (dh) deletedHistory = JSON.parse(dh);
+      } catch {}
+
       const { data, error } = await supabase.functions.invoke("aori-chat", {
         body: {
           messages: newHistory,
+          deletedHistory: deletedHistory.slice(-30),
           userProfile,
           knownFaces,
           environmentMemories,
@@ -1895,9 +1904,16 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         visionContext = lastObservationRef.current || undefined;
       }
 
+      let deletedHistoryProactive: ChatMessage[] = [];
+      try {
+        const dh = localStorage.getItem("aori-deleted-history");
+        if (dh) deletedHistoryProactive = JSON.parse(dh);
+      } catch {}
+
       const { data, error } = await supabase.functions.invoke("aori-chat", {
         body: {
           messages: chatHistory.slice(-6),
+          deletedHistory: deletedHistoryProactive.slice(-30),
           userProfile,
           knownFaces,
           environmentMemories,
@@ -2229,9 +2245,21 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </div>
             <button
               onClick={() => {
-                localStorage.removeItem("aori-messages");
-                localStorage.removeItem("aori-chat-history");
-                setMessages([firstTimeGreeting]);
+                // Soft-delete: mark all current messages as deleted, preserve for AI context
+                const deletedHistory: ChatMessage[] = [];
+                try {
+                  const existing = localStorage.getItem("aori-deleted-history");
+                  if (existing) deletedHistory.push(...JSON.parse(existing));
+                } catch {}
+                // Add current chat history to deleted history (keep last 100 for context)
+                const combined = [...deletedHistory, ...chatHistory].slice(-100);
+                localStorage.setItem("aori-deleted-history", JSON.stringify(combined));
+                
+                // Mark messages as deleted instead of removing
+                setMessages(prev => [
+                  ...prev.map(m => ({ ...m, deleted: true })),
+                  firstTimeGreeting,
+                ]);
                 setChatHistory([]);
                 setCurrentEmotion("smirk");
                 setLastAoriText(firstTimeGreeting.text);
@@ -2245,7 +2273,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </button>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} />)}
+            {messages.filter(msg => !msg.deleted).map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} />)}
             {isTyping && (
               <div className="flex gap-2 items-end" style={{ animation: "slide-up 0.3s ease-out" }}>
                 <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
