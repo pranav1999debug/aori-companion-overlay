@@ -2026,11 +2026,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       {/* Scene background */}
       <div className="absolute inset-0 z-0">
         {isTransitioning && previousEmotion && (
-          <img src={emotionImages[previousEmotion]} alt={`Background ${previousEmotion}`} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-0" />
+          <img src={getBgImage(previousEmotion)} alt={`Background ${previousEmotion}`} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-0" />
         )}
         <img
           key={currentEmotion}
-          src={emotionImages[currentEmotion]}
+          src={getBgImage(currentEmotion)}
           alt={`Background ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-100"
           style={{ animation: isTransitioning ? "fade-in-scene 0.5s ease-in-out" : undefined }}
