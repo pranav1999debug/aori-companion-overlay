@@ -170,6 +170,9 @@ export type Database = {
           age: number | null
           aori_age: string | null
           aori_role: string | null
+          character_name: string | null
+          character_personality: string | null
+          character_speaking_style: string | null
           created_at: string
           custom_traits: string[] | null
           device_id: string
@@ -187,6 +190,9 @@ export type Database = {
           age?: number | null
           aori_age?: string | null
           aori_role?: string | null
+          character_name?: string | null
+          character_personality?: string | null
+          character_speaking_style?: string | null
           created_at?: string
           custom_traits?: string[] | null
           device_id: string
@@ -204,6 +210,9 @@ export type Database = {
           age?: number | null
           aori_age?: string | null
           aori_role?: string | null
+          character_name?: string | null
+          character_personality?: string | null
+          character_speaking_style?: string | null
           created_at?: string
           custom_traits?: string[] | null
           device_id?: string

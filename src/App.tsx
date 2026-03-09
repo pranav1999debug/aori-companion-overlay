@@ -11,6 +11,7 @@ import Onboarding from "./pages/Onboarding";
 import SetupGuide from "./pages/SetupGuide";
 import GoogleCallback from "./pages/GoogleCallback";
 import ProfileSettings from "./pages/ProfileSettings";
+import CharacterStudio from "./pages/CharacterStudio";
 import NotFound from "./pages/NotFound";
 import AoriChat from "./components/AoriChat";
 
@@ -150,6 +151,9 @@ function AppRoutes() {
         } />
         <Route path="/profile" element={
           <RequireAuth><RequireOnboarding><ProfileSettings /></RequireOnboarding></RequireAuth>
+        } />
+        <Route path="/character" element={
+          <RequireAuth><RequireOnboarding><CharacterStudio /></RequireOnboarding></RequireAuth>
         } />
         <Route path="*" element={<NotFound />} />
       </Routes>

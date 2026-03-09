@@ -51,6 +51,9 @@ interface UserProfile {
   aori_age?: string;
   language_style?: string;
   affection_level?: number;
+  character_name?: string;
+  character_personality?: string;
+  character_speaking_style?: string;
 }
 
 interface KnownFace {
@@ -150,7 +153,7 @@ const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   setTimeout(() => printWindow.print(), 800);
 };
 
-const ChatBubble = ({ message, onDismissQuickReplies, onImageClick }: { message: Message; onDismissQuickReplies?: (id: number) => void; onImageClick?: (src: string) => void }) => {
+const ChatBubble = ({ message, onDismissQuickReplies, onImageClick, getAvatarFn }: { message: Message; onDismissQuickReplies?: (id: number) => void; onImageClick?: (src: string) => void; getAvatarFn?: (e: AoriEmotion) => string }) => {
   const isUser = message.sender === "user";
   return (
     <div
@@ -160,8 +163,8 @@ const ChatBubble = ({ message, onDismissQuickReplies, onImageClick }: { message:
       <div className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"} items-end`}>
         {!isUser && message.emotion && (
           <img
-            src={emotionCutouts[message.emotion]}
-            alt="Aori"
+            src={getAvatarFn ? getAvatarFn(message.emotion) : emotionCutouts[message.emotion]}
+            alt="Companion"
             className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30 shrink-0"
           />
         )}
@@ -247,6 +250,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [knownFaces, setKnownFaces] = useState<KnownFace[]>([]);
   const [environmentMemories, setEnvironmentMemories] = useState<EnvironmentMemory[]>([]);
+  const [customAvatarMap, setCustomAvatarMap] = useState<Record<string, string>>({});
   const [musicDetected, setMusicDetected] = useState(false);
   const musicAnalyserRef = useRef<AnalyserNode | null>(null);
   const musicStreamRef = useRef<MediaStream | null>(null);
@@ -274,7 +278,31 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           aori_age: d.aori_age || "19",
           language_style: d.language_style || "multilingual",
           affection_level: d.affection_level || 30,
+          character_name: d.character_name || undefined,
+          character_personality: d.character_personality || undefined,
+          character_speaking_style: d.character_speaking_style || undefined,
         });
+        // Load custom avatars from storage
+        if (d.user_id) {
+          const avatarMap: Record<string, string> = {};
+          const { data: files } = await supabase.storage
+            .from("character-avatars")
+            .list(d.user_id || userId);
+          if (files && files.length > 0) {
+            for (const file of files) {
+              const emotionKey = file.name.split(".")[0];
+              const { data: urlData } = supabase.storage
+                .from("character-avatars")
+                .getPublicUrl(`${d.user_id || userId}/${file.name}`);
+              if (urlData?.publicUrl) {
+                avatarMap[emotionKey] = urlData.publicUrl + `?t=${file.updated_at}`;
+              }
+            }
+          }
+          if (Object.keys(avatarMap).length > 0) {
+            setCustomAvatarMap(avatarMap);
+          }
+        }
       }
       if (facesRes.data) setKnownFaces(facesRes.data.map((f: any) => ({ id: f.id, name: f.name, description: f.description })));
       if (envRes.data) setEnvironmentMemories(envRes.data.map((e: any) => ({ id: e.id, description: e.description, location_label: e.location_label })));
@@ -284,6 +312,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   }, [userId, loadContacts]);
 
   const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
+  const companionName = userProfile?.character_name || localStorage.getItem("aori-character-name") || "Aori";
+  const getAvatar = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] || emotionCutouts[emotion], [customAvatarMap]);
+  const getBgImage = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] ? customAvatarMap[emotion] : emotionImages[emotion], [customAvatarMap]);
 
   const returningGreetings: { text: string; emotion: AoriEmotion }[] = [
     { text: `Oh~ ${userName}'s back! Missed me that much, huh? 😏💙`, emotion: "smirk" },
@@ -2053,8 +2084,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         />
         {isTransitioning && previousEmotion && (
           <img
-            src={emotionCutouts[previousEmotion]}
-            alt={`Aori ${previousEmotion}`}
+            src={getAvatar(previousEmotion)}
+            alt={`${companionName} ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
             style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
             draggable={false}
@@ -2062,8 +2093,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         )}
         <img
           key={currentEmotion}
-          src={emotionCutouts[currentEmotion]}
-          alt={`Aori ${currentEmotion}`}
+          src={getAvatar(currentEmotion)}
+          alt={`${companionName} ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
           style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
@@ -2180,6 +2211,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           <Settings className="w-5 h-5" />
         </button>
 
+        <button onClick={() => { if (onClose) onClose(); navigate("/character"); }}
+          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-accent hover:bg-white/[0.15] transition-all"
+          title="Character Studio">
+          <Paintbrush className="w-5 h-5" />
+        </button>
+
         <button onClick={() => { if (onClose) onClose(); navigate("/profile"); }}
           className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all"
           title="Profile & Logout">
@@ -2236,11 +2273,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       {chatOpen && (
         <div className="absolute inset-0 z-40 flex flex-col bg-[hsl(220,25%,6%)]/95 backdrop-blur-xl" style={{ animation: "slide-up 0.25s ease-out" }}>
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
-            <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40 bg-white/10" />
+            <img src={getAvatar(currentEmotion)} alt={companionName} className="w-9 h-9 rounded-full object-cover object-top ring-2 ring-primary/40 bg-white/10" />
             <div className="flex-1 min-w-0">
-              <h2 className="font-display font-bold text-white text-sm">Aori Tatsumi</h2>
+              <h2 className="font-display font-bold text-white text-sm">{companionName === "Aori" ? "Aori Tatsumi" : companionName}</h2>
               <p className="text-xs text-white/40">
-                {isTyping ? "typing..." : `Your stubborn companion, ${userName} 💙`}
+                {isTyping ? "typing..." : `Your companion, ${userName} 💙`}
               </p>
             </div>
             <button
@@ -2273,10 +2310,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </button>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.filter(msg => !msg.deleted).map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} />)}
+            {messages.filter(msg => !msg.deleted).map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} getAvatarFn={getAvatar} />)}
             {isTyping && (
               <div className="flex gap-2 items-end" style={{ animation: "slide-up 0.3s ease-out" }}>
-                <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
+                <img src={getAvatar(currentEmotion)} alt={companionName} className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
                 <div className="bg-white/[0.06] px-4 py-3 rounded-2xl rounded-bl-md">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: "0ms" }} />
