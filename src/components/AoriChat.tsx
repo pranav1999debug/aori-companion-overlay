@@ -277,7 +277,31 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           aori_age: d.aori_age || "19",
           language_style: d.language_style || "multilingual",
           affection_level: d.affection_level || 30,
+          character_name: d.character_name || undefined,
+          character_personality: d.character_personality || undefined,
+          character_speaking_style: d.character_speaking_style || undefined,
         });
+        // Load custom avatars from storage
+        if (d.user_id) {
+          const avatarMap: Record<string, string> = {};
+          const { data: files } = await supabase.storage
+            .from("character-avatars")
+            .list(d.user_id || userId);
+          if (files && files.length > 0) {
+            for (const file of files) {
+              const emotionKey = file.name.split(".")[0];
+              const { data: urlData } = supabase.storage
+                .from("character-avatars")
+                .getPublicUrl(`${d.user_id || userId}/${file.name}`);
+              if (urlData?.publicUrl) {
+                avatarMap[emotionKey] = urlData.publicUrl + `?t=${file.updated_at}`;
+              }
+            }
+          }
+          if (Object.keys(avatarMap).length > 0) {
+            setCustomAvatarMap(avatarMap);
+          }
+        }
       }
       if (facesRes.data) setKnownFaces(facesRes.data.map((f: any) => ({ id: f.id, name: f.name, description: f.description })));
       if (envRes.data) setEnvironmentMemories(envRes.data.map((e: any) => ({ id: e.id, description: e.description, location_label: e.location_label })));
