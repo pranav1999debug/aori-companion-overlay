@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush } from "lucide-react";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
+import dashboardBg from "@/assets/dashboard-bg.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -314,7 +315,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const userName = userProfile?.name || localStorage.getItem("aori-user-name") || "you";
   const companionName = userProfile?.character_name || localStorage.getItem("aori-character-name") || "Aori";
   const getAvatar = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] || emotionCutouts[emotion], [customAvatarMap]);
-  const getBgImage = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] ? customAvatarMap[emotion] : emotionImages[emotion], [customAvatarMap]);
+  const getBgImage = useCallback((emotion: AoriEmotion) => customAvatarMap[emotion] ? dashboardBg : emotionImages[emotion], [customAvatarMap]);
 
   const returningGreetings: { text: string; emotion: AoriEmotion }[] = [
     { text: `Oh~ ${userName}'s back! Missed me that much, huh? 😏💙`, emotion: "smirk" },
@@ -2025,11 +2026,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       {/* Scene background */}
       <div className="absolute inset-0 z-0">
         {isTransitioning && previousEmotion && (
-          <img src={emotionImages[previousEmotion]} alt={`Background ${previousEmotion}`} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-0" />
+          <img src={getBgImage(previousEmotion)} alt={`Background ${previousEmotion}`} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-0" />
         )}
         <img
           key={currentEmotion}
-          src={emotionImages[currentEmotion]}
+          src={getBgImage(currentEmotion)}
           alt={`Background ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out opacity-100"
           style={{ animation: isTransitioning ? "fade-in-scene 0.5s ease-in-out" : undefined }}
@@ -2087,7 +2088,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             src={getAvatar(previousEmotion)}
             alt={`${companionName} ${previousEmotion}`}
             className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-            style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
+            style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", mixBlendMode: "multiply", animation: "avatar-fade-out 0.5s ease-in-out forwards" }}
             draggable={false}
           />
         )}
@@ -2096,7 +2097,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           src={getAvatar(currentEmotion)}
           alt={`${companionName} ${currentEmotion}`}
           className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
-          style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
+          style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.5))", mixBlendMode: "multiply", animation: isTransitioning ? "avatar-fade-in 0.5s ease-in-out forwards" : undefined }}
           draggable={false}
         />
         {/* Resize handle */}
