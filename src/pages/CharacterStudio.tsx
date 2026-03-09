@@ -179,6 +179,7 @@ export default function CharacterStudio() {
           character_name: null,
           character_personality: null,
           character_speaking_style: null,
+          character_appearance: null,
         } as any)
         .eq("user_id", user.id);
 
