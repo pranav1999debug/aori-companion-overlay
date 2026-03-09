@@ -9,9 +9,11 @@ import { useAuth } from "@/hooks/useAuth";
 import VoiceTranscript, { VoiceEntry } from "@/components/VoiceTranscript";
 import { usePhoneControls } from "@/hooks/usePhoneControls";
 
-// Strip any <suggested_actions>...</suggested_actions> tags the AI model may embed in text
+// Strip any tags the AI model may embed in text
 const cleanResponseText = (text: string): string =>
-  text.replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/gi, "").trim();
+  text.replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/gi, "")
+    .replace(/<image_prompt>[\s\S]*?<\/image_prompt>/gi, "")
+    .trim();
 import { useContacts } from "@/hooks/useContacts";
 
 interface ChatMessage {
