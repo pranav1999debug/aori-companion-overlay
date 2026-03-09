@@ -29,13 +29,13 @@ const EMOTION_PROMPTS: Record<string, string> = {
   shy: `${BASE_INSTRUCTION} Emotion: SHY — soft shy smile, head slightly tilted down, hands together in front of body. Knees slightly turned inward, shoulders hunched.`,
   sad: `${BASE_INSTRUCTION} Emotion: SAD — sad expression, shoulders slightly lowered, hands loosely together. Head tilted down, weight sagging.`,
   love: `${BASE_INSTRUCTION} Emotion: LOVE — affectionate expression, hands forming a heart shape or touching chest. Dreamy eyes, slight blush.`,
-  proud: `${BASE_INSTRUCTION} Emotion: PROUD — chin up, confident grin, chest puffed out, hands on hips in a power pose or arms crossed with satisfaction, feet planted firmly, tall upright posture. Body exudes self-assurance.`,
-  thinking: `${BASE_INSTRUCTION} Emotion: THINKING — eyes looking up or to the side, one hand on chin or touching temple, slight head tilt, other arm supporting the thinking arm, weight shifted to one leg. Contemplative curious stance.`,
-  confused: `${BASE_INSTRUCTION} Emotion: CONFUSED — head tilted, one eyebrow raised, slight frown, one hand scratching head or palms up in a shrug gesture, off-balance stance. Body says "I have no idea what's going on."`,
-  sleepy: `${BASE_INSTRUCTION} Emotion: SLEEPY — heavy droopy eyelids, yawning mouth, one hand rubbing eye, slouched posture, head tilting to one side, knees slightly bent as if about to fall asleep standing. Body is completely drained.`,
-  jealous: `${BASE_INSTRUCTION} Emotion: JEALOUS — narrowed side-glancing eyes, slight pout, arms tightly crossed, body turned slightly away but eyes looking back, tense hunched shoulders. Envious and displeased body language.`,
-  embarrassed: `${BASE_INSTRUCTION} Emotion: EMBARRASSED — bright red face, wide panicked eyes, both hands covering cheeks or mouth, knees turned inward, body shrinking and cringing. Full-body flustered reaction.`,
-  shock: `${BASE_INSTRUCTION} Emotion: SHOCKED — jaw dropped wide open, eyes huge and round, hands up near face with fingers spread, body leaning back, one foot stepping back. Completely frozen startled pose.`,
+  proud: `${BASE_INSTRUCTION} Emotion: PROUD — confident smile, standing tall with hands on hips. Chin up, chest out, power pose.`,
+  thinking: `${BASE_INSTRUCTION} Emotion: THINKING — thoughtful expression, one hand touching chin. Head slightly tilted, eyes looking up or to the side.`,
+  confused: `${BASE_INSTRUCTION} Emotion: CONFUSED — puzzled expression, head tilted, palms slightly raised in a shrug gesture. Off-balance stance.`,
+  sleepy: `${BASE_INSTRUCTION} Emotion: SLEEPY — tired eyes, slight yawn or relaxed sleepy posture. One hand rubbing eye, slouched body.`,
+  jealous: `${BASE_INSTRUCTION} Emotion: JEALOUS — annoyed jealous look, side glance, arms folded. Body turned slightly away but eyes looking back.`,
+  embarrassed: `${BASE_INSTRUCTION} Emotion: EMBARRASSED — blushing face, shy posture, hands near cheeks. Body shrinking inward, knees turned in.`,
+  shock: `${BASE_INSTRUCTION} Emotion: SHOCKED — wide eyes and open mouth, surprised body language with raised hands. Body leaning back, frozen startled pose.`,
 };
 
 serve(async (req) => {
