@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2 } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush } from "lucide-react";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import { supabase } from "@/integrations/supabase/client";
@@ -2198,6 +2198,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full text-white/40 hover:text-white/70 transition-colors shrink-0" title="Send image">
             <ImagePlus className="w-5 h-5" />
           </button>
+          <button type="button" onClick={() => { setInput("Draw me "); setChatOpen(true); setTimeout(() => inputRef.current?.focus(), 100); }} className="p-3 rounded-full text-white/40 hover:text-accent/80 transition-colors shrink-0" title="Generate image">
+            <Paintbrush className="w-5 h-5" />
+          </button>
           <input
             ref={inputRef}
             value={input}
@@ -2265,6 +2268,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               <input type="file" ref={fileInputChatRef} accept="image/*,.pdf,application/pdf" className="hidden" onChange={onFileChange} />
               <button type="button" onClick={() => fileInputChatRef.current?.click()} className="p-2 rounded-full text-white/40 hover:text-white/70 transition-colors" title="Send image">
                 <ImagePlus className="w-5 h-5" />
+              </button>
+              <button type="button" onClick={() => { setInput("Draw me "); }} className="p-2 rounded-full text-white/40 hover:text-accent/80 transition-colors" title="Generate image">
+                <Paintbrush className="w-5 h-5" />
               </button>
               <input
                 value={input}
