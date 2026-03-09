@@ -1441,28 +1441,28 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
 
     try {
-      // Convert to WAV to ensure valid audio headers
-      const wavBlob = await convertToWav(audioBlob);
-
-      // Convert blob to base64
-      const buffer = await wavBlob.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
+      // Try WAV conversion first for guaranteed valid headers
+      let blobToSend = audioBlob;
+      try {
+        blobToSend = await convertToWav(audioBlob);
+      } catch (wavErr) {
+        console.warn("[STT] WAV conversion failed, sending original blob:", wavErr);
       }
-      const audioBase64 = btoa(binary);
+
+      // Send as FormData (binary) instead of base64 JSON
+      const formData = new FormData();
+      const ext = blobToSend.type.includes("wav") ? "wav" : blobToSend.type.includes("ogg") ? "ogg" : "webm";
+      formData.append("file", blobToSend, `audio.${ext}`);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-stt`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ audio: audioBase64, mimeType: "audio/wav" }),
+          body: formData,
         }
       );
 
