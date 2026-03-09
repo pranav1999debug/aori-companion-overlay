@@ -2258,7 +2258,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </button>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} />)}
+            {messages.filter(msg => !msg.deleted).map((msg) => <ChatBubble key={msg.id} message={msg} onImageClick={(src) => setLightboxSrc(src)} onDismissQuickReplies={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, quickReplies: undefined } : m))} />)}
             {isTyping && (
               <div className="flex gap-2 items-end" style={{ animation: "slide-up 0.3s ease-out" }}>
                 <img src={emotionCutouts[currentEmotion]} alt="Aori" className="w-7 h-7 rounded-full object-cover object-top ring-2 ring-primary/30" />
