@@ -418,9 +418,17 @@ CRITICAL RULES:
       }
     }
 
+    // Extract image prompt if present
+    let imagePrompt: string | null = null;
+    const imagePromptMatch = text.match(/<image_prompt>([\s\S]*?)<\/image_prompt>/);
+    if (imagePromptMatch) {
+      imagePrompt = imagePromptMatch[1].trim();
+    }
+
     const cleanText = text
       .replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "")
       .replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/g, "")
+      .replace(/<image_prompt>[\s\S]*?<\/image_prompt>/g, "")
       .trim();
 
     // If academic, generate detailed solution via Lovable AI
