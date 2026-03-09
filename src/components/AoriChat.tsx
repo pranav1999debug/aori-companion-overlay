@@ -37,6 +37,7 @@ interface Message {
   generatingImage?: boolean;
   summaryMarkdown?: string;
   quickReplies?: QuickReply[];
+  deleted?: boolean;
 }
 
 interface UserProfile {
