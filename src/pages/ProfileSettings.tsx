@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { emotionCutouts } from "@/lib/aori-personality";
 import { ChevronLeft, LogOut, Save, User, Briefcase, Heart, Trash2, Phone, Loader2, Flame, Sparkles, Activity, RefreshCw, Key, Clock, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useContacts } from "@/hooks/useContacts";
 
 interface KeyStatus {
