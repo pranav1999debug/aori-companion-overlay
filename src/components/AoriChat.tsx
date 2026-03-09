@@ -308,6 +308,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     return [firstTimeGreeting];
   });
   const [input, setInput] = useState("");
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [currentEmotion, setCurrentEmotion] = useState<AoriEmotion>(() => {
     try {
       const saved = localStorage.getItem("aori-messages");
