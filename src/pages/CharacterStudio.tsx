@@ -196,6 +196,7 @@ export default function CharacterStudio() {
       setCharacterName("");
       setCharacterPersonality("");
       setCharacterSpeakingStyle("");
+      setCharacterAppearance("");
       setCustomAvatars({});
       localStorage.removeItem("aori-character-name");
       toast.success("Reset to default Aori~ 💙");
