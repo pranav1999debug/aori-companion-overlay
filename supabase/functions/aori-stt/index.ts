@@ -73,6 +73,8 @@ serve(async (req) => {
         const formData = new FormData();
         formData.append("file", audioFile);
         formData.append("model", "whisper-large-v3-turbo");
+        formData.append("language", "hi");
+        formData.append("prompt", "This is a conversation in Hinglish (Hindi mixed with English). The speaker uses both Hindi and English words freely.");
         formData.append("response_format", "verbose_json");
 
         response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
