@@ -386,7 +386,35 @@ export default function CharacterStudio() {
           <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <ImageIcon className="w-3.5 h-3.5" /> Emotion Avatars
           </label>
-          <p className="text-[11px] text-muted-foreground/60">Upload custom images for each emotion. Transparent PNGs work best. Leave empty to use defaults.</p>
+          <p className="text-[11px] text-muted-foreground/60">Upload custom images for each emotion, or upload one image to auto-generate all expressions with AI.</p>
+
+          {/* Generate All Button */}
+          <button
+            onClick={() => baseImageInputRef.current?.click()}
+            disabled={isGenerating}
+            className="w-full py-3 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating {generatingEmotion ? emotionLabels[generatingEmotion as AoriEmotion] : ""}...
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-4 h-4" />
+                Upload 1 Image → Generate All 14 Expressions
+              </>
+            )}
+          </button>
+
+          {isGenerating && (
+            <div className="space-y-1">
+              <Progress value={generationProgress} className="h-2" />
+              <p className="text-[11px] text-muted-foreground/60 text-center">
+                {generationProgress}% — {Math.round(generationProgress / 100 * EMOTIONS.length)}/{EMOTIONS.length} emotions
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-2">
             {EMOTIONS.map((emotion) => (
