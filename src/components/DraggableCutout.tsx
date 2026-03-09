@@ -101,7 +101,6 @@ export default function DraggableCutout() {
         width: size,
         height: size,
         touchAction: "none",
-        mixBlendMode: "multiply",
         transition: dragRef.current?.moved ? "none" : "left 0.15s ease-out, top 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out",
       }}
       onMouseDown={handlePointerDown}
