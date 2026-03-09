@@ -211,6 +211,89 @@ export default function CharacterStudio() {
     setSelectedEmotion(null);
   }, [selectedEmotion, handleUploadAvatar]);
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleGenerateAll = useCallback(async (file: File) => {
+    if (!user) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files allowed!");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Max 5MB per image!");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationProgress(0);
+
+    try {
+      const base64 = await fileToBase64(file);
+      let completed = 0;
+
+      for (const emotion of EMOTIONS) {
+        setGeneratingEmotion(emotion);
+        try {
+          const { data, error } = await supabase.functions.invoke("aori-generate-expressions", {
+            body: { baseImage: base64, emotion, userId: user.id },
+          });
+
+          if (error) {
+            console.error(`Error generating ${emotion}:`, error);
+            toast.error(`Failed to generate ${emotionLabels[emotion]}`);
+          } else if (data?.imageUrl) {
+            setCustomAvatars(prev => ({ ...prev, [emotion]: data.imageUrl }));
+          } else if (data?.error) {
+            console.error(`${emotion} error:`, data.error);
+            if (data.error.includes("Rate limited")) {
+              toast.error("Rate limited! Waiting before continuing...");
+              await new Promise(r => setTimeout(r, 5000));
+              // Retry once
+              const { data: retryData } = await supabase.functions.invoke("aori-generate-expressions", {
+                body: { baseImage: base64, emotion, userId: user.id },
+              });
+              if (retryData?.imageUrl) {
+                setCustomAvatars(prev => ({ ...prev, [emotion]: retryData.imageUrl }));
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Failed ${emotion}:`, err);
+        }
+
+        completed++;
+        setGenerationProgress(Math.round((completed / EMOTIONS.length) * 100));
+        
+        // Small delay between requests to avoid rate limiting
+        if (completed < EMOTIONS.length) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+
+      toast.success("All expressions generated! ✨");
+    } catch (e) {
+      console.error("Generation error:", e);
+      toast.error("Generation failed. Try again!");
+    } finally {
+      setIsGenerating(false);
+      setGeneratingEmotion(null);
+      setGenerationProgress(0);
+    }
+  }, [user]);
+
+  const onBaseImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleGenerateAll(file);
+    e.target.value = "";
+  }, [handleGenerateAll]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
