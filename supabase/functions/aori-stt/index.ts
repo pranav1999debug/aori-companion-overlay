@@ -41,22 +41,45 @@ serve(async (req) => {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
-    console.log(`[STT] Audio size: ${bytes.length} bytes, mimeType: ${mimeType || "not provided"}`);
+    console.log(`[STT] Audio size: ${bytes.length} bytes, mimeType: ${mimeType || "not provided"}, first4: ${Array.from(bytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
 
-    const ext = mimeType?.includes("webm") ? "webm" : mimeType?.includes("ogg") ? "ogg" : "wav";
-    const contentType = mimeType || "audio/webm";
-    const audioBlob = new Blob([bytes], { type: contentType });
+    // Detect actual format from magic bytes
+    let detectedType = mimeType || "audio/webm";
+    let ext = "webm";
+    
+    // Check magic bytes
+    if (bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
+      // EBML header = WebM/Matroska
+      detectedType = "audio/webm";
+      ext = "webm";
+    } else if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+      // OggS header
+      detectedType = "audio/ogg";
+      ext = "ogg";
+    } else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+      // RIFF header = WAV
+      detectedType = "audio/wav";
+      ext = "wav";
+    } else {
+      // Unknown format — try sending as webm anyway
+      console.warn(`[STT] Unknown magic bytes, defaulting to webm`);
+    }
 
-    const formData = new FormData();
-    formData.append("file", audioBlob, `audio.${ext}`);
-    formData.append("model", "whisper-large-v3-turbo");
-    formData.append("response_format", "verbose_json");
+    console.log(`[STT] Detected format: ${detectedType} (.${ext})`);
 
+    // Build FormData with a proper File object for each attempt
+    // (FormData can only be consumed once by fetch, so we rebuild per key)
     let response: Response | null = null;
     let lastErrorBody = "";
 
     for (const key of groqKeys) {
       try {
+        const file = new File([bytes.buffer], `audio.${ext}`, { type: detectedType });
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("model", "whisper-large-v3-turbo");
+        formData.append("response_format", "verbose_json");
+
         response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
           method: "POST",
           headers: { Authorization: `Bearer ${key}` },
@@ -69,8 +92,8 @@ serve(async (req) => {
         console.error(`[STT] Key failed with ${response.status}: ${lastErrorBody}`);
         
         if (response.status === 429) { continue; }
-        // For 400 errors, try next key in case it's a transient issue
-        if (response.status === 400) { continue; }
+        // 400 = bad audio data, won't fix with another key
+        if (response.status === 400) { break; }
         break;
       } catch (fetchErr) {
         console.error(`[STT] Fetch error:`, fetchErr);
