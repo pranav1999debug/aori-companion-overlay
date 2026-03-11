@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AoriEmotion, emotionCutouts, emotionLabels } from "@/lib/aori-personality";
-import { ChevronLeft, Save, Upload, Trash2, Loader2, Sparkles, MessageSquare, Palette, Image as ImageIcon, RotateCcw, Wand2, Download } from "lucide-react";
+import { ChevronLeft, Save, Upload, Trash2, Loader2, Sparkles, MessageSquare, Palette, Image as ImageIcon, RotateCcw, Wand2, Download, Search, User } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const EMOTIONS: AoriEmotion[] = [
   "happy", "smirk", "excited", "angry", "shy", "sad", "love",
@@ -23,6 +24,11 @@ export default function CharacterStudio() {
   const [characterPersonality, setCharacterPersonality] = useState("");
   const [characterSpeakingStyle, setCharacterSpeakingStyle] = useState("");
   const [characterAppearance, setCharacterAppearance] = useState("");
+  const [characterGender, setCharacterGender] = useState<"male" | "female">("female");
+
+  // Search / auto-fill
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
   // Custom avatars per emotion
   const [customAvatars, setCustomAvatars] = useState<Record<string, string>>({});
@@ -52,6 +58,18 @@ export default function CharacterStudio() {
         setCharacterAppearance((data as any).character_appearance || "");
       }
 
+      // Load gender from profile (via raw query since types may not be updated yet)
+      try {
+        const { data: gd } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+        if (gd && (gd as any).character_gender) {
+          setCharacterGender((gd as any).character_gender);
+        }
+      } catch {}
+
       // Load existing avatar URLs from storage
       const avatarMap: Record<string, string> = {};
       for (const emotion of EMOTIONS) {
@@ -75,6 +93,42 @@ export default function CharacterStudio() {
     };
     load();
   }, [user]);
+
+  // === Auto-fill from anime character search ===
+  const handleCharacterSearch = async () => {
+    if (!searchQuery.trim()) {
+      toast.error("Enter a character name (e.g. 'Hinata from Naruto')");
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("aori-character-lookup", {
+        body: { characterQuery: searchQuery.trim() },
+      });
+
+      if (error) throw error;
+      if (!data?.success || !data?.character) {
+        toast.error(data?.error || "Character not found. Try a different name.");
+        return;
+      }
+
+      const c = data.character;
+      setCharacterName(c.character_name || "");
+      setCharacterPersonality(c.character_personality || "");
+      setCharacterSpeakingStyle(c.character_speaking_style || "");
+      setCharacterAppearance(c.character_appearance || "");
+      if (c.character_gender === "male" || c.character_gender === "female") {
+        setCharacterGender(c.character_gender);
+      }
+
+      toast.success(`✨ ${c.character_name} from ${c.series || "unknown series"} loaded!`);
+    } catch (e: any) {
+      console.error("Character search error:", e);
+      toast.error("Search failed. Try again!");
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const handleUploadAvatar = useCallback(async (file: File, emotion: AoriEmotion) => {
     if (!user) return;
@@ -148,6 +202,7 @@ export default function CharacterStudio() {
           character_personality: characterPersonality.trim() || null,
           character_speaking_style: characterSpeakingStyle.trim() || null,
           character_appearance: characterAppearance.trim() || null,
+          character_gender: characterGender,
         } as any)
         .eq("user_id", user.id);
       if (error) throw error;
@@ -158,6 +213,7 @@ export default function CharacterStudio() {
       } else {
         localStorage.removeItem("aori-character-name");
       }
+      localStorage.setItem("aori-character-gender", characterGender);
 
       toast.success("Character saved! Your companion has evolved~ ✨");
     } catch (e) {
@@ -180,6 +236,7 @@ export default function CharacterStudio() {
           character_personality: null,
           character_speaking_style: null,
           character_appearance: null,
+          character_gender: "female",
         } as any)
         .eq("user_id", user.id);
 
@@ -197,8 +254,10 @@ export default function CharacterStudio() {
       setCharacterPersonality("");
       setCharacterSpeakingStyle("");
       setCharacterAppearance("");
+      setCharacterGender("female");
       setCustomAvatars({});
       localStorage.removeItem("aori-character-name");
+      localStorage.removeItem("aori-character-gender");
       toast.success("Reset to default Aori~ 💙");
     } catch {
       toast.error("Reset failed");
@@ -260,7 +319,6 @@ export default function CharacterStudio() {
             if (data.error.includes("Rate limited")) {
               toast.error("Rate limited! Waiting before continuing...");
               await new Promise(r => setTimeout(r, 5000));
-              // Retry once
               const { data: retryData } = await supabase.functions.invoke("aori-generate-expressions", {
                 body: { baseImage: base64, emotion, userId: user.id },
               });
@@ -276,7 +334,6 @@ export default function CharacterStudio() {
         completed++;
         setGenerationProgress(Math.round((completed / EMOTIONS.length) * 100));
         
-        // Small delay between requests to avoid rate limiting
         if (completed < EMOTIONS.length) {
           await new Promise(r => setTimeout(r, 1500));
         }
@@ -316,12 +373,13 @@ export default function CharacterStudio() {
         </button>
         <h1 className="text-lg font-semibold">Character Studio</h1>
         <div className="flex-1" />
+        <ThemeToggle />
         <button
           onClick={handleReset}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          Reset to Aori
+          Reset
         </button>
       </div>
 
@@ -331,7 +389,7 @@ export default function CharacterStudio() {
           <Sparkles className="w-6 h-6 text-primary" />
         </div>
         <div className="bg-card rounded-2xl rounded-bl-md p-3 text-sm leading-relaxed border border-border/30 flex-1">
-          Create your own AI companion! Customize name, personality, speaking style, and upload unique avatars for each emotion~ ✨
+          Create your AI companion! Search any anime character to auto-fill details, or customize manually~ ✨
         </div>
       </div>
 
@@ -340,6 +398,34 @@ export default function CharacterStudio() {
 
       {/* Form */}
       <div className="flex-1 px-4 pb-4 space-y-5 overflow-y-auto">
+
+        {/* === Anime Character Search === */}
+        <div className="space-y-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
+          <label className="text-xs font-medium text-primary flex items-center gap-1.5">
+            <Search className="w-3.5 h-3.5" /> Search Anime Character
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCharacterSearch()}
+              placeholder="e.g. Hinata from Naruto, Gojo Satoru..."
+              className="flex-1 px-3 py-2.5 rounded-lg bg-card border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50"
+            />
+            <button
+              onClick={handleCharacterSearch}
+              disabled={isSearching}
+              className="px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+            >
+              {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+              {isSearching ? "Searching..." : "Generate"}
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground/60">
+            Type a character name + series, then click Generate to auto-fill name, personality, speaking style, appearance & famous dialogues.
+          </p>
+        </div>
+
         {/* Character Name */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
@@ -352,6 +438,38 @@ export default function CharacterStudio() {
             className="w-full px-4 py-3 rounded-xl bg-card border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50"
           />
           <p className="text-[11px] text-muted-foreground/60">Your AI companion's name. Used in chat and greetings.</p>
+        </div>
+
+        {/* Gender / Voice */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5" /> Voice Gender
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCharacterGender("female")}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+                characterGender === "female"
+                  ? "bg-aori-blush/20 border-aori-blush text-foreground"
+                  : "bg-card border-border/50 text-muted-foreground hover:border-border"
+              }`}
+            >
+              ♀ Female
+            </button>
+            <button
+              onClick={() => setCharacterGender("male")}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+                characterGender === "male"
+                  ? "bg-primary/20 border-primary text-foreground"
+                  : "bg-card border-border/50 text-muted-foreground hover:border-border"
+              }`}
+            >
+              ♂ Male
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground/60">
+            Determines TTS voice. Female uses "hannah", male uses "dan".
+          </p>
         </div>
 
         {/* Personality */}
@@ -372,16 +490,16 @@ export default function CharacterStudio() {
         {/* Speaking Style */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-            <Palette className="w-3.5 h-3.5" /> Speaking Style
+            <Palette className="w-3.5 h-3.5" /> Speaking Style & Famous Dialogues
           </label>
           <textarea
             value={characterSpeakingStyle}
             onChange={(e) => setCharacterSpeakingStyle(e.target.value)}
-            placeholder="How do they talk? e.g. 'Uses lots of cat puns, says ~nya at the end of sentences, speaks in third person sometimes. Mixes Japanese and English.'"
-            rows={3}
+            placeholder="How do they talk? Include famous dialogue quotes. e.g. 'Uses lots of cat puns, says ~nya. Famous lines: &quot;Believe it!&quot;, &quot;I will become Hokage!&quot;'"
+            rows={4}
             className="w-full px-4 py-3 rounded-xl bg-card border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50 resize-none"
           />
-          <p className="text-[11px] text-muted-foreground/60">Defines speech patterns, catchphrases, and language quirks.</p>
+          <p className="text-[11px] text-muted-foreground/60">Defines speech patterns, catchphrases, famous dialogue quotes, and language quirks.</p>
         </div>
 
         {/* Character Appearance */}
@@ -392,7 +510,7 @@ export default function CharacterStudio() {
           <textarea
             value={characterAppearance}
             onChange={(e) => setCharacterAppearance(e.target.value)}
-            placeholder="Describe what your character looks like for image generation. e.g. 'A realistic young woman with long brown hair, brown eyes, fair skin, wearing a white hoodie. Ultra realistic photography style.'"
+            placeholder="Describe what your character looks like for image generation. e.g. 'A realistic young woman with long brown hair, brown eyes, fair skin, wearing a white hoodie.'"
             rows={3}
             className="w-full px-4 py-3 rounded-xl bg-card border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50 resize-none"
           />
