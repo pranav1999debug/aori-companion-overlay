@@ -70,6 +70,7 @@ interface UserProfile {
   character_personality?: string;
   character_speaking_style?: string;
   character_appearance?: string;
+  character_gender?: string;
 }
 
 interface KnownFace {
