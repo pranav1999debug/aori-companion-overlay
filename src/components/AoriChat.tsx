@@ -299,6 +299,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           character_personality: d.character_personality || undefined,
           character_speaking_style: d.character_speaking_style || undefined,
           character_appearance: d.character_appearance || undefined,
+          character_gender: d.character_gender || "female",
         });
         // Load custom avatars from storage
         if (d.user_id) {
