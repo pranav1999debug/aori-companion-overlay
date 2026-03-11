@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json();
+    const { text, voice: requestedVoice } = await req.json();
 
     // Try to get user's own API key first
     const authHeader = req.headers.get("Authorization");
