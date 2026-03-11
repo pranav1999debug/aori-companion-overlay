@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json();
+    const { text, voice: requestedVoice } = await req.json();
 
     // Try to get user's own API key first
     const authHeader = req.headers.get("Authorization");
@@ -82,7 +82,7 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "canopylabs/orpheus-v1-english",
             input: expressiveText,
-            voice: "hannah",
+            voice: requestedVoice || "hannah",
             response_format: "wav",
           }),
         });

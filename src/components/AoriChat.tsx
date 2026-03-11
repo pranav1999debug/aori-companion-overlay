@@ -70,6 +70,7 @@ interface UserProfile {
   character_personality?: string;
   character_speaking_style?: string;
   character_appearance?: string;
+  character_gender?: string;
 }
 
 interface KnownFace {
@@ -298,6 +299,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           character_personality: d.character_personality || undefined,
           character_speaking_style: d.character_speaking_style || undefined,
           character_appearance: d.character_appearance || undefined,
+          character_gender: d.character_gender || "female",
         });
         // Load custom avatars from storage
         if (d.user_id) {
@@ -681,7 +683,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               Authorization: `Bearer ${authToken}`,
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify({ text, voice: (userProfile?.character_gender === "male") ? "dan" : "hannah" }),
           }
         );
       if (response.status === 429) {

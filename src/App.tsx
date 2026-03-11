@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { useAuth } from "./hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
@@ -39,13 +40,11 @@ function RequireOnboarding({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const check = async () => {
-      // Fast path: localStorage cache
       if (localStorage.getItem("aori-onboarded") === "true") {
         setOnboarded(true);
         setChecking(false);
         return;
       }
-      // Slow path: check DB
       if (user) {
         const { data } = await supabase
           .from("user_profiles")
@@ -157,22 +156,23 @@ function AppRoutes() {
         } />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      
     </>
   );
 }
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 };
 
