@@ -171,6 +171,7 @@ export type Database = {
           aori_age: string | null
           aori_role: string | null
           character_appearance: string | null
+          character_gender: string | null
           character_name: string | null
           character_personality: string | null
           character_speaking_style: string | null
@@ -192,6 +193,7 @@ export type Database = {
           aori_age?: string | null
           aori_role?: string | null
           character_appearance?: string | null
+          character_gender?: string | null
           character_name?: string | null
           character_personality?: string | null
           character_speaking_style?: string | null
@@ -213,6 +215,7 @@ export type Database = {
           aori_age?: string | null
           aori_role?: string | null
           character_appearance?: string | null
+          character_gender?: string | null
           character_name?: string | null
           character_personality?: string | null
           character_speaking_style?: string | null
