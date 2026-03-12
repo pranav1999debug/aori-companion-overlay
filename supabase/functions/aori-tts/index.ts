@@ -92,7 +92,7 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "canopylabs/orpheus-v1-english",
             input: expressiveText,
-            voice: requestedVoice || "hannah",
+            voice: selectedVoice,
             response_format: "wav",
           }),
         });
