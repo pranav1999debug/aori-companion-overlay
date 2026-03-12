@@ -683,7 +683,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               Authorization: `Bearer ${authToken}`,
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
-            body: JSON.stringify({ text, voice: (userProfile?.character_gender === "male") ? "dan" : "hannah" }),
+            body: JSON.stringify({ text, voice: (userProfile?.character_gender === "male") ? "Daniel" : "hannah" }),
           }
         );
       if (response.status === 429) {
