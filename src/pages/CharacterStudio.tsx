@@ -468,7 +468,7 @@ export default function CharacterStudio() {
             </button>
           </div>
           <p className="text-[11px] text-muted-foreground/60">
-            Determines TTS voice. Female uses "hannah", male uses "dan".
+            Determines TTS voice. Female uses "hannah", male uses "Daniel".
           </p>
         </div>
 
