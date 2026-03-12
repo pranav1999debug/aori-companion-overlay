@@ -15,6 +15,16 @@ serve(async (req) => {
   try {
     const { text, voice: requestedVoice } = await req.json();
 
+    const voiceAliases: Record<string, string> = {
+      male: "daniel",
+      female: "hannah",
+    };
+    const allowedVoices = new Set(["autumn", "diana", "hannah", "austin", "daniel", "troy"]);
+    const normalizedVoiceInput = typeof requestedVoice === "string" ? requestedVoice.trim().toLowerCase() : "";
+    const selectedVoice = allowedVoices.has(normalizedVoiceInput)
+      ? normalizedVoiceInput
+      : (voiceAliases[normalizedVoiceInput] ?? "hannah");
+
     // Try to get user's own API key first
     const authHeader = req.headers.get("Authorization");
     let userKey: string | null = null;

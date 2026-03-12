@@ -657,7 +657,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const speakText = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
     const job = async () => {
-      const cacheKey = text.trim().toLowerCase();
+      const selectedVoice = userProfile?.character_gender === "male" ? "daniel" : "hannah";
+      const cacheKey = `${selectedVoice}:${text.trim().toLowerCase()}`;
       const cached = await getCachedAudio(cacheKey);
       if (cached) {
         await playAudioAsync(`data:audio/wav;base64,${cached}`).catch(() => speakBrowserTTSAsync(text));
@@ -683,7 +684,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               Authorization: `Bearer ${authToken}`,
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
-            body: JSON.stringify({ text, voice: (userProfile?.character_gender === "male") ? "Daniel" : "hannah" }),
+            body: JSON.stringify({ text, voice: selectedVoice }),
           }
         );
       if (response.status === 429) {
@@ -707,7 +708,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     };
     speechQueueRef.current.push(job);
     processQueue();
-  }, [voiceEnabled, speakBrowserTTSAsync, getCachedAudio, setCachedAudio, playAudioAsync, processQueue]);
+  }, [voiceEnabled, userProfile?.character_gender, speakBrowserTTSAsync, getCachedAudio, setCachedAudio, playAudioAsync, processQueue]);
 
   // === Shake detection ===
   const shakeResponses = [
