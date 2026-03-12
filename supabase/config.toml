@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.aori-generate-expressions]
 verify_jwt = false
+
+[functions.aori-character-lookup]
+verify_jwt = false
