@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.aori-character-lookup]
 verify_jwt = false
+
+[functions.aori-youtube-search]
+verify_jwt = false

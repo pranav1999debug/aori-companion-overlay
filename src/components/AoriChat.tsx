@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush } from "lucide-react";
+import MusicPlayer from "@/components/MusicPlayer";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import dashboardBg from "@/assets/dashboard-bg.jpg";
@@ -411,6 +412,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const [backCamEnabled, setBackCamEnabled] = useState(false);
   const [backCamStream, setBackCamStream] = useState<MediaStream | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [musicPlayerVideos, setMusicPlayerVideos] = useState<{ videoId: string; title: string; channelTitle: string; thumbnail: string }[]>([]);
+  const [musicPlayerOpen, setMusicPlayerOpen] = useState(false);
   const [lastAoriText, setLastAoriText] = useState(() => {
     try {
       const saved = localStorage.getItem("aori-messages");
@@ -930,6 +933,60 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     }
   }, [chatOpen, changeEmotion, speakText]);
 
+  // === Music play handler ===
+  const MUSIC_PLAY_REGEX = /\b(play|baja|suna|laga|chalao)\b.*\b(song|songs|music|gana|gaana|gane|trending|bollywood|hindi|nepali|english|pop|rock|lofi|lo-fi|anime|kpop|k-pop|sad songs?|romantic|party|chill|vibe|beat|beats|track|tracks)\b|\b(song|songs|music|gana|gaana|gane|trending)\b.*\b(play|baja|suna|laga|chalao)\b/i;
+
+  const handleMusicSearch = useCallback(async (query: string) => {
+    setIsTyping(true);
+    if (!chatOpen) setChatOpen(true);
+
+    const startMsg = "Ooh~ music time?! Let me find something for you~ 🎵✨";
+    changeEmotion("excited");
+    setLastAoriText(startMsg);
+    setMessages(prev => [...prev, { id: Date.now(), text: startMsg, sender: "aori", emotion: "excited" as AoriEmotion, timestamp: Date.now() }]);
+    speakText(startMsg);
+
+    try {
+      // Get Google access token
+      let googleAccessToken: string | null = null;
+      if (userId) {
+        const { data: tokenRow } = await supabase
+          .from("user_google_tokens")
+          .select("access_token, token_expires_at")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (tokenRow && new Date(tokenRow.token_expires_at) > new Date()) {
+          googleAccessToken = tokenRow.access_token;
+        }
+      }
+
+      const { data, error } = await supabase.functions.invoke("aori-youtube-search", {
+        body: { query, accessToken: googleAccessToken, maxResults: 10 },
+      });
+
+      if (error) throw error;
+      if (!data?.videos?.length) throw new Error("No videos found");
+
+      setMusicPlayerVideos(data.videos);
+      setMusicPlayerOpen(true);
+
+      const responseText = `Yatta~! Found ${data.videos.length} tracks for you! 🎶 Playing "${data.videos[0].title?.replace(/&amp;/g, "&").replace(/&quot;/g, '"')}" now~ Enjoy! 💙`;
+      changeEmotion("happy");
+      setLastAoriText(responseText);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion: "happy" as AoriEmotion, timestamp: Date.now() }]);
+      speakText(responseText);
+    } catch (e: any) {
+      console.error("Music search error:", e);
+      const errMsg = `Mou! Couldn't find music right now... ${e?.message || "try again"} 😤`;
+      changeEmotion("angry");
+      setLastAoriText(errMsg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry" as AoriEmotion, timestamp: Date.now() }]);
+      speakText(errMsg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [chatOpen, changeEmotion, speakText, userId]);
+
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
@@ -938,6 +995,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setInput("");
     setIsTyping(true);
     if (!chatOpen && !fromVoice) setChatOpen(true);
+
+    // Check for music play intent
+    if (MUSIC_PLAY_REGEX.test(text)) {
+      setIsTyping(false);
+      // Extract the search query from the user's text
+      const musicQuery = text.replace(/\b(play|baja|suna|laga|chalao|please|can you|could you|i want to|i wanna)\b/gi, "").trim() || "trending songs";
+      handleMusicSearch(musicQuery);
+      return;
+    }
 
     // Check for YouTube link with summarize intent
     const ytMatch = text.match(YOUTUBE_URL_REGEX);
@@ -1265,7 +1331,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } finally {
       setIsTyping(false);
     }
-  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected, handleLectureSummary, handlePdfSummary]);
+  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected, handleLectureSummary, handlePdfSummary, handleMusicSearch]);
 
   const sendMessageWithText = useCallback((text: string) => sendMessageCore(text, true), [sendMessageCore]);
   const sendMessage = useCallback(() => { sendMessageCore(input.trim(), false); }, [sendMessageCore, input]);
@@ -2289,6 +2355,14 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Music Player */}
+      {musicPlayerOpen && musicPlayerVideos.length > 0 && (
+        <MusicPlayer
+          videos={musicPlayerVideos}
+          onClose={() => { setMusicPlayerOpen(false); setMusicPlayerVideos([]); }}
+        />
       )}
 
       {/* Image Lightbox */}
