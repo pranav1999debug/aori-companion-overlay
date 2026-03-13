@@ -2357,6 +2357,14 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         </div>
       )}
 
+      {/* Music Player */}
+      {musicPlayerOpen && musicPlayerVideos.length > 0 && (
+        <MusicPlayer
+          videos={musicPlayerVideos}
+          onClose={() => { setMusicPlayerOpen(false); setMusicPlayerVideos([]); }}
+        />
+      )}
+
       {/* Image Lightbox */}
       {lightboxSrc && (
         <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setLightboxSrc(null)}>
