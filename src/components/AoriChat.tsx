@@ -935,56 +935,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   // === Music play handler ===
   const MUSIC_PLAY_REGEX = /\b(play|baja|suna|laga|chalao)\b.*\b(song|songs|music|gana|gaana|gane|trending|bollywood|hindi|nepali|english|pop|rock|lofi|lo-fi|anime|kpop|k-pop|sad songs?|romantic|party|chill|vibe|beat|beats|track|tracks)\b|\b(song|songs|music|gana|gaana|gane|trending)\b.*\b(play|baja|suna|laga|chalao)\b/i;
 
-  const handleMusicSearch = useCallback(async (query: string) => {
-    setIsTyping(true);
+  const handleMusicSearch = useCallback((query: string) => {
     if (!chatOpen) setChatOpen(true);
 
-    const startMsg = "Ooh~ music time?! Let me find something for you~ 🎵✨";
+    const startMsg = "Ooh~ music time?! Opening YouTube for you~ 🎵✨ You can minimize it to a circle button!";
     changeEmotion("excited");
     setLastAoriText(startMsg);
     setMessages(prev => [...prev, { id: Date.now(), text: startMsg, sender: "aori", emotion: "excited" as AoriEmotion, timestamp: Date.now() }]);
     speakText(startMsg);
 
-    try {
-      // Get Google access token
-      let googleAccessToken: string | null = null;
-      if (userId) {
-        const { data: tokenRow } = await supabase
-          .from("user_google_tokens")
-          .select("access_token, token_expires_at")
-          .eq("user_id", userId)
-          .maybeSingle();
-        if (tokenRow && new Date(tokenRow.token_expires_at) > new Date()) {
-          googleAccessToken = tokenRow.access_token;
-        }
-      }
-
-      const { data, error } = await supabase.functions.invoke("aori-youtube-search", {
-        body: { query, accessToken: googleAccessToken, maxResults: 10 },
-      });
-
-      if (error) throw error;
-      if (!data?.videos?.length) throw new Error("No videos found");
-
-      setMusicPlayerVideos(data.videos);
-      setMusicPlayerOpen(true);
-
-      const responseText = `Yatta~! Found ${data.videos.length} tracks for you! 🎶 Playing "${data.videos[0].title?.replace(/&amp;/g, "&").replace(/&quot;/g, '"')}" now~ Enjoy! 💙`;
-      changeEmotion("happy");
-      setLastAoriText(responseText);
-      setMessages(prev => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion: "happy" as AoriEmotion, timestamp: Date.now() }]);
-      speakText(responseText);
-    } catch (e: any) {
-      console.error("Music search error:", e);
-      const errMsg = `Mou! Couldn't find music right now... ${e?.message || "try again"} 😤`;
-      changeEmotion("angry");
-      setLastAoriText(errMsg);
-      setMessages(prev => [...prev, { id: Date.now() + 1, text: errMsg, sender: "aori", emotion: "angry" as AoriEmotion, timestamp: Date.now() }]);
-      speakText(errMsg);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [chatOpen, changeEmotion, speakText, userId]);
+    setMusicSearchQuery(query);
+  }, [chatOpen, changeEmotion, speakText]);
 
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
