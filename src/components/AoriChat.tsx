@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush } from "lucide-react";
-import MusicPlayer from "@/components/MusicPlayer";
+import YouTubePlayer from "@/components/YouTubePlayer";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
 import dashboardBg from "@/assets/dashboard-bg.jpg";
