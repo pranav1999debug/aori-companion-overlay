@@ -2317,11 +2317,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         </div>
       )}
 
-      {/* Music Player */}
-      {musicPlayerOpen && musicPlayerVideos.length > 0 && (
-        <MusicPlayer
-          videos={musicPlayerVideos}
-          onClose={() => { setMusicPlayerOpen(false); setMusicPlayerVideos([]); }}
+      {/* YouTube Music Player */}
+      {musicSearchQuery && (
+        <YouTubePlayer
+          searchQuery={musicSearchQuery}
+          onClose={() => setMusicSearchQuery(null)}
         />
       )}
 
