@@ -412,6 +412,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const [backCamEnabled, setBackCamEnabled] = useState(false);
   const [backCamStream, setBackCamStream] = useState<MediaStream | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [musicPlayerVideos, setMusicPlayerVideos] = useState<{ videoId: string; title: string; channelTitle: string; thumbnail: string }[]>([]);
+  const [musicPlayerOpen, setMusicPlayerOpen] = useState(false);
   const [lastAoriText, setLastAoriText] = useState(() => {
     try {
       const saved = localStorage.getItem("aori-messages");
