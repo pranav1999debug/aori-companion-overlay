@@ -996,6 +996,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setIsTyping(true);
     if (!chatOpen && !fromVoice) setChatOpen(true);
 
+    // Check for music play intent
+    if (MUSIC_PLAY_REGEX.test(text)) {
+      setIsTyping(false);
+      // Extract the search query from the user's text
+      const musicQuery = text.replace(/\b(play|baja|suna|laga|chalao|please|can you|could you|i want to|i wanna)\b/gi, "").trim() || "trending songs";
+      handleMusicSearch(musicQuery);
+      return;
+    }
+
     // Check for YouTube link with summarize intent
     const ytMatch = text.match(YOUTUBE_URL_REGEX);
     const hasSummarizeIntent = /\b(summari[sz]e|summary|notes?|lecture|recap|study|explain this video|report|pdf|download)\b/i.test(text);
