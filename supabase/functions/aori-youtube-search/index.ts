@@ -6,6 +6,56 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type SearchResult = {
+  ok: boolean;
+  status: number;
+  data?: any;
+  raw?: string;
+};
+
+const runSearch = async ({
+  query,
+  maxResults,
+  apiKey,
+  accessToken,
+}: {
+  query: string;
+  maxResults: number;
+  apiKey?: string;
+  accessToken?: string;
+}): Promise<SearchResult> => {
+  const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
+  searchUrl.searchParams.set("part", "snippet");
+  searchUrl.searchParams.set("q", query);
+  searchUrl.searchParams.set("type", "video");
+  searchUrl.searchParams.set("videoCategoryId", "10");
+  searchUrl.searchParams.set("maxResults", String(maxResults));
+
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    searchUrl.searchParams.set("key", apiKey);
+  }
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const res = await fetch(searchUrl.toString(), { headers });
+  const raw = await res.text();
+  let data: any = null;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = null;
+  }
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    data,
+    raw,
+  };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -15,74 +65,65 @@ serve(async (req) => {
     const { query, accessToken, maxResults = 10 } = await req.json();
 
     if (!query) {
-      return new Response(
-        JSON.stringify({ error: "No search query provided", videos: [] }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "No search query provided", videos: [] }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY") || undefined;
 
-    const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
-    searchUrl.searchParams.set("part", "snippet");
-    searchUrl.searchParams.set("q", query);
-    searchUrl.searchParams.set("type", "video");
-    searchUrl.searchParams.set("videoCategoryId", "10");
-    searchUrl.searchParams.set("maxResults", String(maxResults));
+    const attempts: string[] = [];
+    let searchData: any = null;
+    let finalStatus = 500;
 
-    // Prioritize API key (more reliable), fall back to access token
-    const headers: Record<string, string> = {};
+    // 1) Prefer API key (stable and does not depend on user token freshness)
     if (GOOGLE_API_KEY) {
-      searchUrl.searchParams.set("key", GOOGLE_API_KEY);
-    } else if (accessToken) {
-      headers["Authorization"] = `Bearer ${accessToken}`;
-    } else {
+      const keyAttempt = await runSearch({ query, maxResults, apiKey: GOOGLE_API_KEY });
+      finalStatus = keyAttempt.status;
+      if (keyAttempt.ok) {
+        searchData = keyAttempt.data;
+      } else {
+        attempts.push(`api_key:${keyAttempt.status}`);
+        console.error("YouTube API key search failed:", keyAttempt.raw);
+      }
+    }
+
+    // 2) Fallback to user access token if API key path failed/unavailable
+    if (!searchData && accessToken) {
+      const tokenAttempt = await runSearch({ query, maxResults, accessToken });
+      finalStatus = tokenAttempt.status;
+      if (tokenAttempt.ok) {
+        searchData = tokenAttempt.data;
+      } else {
+        attempts.push(`access_token:${tokenAttempt.status}`);
+        console.error("YouTube token search failed:", tokenAttempt.raw);
+      }
+    }
+
+    if (!searchData) {
+      const reason = attempts.length ? attempts.join(",") : "no_credentials";
       return new Response(
-        JSON.stringify({ error: "No API key or access token available", videos: [] }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: `YouTube API error: ${finalStatus} (${reason})`, videos: [] }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    let res = await fetch(searchUrl.toString(), { headers });
-
-    // If API key failed and we have an access token, try that
-    if (!res.ok && GOOGLE_API_KEY && accessToken) {
-      searchUrl.searchParams.delete("key");
-      const retryHeaders = { "Authorization": `Bearer ${accessToken}` };
-      res = await fetch(searchUrl.toString(), { headers: retryHeaders });
-    }
-
-    // If access token failed and we have API key, try that
-    if (!res.ok && !GOOGLE_API_KEY && accessToken) {
-      // Already tried access token, nothing to fall back to
-    }
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("YouTube search error:", errText);
-      return new Response(
-        JSON.stringify({ error: `YouTube API error: ${res.status}`, videos: [] }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const data = await res.json();
-    const videos = (data.items || []).map((item: any) => ({
+    const videos = (searchData.items || []).map((item: any) => ({
       videoId: item.id?.videoId,
       title: item.snippet?.title,
       channelTitle: item.snippet?.channelTitle,
       thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url,
     }));
 
-    return new Response(
-      JSON.stringify({ videos }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ videos }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
     console.error("aori-youtube-search error:", e);
-    return new Response(
-      JSON.stringify({ error: String(e), videos: [] }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: String(e), videos: [] }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

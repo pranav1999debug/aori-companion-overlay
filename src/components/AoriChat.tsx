@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush, CloudSun } from "lucide-react";
 import YouTubePlayer from "@/components/YouTubePlayer";
 
 import { AoriEmotion, emotionImages, emotionCutouts } from "@/lib/aori-personality";
@@ -94,6 +94,37 @@ const formatTimestamp = (ts?: number) => {
 
 const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i;
 const PDF_URL_REGEX = /https?:\/\/[^\s]+\.pdf(?:\?[^\s]*)?/i;
+
+const WEATHER_CODE_LABELS: Record<number, string> = {
+  0: "clear sky",
+  1: "mostly clear",
+  2: "partly cloudy",
+  3: "overcast",
+  45: "foggy",
+  48: "rime fog",
+  51: "light drizzle",
+  53: "moderate drizzle",
+  55: "heavy drizzle",
+  56: "freezing drizzle",
+  57: "heavy freezing drizzle",
+  61: "light rain",
+  63: "moderate rain",
+  65: "heavy rain",
+  66: "light freezing rain",
+  67: "heavy freezing rain",
+  71: "light snow",
+  73: "moderate snow",
+  75: "heavy snow",
+  77: "snow grains",
+  80: "rain showers",
+  81: "strong rain showers",
+  82: "violent rain showers",
+  85: "snow showers",
+  86: "heavy snow showers",
+  95: "thunderstorm",
+  96: "thunderstorm with hail",
+  99: "severe thunderstorm with hail",
+};
 
 const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   // Convert markdown to HTML with LaTeX math support via KaTeX
@@ -390,6 +421,21 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } catch {}
     return [];
   });
+  const [weatherSummary, setWeatherSummary] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("aori-weather-summary");
+    } catch {
+      return null;
+    }
+  });
+  const [weatherEnabled, setWeatherEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("aori-weather-enabled") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   useEffect(() => {
     try { localStorage.setItem("aori-messages", JSON.stringify(messages.slice(-100))); } catch {}
@@ -398,6 +444,19 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   useEffect(() => {
     try { localStorage.setItem("aori-chat-history", JSON.stringify(chatHistory.slice(-50))); } catch {}
   }, [chatHistory]);
+
+  useEffect(() => {
+    try {
+      if (weatherSummary) localStorage.setItem("aori-weather-summary", weatherSummary);
+      else localStorage.removeItem("aori-weather-summary");
+    } catch {}
+  }, [weatherSummary]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("aori-weather-enabled", weatherEnabled ? "1" : "0");
+    } catch {}
+  }, [weatherEnabled]);
 
   const [isListening, setIsListening] = useState(false);
   const [voiceModeActive, setVoiceModeActive] = useState(false);
@@ -947,6 +1006,66 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setMusicSearchQuery(query);
   }, [chatOpen, changeEmotion, speakText]);
 
+  const syncWeatherContext = useCallback((manual = false) => {
+    if (weatherLoading) return;
+    if (!navigator.geolocation) {
+      if (manual) toast.error("Location is not supported on this device");
+      return;
+    }
+
+    setWeatherLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const weatherRes = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m&timezone=auto`
+          );
+
+          if (!weatherRes.ok) throw new Error("Weather service unavailable");
+
+          const weatherData = await weatherRes.json();
+          const current = weatherData?.current;
+          if (!current) throw new Error("No weather data available");
+
+          const temp = Math.round(current.temperature_2m);
+          const feelsLike = Math.round(current.apparent_temperature);
+          const wind = Math.round(current.wind_speed_10m);
+          const weatherLabel = WEATHER_CODE_LABELS[current.weather_code] || "mixed weather";
+          const dayState = current.is_day ? "daytime" : "nighttime";
+
+          const summary = `Outside weather right now: ${weatherLabel}, ${temp}°C (feels like ${feelsLike}°C), wind ${wind} km/h, ${dayState}.`;
+          setWeatherSummary(summary);
+          setWeatherEnabled(true);
+
+          if (manual) toast.success("Weather access enabled — Aori can now react to your outside weather");
+        } catch (error) {
+          console.error("Weather fetch error:", error);
+          if (manual) toast.error("Couldn't fetch weather right now. Try again.");
+        } finally {
+          setWeatherLoading(false);
+        }
+      },
+      (geoError) => {
+        setWeatherLoading(false);
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          if (manual) toast.error("Location permission denied. Please allow location access.");
+        } else if (manual) {
+          toast.error("Couldn't access your location");
+        }
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 15 * 60 * 1000 }
+    );
+  }, [weatherLoading]);
+
+  useEffect(() => {
+    if (!weatherEnabled) return;
+    syncWeatherContext(false);
+    const timer = window.setInterval(() => syncWeatherContext(false), 20 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [weatherEnabled, syncWeatherContext]);
+
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
@@ -1207,6 +1326,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           calendarSummary,
           youtubeSummary,
           contactsSummary,
+          weatherSummary: weatherEnabled ? weatherSummary : null,
         },
       });
       if (error) throw error;
@@ -1291,7 +1411,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } finally {
       setIsTyping(false);
     }
-  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected, handleLectureSummary, handlePdfSummary, handleMusicSearch]);
+  }, [chatOpen, chatHistory, changeEmotion, speakText, isTyping, userProfile, knownFaces, environmentMemories, musicDetected, handleLectureSummary, handlePdfSummary, handleMusicSearch, weatherEnabled, weatherSummary]);
 
   const sendMessageWithText = useCallback((text: string) => sendMessageCore(text, true), [sendMessageCore]);
   const sendMessage = useCallback(() => { sendMessageCore(input.trim(), false); }, [sendMessageCore, input]);
@@ -2164,8 +2284,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           <MapPin className="w-5 h-5" />
         </button>
 
+        <button onClick={() => syncWeatherContext(true)}
+          disabled={weatherLoading}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all disabled:opacity-50 ${weatherEnabled ? "bg-primary/20 border-primary/30 text-primary" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          title={weatherEnabled ? "Refresh weather" : "Enable weather awareness"}>
+          {weatherLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudSun className="w-5 h-5" />}
+        </button>
+
         <button onClick={toggleMusicDetection}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-purple-500/20 border-purple-500/30 text-purple-400 animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-primary/20 border-primary/30 text-primary animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
           title={musicStreamRef.current ? "Stop music detection" : "Detect music"}>
           <Music className="w-5 h-5" />
         </button>
