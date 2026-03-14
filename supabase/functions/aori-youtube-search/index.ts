@@ -23,19 +23,19 @@ serve(async (req) => {
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
 
-    // Use user's access token if available, otherwise use API key
     const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
     searchUrl.searchParams.set("part", "snippet");
     searchUrl.searchParams.set("q", query);
     searchUrl.searchParams.set("type", "video");
-    searchUrl.searchParams.set("videoCategoryId", "10"); // Music category
+    searchUrl.searchParams.set("videoCategoryId", "10");
     searchUrl.searchParams.set("maxResults", String(maxResults));
 
+    // Prioritize API key (more reliable), fall back to access token
     const headers: Record<string, string> = {};
-    if (accessToken) {
-      headers["Authorization"] = `Bearer ${accessToken}`;
-    } else if (GOOGLE_API_KEY) {
+    if (GOOGLE_API_KEY) {
       searchUrl.searchParams.set("key", GOOGLE_API_KEY);
+    } else if (accessToken) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
     } else {
       return new Response(
         JSON.stringify({ error: "No API key or access token available", videos: [] }),
@@ -43,7 +43,19 @@ serve(async (req) => {
       );
     }
 
-    const res = await fetch(searchUrl.toString(), { headers });
+    let res = await fetch(searchUrl.toString(), { headers });
+
+    // If API key failed and we have an access token, try that
+    if (!res.ok && GOOGLE_API_KEY && accessToken) {
+      searchUrl.searchParams.delete("key");
+      const retryHeaders = { "Authorization": `Bearer ${accessToken}` };
+      res = await fetch(searchUrl.toString(), { headers: retryHeaders });
+    }
+
+    // If access token failed and we have API key, try that
+    if (!res.ok && !GOOGLE_API_KEY && accessToken) {
+      // Already tried access token, nothing to fall back to
+    }
 
     if (!res.ok) {
       const errText = await res.text();
