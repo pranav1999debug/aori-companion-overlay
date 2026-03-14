@@ -1326,6 +1326,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           calendarSummary,
           youtubeSummary,
           contactsSummary,
+          weatherSummary: weatherEnabled ? weatherSummary : null,
         },
       });
       if (error) throw error;
