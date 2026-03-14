@@ -95,6 +95,37 @@ const formatTimestamp = (ts?: number) => {
 const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i;
 const PDF_URL_REGEX = /https?:\/\/[^\s]+\.pdf(?:\?[^\s]*)?/i;
 
+const WEATHER_CODE_LABELS: Record<number, string> = {
+  0: "clear sky",
+  1: "mostly clear",
+  2: "partly cloudy",
+  3: "overcast",
+  45: "foggy",
+  48: "rime fog",
+  51: "light drizzle",
+  53: "moderate drizzle",
+  55: "heavy drizzle",
+  56: "freezing drizzle",
+  57: "heavy freezing drizzle",
+  61: "light rain",
+  63: "moderate rain",
+  65: "heavy rain",
+  66: "light freezing rain",
+  67: "heavy freezing rain",
+  71: "light snow",
+  73: "moderate snow",
+  75: "heavy snow",
+  77: "snow grains",
+  80: "rain showers",
+  81: "strong rain showers",
+  82: "violent rain showers",
+  85: "snow showers",
+  86: "heavy snow showers",
+  95: "thunderstorm",
+  96: "thunderstorm with hail",
+  99: "severe thunderstorm with hail",
+};
+
 const downloadMarkdownAsPdf = (markdown: string, title: string) => {
   // Convert markdown to HTML with LaTeX math support via KaTeX
   const renderMath = (text: string): string => {
