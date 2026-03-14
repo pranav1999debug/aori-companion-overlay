@@ -472,21 +472,6 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const [backCamStream, setBackCamStream] = useState<MediaStream | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [musicSearchQuery, setMusicSearchQuery] = useState<string | null>(null);
-  const [weatherSummary, setWeatherSummary] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem("aori-weather-summary");
-    } catch {
-      return null;
-    }
-  });
-  const [weatherEnabled, setWeatherEnabled] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("aori-weather-enabled") === "1";
-    } catch {
-      return false;
-    }
-  });
-  const [weatherLoading, setWeatherLoading] = useState(false);
   const [lastAoriText, setLastAoriText] = useState(() => {
     try {
       const saved = localStorage.getItem("aori-messages");
