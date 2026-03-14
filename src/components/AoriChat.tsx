@@ -2284,8 +2284,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           <MapPin className="w-5 h-5" />
         </button>
 
+        <button onClick={() => syncWeatherContext(true)}
+          disabled={weatherLoading}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all disabled:opacity-50 ${weatherEnabled ? "bg-primary/20 border-primary/30 text-primary" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          title={weatherEnabled ? "Refresh weather" : "Enable weather awareness"}>
+          {weatherLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudSun className="w-5 h-5" />}
+        </button>
+
         <button onClick={toggleMusicDetection}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-purple-500/20 border-purple-500/30 text-purple-400 animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
+          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-primary/20 border-primary/30 text-primary animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
           title={musicStreamRef.current ? "Stop music detection" : "Detect music"}>
           <Music className="w-5 h-5" />
         </button>
