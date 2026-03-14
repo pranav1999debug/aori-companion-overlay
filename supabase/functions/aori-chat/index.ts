@@ -119,7 +119,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, deletedHistory, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary } = await req.json();
+    const { messages, deletedHistory, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary, weatherSummary } = await req.json();
 
     // Try to get user's own API key first
     const authHeader = req.headers.get("Authorization");
@@ -187,6 +187,14 @@ ${pastSummary}
 - If it's past midnight → scold them ONCE for being up late.
 - If they say "good morning" but it's night → correct them playfully.
 - DO NOT randomly mention the time. Only use when contextually relevant.`;
+
+    // Weather context from user's location
+    if (weatherSummary) {
+      dynamicContext += `\n\n**LIVE WEATHER CONTEXT (from user's device location):**\n${weatherSummary}
+- Use this weather info naturally when relevant (user asks about outside, outfit, mood, activities).
+- Keep it conversational, not robotic.
+- If weather is extreme (rain/storm/heat), proactively show concern once.`;
+    }
 
     // User profile
     if (userProfile) {
