@@ -1006,6 +1006,66 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setMusicSearchQuery(query);
   }, [chatOpen, changeEmotion, speakText]);
 
+  const syncWeatherContext = useCallback((manual = false) => {
+    if (weatherLoading) return;
+    if (!navigator.geolocation) {
+      if (manual) toast.error("Location is not supported on this device");
+      return;
+    }
+
+    setWeatherLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const weatherRes = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m&timezone=auto`
+          );
+
+          if (!weatherRes.ok) throw new Error("Weather service unavailable");
+
+          const weatherData = await weatherRes.json();
+          const current = weatherData?.current;
+          if (!current) throw new Error("No weather data available");
+
+          const temp = Math.round(current.temperature_2m);
+          const feelsLike = Math.round(current.apparent_temperature);
+          const wind = Math.round(current.wind_speed_10m);
+          const weatherLabel = WEATHER_CODE_LABELS[current.weather_code] || "mixed weather";
+          const dayState = current.is_day ? "daytime" : "nighttime";
+
+          const summary = `Outside weather right now: ${weatherLabel}, ${temp}°C (feels like ${feelsLike}°C), wind ${wind} km/h, ${dayState}.`;
+          setWeatherSummary(summary);
+          setWeatherEnabled(true);
+
+          if (manual) toast.success("Weather access enabled — Aori can now react to your outside weather");
+        } catch (error) {
+          console.error("Weather fetch error:", error);
+          if (manual) toast.error("Couldn't fetch weather right now. Try again.");
+        } finally {
+          setWeatherLoading(false);
+        }
+      },
+      (geoError) => {
+        setWeatherLoading(false);
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          if (manual) toast.error("Location permission denied. Please allow location access.");
+        } else if (manual) {
+          toast.error("Couldn't access your location");
+        }
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 15 * 60 * 1000 }
+    );
+  }, [weatherLoading]);
+
+  useEffect(() => {
+    if (!weatherEnabled) return;
+    syncWeatherContext(false);
+    const timer = window.setInterval(() => syncWeatherContext(false), 20 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [weatherEnabled, syncWeatherContext]);
+
   // === Send message (shared logic) ===
   const sendMessageCore = useCallback(async (text: string, fromVoice: boolean) => {
     if (!text.trim() || isTyping) return;
