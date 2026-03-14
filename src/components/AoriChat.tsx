@@ -421,6 +421,21 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     } catch {}
     return [];
   });
+  const [weatherSummary, setWeatherSummary] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("aori-weather-summary");
+    } catch {
+      return null;
+    }
+  });
+  const [weatherEnabled, setWeatherEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("aori-weather-enabled") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   useEffect(() => {
     try { localStorage.setItem("aori-messages", JSON.stringify(messages.slice(-100))); } catch {}
