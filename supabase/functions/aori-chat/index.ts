@@ -579,9 +579,11 @@ CRITICAL RULES:
       }
     }
 
-    // Extract image prompt if present
+    // Extract image prompt if present (handle mismatched closing tags like </image>)
     let imagePrompt: string | null = null;
-    const imagePromptMatch = text.match(/<image_prompt>([\s\S]*?)<\/image_prompt>/);
+    const imagePromptMatch = text.match(/<image_prompt>([\s\S]*?)<\/image_prompt>/) 
+      || text.match(/<image_prompt>([\s\S]*?)<\/image>/)
+      || text.match(/<image>([\s\S]*?)<\/image>/);
     if (imagePromptMatch) {
       imagePrompt = imagePromptMatch[1].trim();
     }
