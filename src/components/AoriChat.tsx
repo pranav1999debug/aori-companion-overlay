@@ -1388,7 +1388,13 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
               m.id === msgId ? { ...m, generatedImageUrl: imgData.imageUrl, generatingImage: false } : m
             ));
           } else {
-            // Remove loading state silently
+            const status = (imgError as { context?: { status?: number } } | null)?.context?.status;
+            if (status === 402) {
+              toast.error("Image generation credits are exhausted. Add credits and try again.");
+            } else if (status === 429) {
+              toast.error("Too many image requests right now. Please wait a bit.");
+            }
+
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, generatingImage: false } : m
             ));
