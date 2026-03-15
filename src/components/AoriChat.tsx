@@ -996,7 +996,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   }, [chatOpen, changeEmotion, speakText]);
 
   // === Music play handler ===
-  const MUSIC_PLAY_REGEX = /\b(play|baja|suna|laga|chalao)\b.*\b(song|songs|music|gana|gaana|gane|trending|bollywood|hindi|nepali|english|pop|rock|lofi|lo-fi|anime|kpop|k-pop|sad songs?|romantic|party|chill|vibe|beat|beats|track|tracks)\b|\b(song|songs|music|gana|gaana|gane|trending)\b.*\b(play|baja|suna|laga|chalao)\b/i;
+  const MUSIC_PLAY_REGEX = /\b(play|baja|suna|laga|chalao)\b.*\b(song|songs|music|gana|gaana|gane|trending|bollywood|hindi|nepali|english|pop|rock|lofi|lo-fi|anime|kpop|k-pop|sad songs?|romantic|party|chill|vibe|beat|beats|track|tracks)\b|\b(song|songs|music|gana|gaana|gane|trending)\b.*\b(play|baja|suna|laga|chalao)\b|\b(play|baja|suna|laga|chalao)\s+.{2,}/i;
 
   const handleMusicSearch = useCallback((query: string) => {
     if (!chatOpen) setChatOpen(true);
