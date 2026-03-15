@@ -46,21 +46,16 @@ export default function YouTubePlayer({ searchQuery, onClose }: YouTubePlayerPro
           const isExpired = new Date(tokenData.token_expires_at) <= new Date();
 
           if (isExpired) {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              const refreshRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aori-google-oauth`, {
-                method: "PATCH",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${session.access_token}`,
-                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                },
-              });
+            const { data: refreshData, error: refreshError } = await supabase.functions.invoke("aori-google-oauth", {
+              method: "POST",
+              body: { action: "refresh" },
+            });
 
-              if (refreshRes.ok) {
-                const refreshData = await refreshRes.json();
-                accessToken = refreshData.access_token;
-              }
+            if (!refreshError && refreshData?.access_token) {
+              accessToken = refreshData.access_token;
+            } else {
+              console.warn("Google token refresh failed; falling back to stored token", refreshError?.message || refreshData?.error);
+              accessToken = tokenData.access_token;
             }
           } else {
             accessToken = tokenData.access_token;
@@ -209,17 +204,23 @@ export default function YouTubePlayer({ searchQuery, onClose }: YouTubePlayerPro
               <button onClick={fetchVideos} className="text-[11px] px-2 py-1 rounded bg-muted hover:bg-muted/80">
                 Retry
               </button>
-              <button
-                onClick={() => {
-                  window.location.href = "/setup";
-                }}
-                className="text-[11px] px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1"
-              >
-                <Link className="w-3 h-3" />
-                Connect Google
-              </button>
+              {!isGoogleConnected ? (
+                <button
+                  onClick={() => {
+                    window.location.href = "/setup";
+                  }}
+                  className="text-[11px] px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1"
+                >
+                  <Link className="w-3 h-3" />
+                  Connect Google
+                </button>
+              ) : null}
             </div>
-            {!isGoogleConnected && <p className="text-[10px] text-foreground/50">Tip: connect Google once for a more reliable music feed.</p>}
+            <p className="text-[10px] text-foreground/50">
+              {isGoogleConnected
+                ? "Google is connected. Tap Retry and I’ll refresh your token automatically."
+                : "Tip: connect Google once for a more reliable music feed."}
+            </p>
           </div>
         ) : currentVideo ? (
           <>
