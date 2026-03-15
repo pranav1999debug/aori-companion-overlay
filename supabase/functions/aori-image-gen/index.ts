@@ -41,7 +41,25 @@ serve(async (req) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error("Lovable AI gateway error:", response.status, errText);
-      throw new Error(`AI gateway error: ${response.status}`);
+
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Image generation credits exhausted. Please add workspace credits and try again." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Too many image requests right now. Please wait a bit and try again." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ error: `AI gateway error: ${response.status}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
