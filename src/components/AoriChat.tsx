@@ -1006,13 +1006,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setMusicSearchQuery(query);
   }, [chatOpen, changeEmotion, speakText]);
 
+  const weatherLoadingRef = useRef(false);
   const syncWeatherContext = useCallback((manual = false) => {
-    if (weatherLoading) return;
+    if (weatherLoadingRef.current) return;
     if (!navigator.geolocation) {
       if (manual) toast.error("Location is not supported on this device");
       return;
     }
 
+    weatherLoadingRef.current = true;
     setWeatherLoading(true);
 
     navigator.geolocation.getCurrentPosition(
@@ -1044,10 +1046,12 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           console.error("Weather fetch error:", error);
           if (manual) toast.error("Couldn't fetch weather right now. Try again.");
         } finally {
+          weatherLoadingRef.current = false;
           setWeatherLoading(false);
         }
       },
       (geoError) => {
+        weatherLoadingRef.current = false;
         setWeatherLoading(false);
         if (geoError.code === geoError.PERMISSION_DENIED) {
           if (manual) toast.error("Location permission denied. Please allow location access.");
@@ -1057,7 +1061,8 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 15 * 60 * 1000 }
     );
-  }, [weatherLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!weatherEnabled) return;
