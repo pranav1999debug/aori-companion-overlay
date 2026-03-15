@@ -648,6 +648,10 @@ CRITICAL RULES:
       .replace(/<phone_action>[\s\S]*?<\/phone_action>/g, "")
       .replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/g, "")
       .replace(/<image_prompt>[\s\S]*?<\/image_prompt>/g, "")
+      .replace(/<image_prompt>[\s\S]*?<\/image>/g, "")
+      .replace(/<image>[\s\S]*?<\/image>/g, "")
+      .replace(/<image_prompt>[^<]*$/g, "")
+      .replace(/<image>[^<]*$/g, "")
       .trim();
 
     // If academic, generate detailed solution via Lovable AI
