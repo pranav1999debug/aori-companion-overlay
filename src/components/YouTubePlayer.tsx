@@ -204,17 +204,23 @@ export default function YouTubePlayer({ searchQuery, onClose }: YouTubePlayerPro
               <button onClick={fetchVideos} className="text-[11px] px-2 py-1 rounded bg-muted hover:bg-muted/80">
                 Retry
               </button>
-              <button
-                onClick={() => {
-                  window.location.href = "/setup";
-                }}
-                className="text-[11px] px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1"
-              >
-                <Link className="w-3 h-3" />
-                Connect Google
-              </button>
+              {!isGoogleConnected ? (
+                <button
+                  onClick={() => {
+                    window.location.href = "/setup";
+                  }}
+                  className="text-[11px] px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1"
+                >
+                  <Link className="w-3 h-3" />
+                  Connect Google
+                </button>
+              ) : null}
             </div>
-            {!isGoogleConnected && <p className="text-[10px] text-foreground/50">Tip: connect Google once for a more reliable music feed.</p>}
+            <p className="text-[10px] text-foreground/50">
+              {isGoogleConnected
+                ? "Google is connected. Tap Retry and I’ll refresh your token automatically."
+                : "Tip: connect Google once for a more reliable music feed."}
+            </p>
           </div>
         ) : currentVideo ? (
           <>
