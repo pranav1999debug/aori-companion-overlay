@@ -29,6 +29,10 @@ import { usePhoneControls } from "@/hooks/usePhoneControls";
 const cleanResponseText = (text: string): string =>
   text.replace(/<suggested_actions>[\s\S]*?<\/suggested_actions>/gi, "")
     .replace(/<image_prompt>[\s\S]*?<\/image_prompt>/gi, "")
+    .replace(/<image_prompt>[\s\S]*?<\/image>/gi, "")
+    .replace(/<image>[\s\S]*?<\/image>/gi, "")
+    .replace(/<image_prompt>[^<]*$/gi, "")
+    .replace(/<image>[^<]*$/gi, "")
     .trim();
 import { useContacts } from "@/hooks/useContacts";
 
