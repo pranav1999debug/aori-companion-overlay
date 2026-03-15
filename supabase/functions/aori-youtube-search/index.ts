@@ -77,20 +77,8 @@ serve(async (req) => {
     let searchData: any = null;
     let finalStatus = 500;
 
-    // 1) Prefer API key (stable and does not depend on user token freshness)
-    if (GOOGLE_API_KEY) {
-      const keyAttempt = await runSearch({ query, maxResults, apiKey: GOOGLE_API_KEY });
-      finalStatus = keyAttempt.status;
-      if (keyAttempt.ok) {
-        searchData = keyAttempt.data;
-      } else {
-        attempts.push(`api_key:${keyAttempt.status}`);
-        console.error("YouTube API key search failed:", keyAttempt.raw);
-      }
-    }
-
-    // 2) Fallback to user access token if API key path failed/unavailable
-    if (!searchData && accessToken) {
+    // 1) Prefer user access token (OAuth has YouTube Data API enabled by default)
+    if (accessToken) {
       const tokenAttempt = await runSearch({ query, maxResults, accessToken });
       finalStatus = tokenAttempt.status;
       if (tokenAttempt.ok) {
@@ -98,6 +86,18 @@ serve(async (req) => {
       } else {
         attempts.push(`access_token:${tokenAttempt.status}`);
         console.error("YouTube token search failed:", tokenAttempt.raw);
+      }
+    }
+
+    // 2) Fallback to API key if user token path failed/unavailable
+    if (!searchData && GOOGLE_API_KEY) {
+      const keyAttempt = await runSearch({ query, maxResults, apiKey: GOOGLE_API_KEY });
+      finalStatus = keyAttempt.status;
+      if (keyAttempt.ok) {
+        searchData = keyAttempt.data;
+      } else {
+        attempts.push(`api_key:${keyAttempt.status}`);
+        console.error("YouTube API key search failed:", keyAttempt.raw);
       }
     }
 

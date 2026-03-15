@@ -830,6 +830,10 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       musicStreamRef.current = stream;
       const audioCtx = new AudioContext();
+      // Mobile browsers start AudioContext suspended — must resume on user gesture
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
@@ -996,7 +1000,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   }, [chatOpen, changeEmotion, speakText]);
 
   // === Music play handler ===
-  const MUSIC_PLAY_REGEX = /\b(play|baja|suna|laga|chalao)\b.*\b(song|songs|music|gana|gaana|gane|trending|bollywood|hindi|nepali|english|pop|rock|lofi|lo-fi|anime|kpop|k-pop|sad songs?|romantic|party|chill|vibe|beat|beats|track|tracks)\b|\b(song|songs|music|gana|gaana|gane|trending)\b.*\b(play|baja|suna|laga|chalao)\b/i;
+  const MUSIC_PLAY_REGEX = /\b(play|baja|suna|laga|chalao)\b.*\b(song|songs|music|gana|gaana|gane|trending|bollywood|hindi|nepali|english|pop|rock|lofi|lo-fi|anime|kpop|k-pop|sad songs?|romantic|party|chill|vibe|beat|beats|track|tracks)\b|\b(song|songs|music|gana|gaana|gane|trending)\b.*\b(play|baja|suna|laga|chalao)\b|\b(play|baja|suna|laga|chalao)\s+.{2,}/i;
 
   const handleMusicSearch = useCallback((query: string) => {
     if (!chatOpen) setChatOpen(true);
