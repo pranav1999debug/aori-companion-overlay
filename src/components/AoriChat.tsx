@@ -1974,16 +1974,22 @@ RESPOND AS VALID JSON ONLY:
       if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
       if (backFrame) images.push({ image: backFrame, label: "back_camera" });
 
-      const { data, error } = await supabase.functions.invoke("aori-image-analyze", {
-        body: {
-          image: images[0].image,
-          secondImage: images[1]?.image || null,
-          mimeType: "image/jpeg",
-          userMessage: `The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment, and anything interesting you notice. Be specific and observant.`,
-        },
-      });
+      const imageDataUrl = `data:image/jpeg;base64,${images[0].image}`;
+      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment. Be specific.
 
-      if (error) throw error;
+Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
+
+RESPOND AS VALID JSON ONLY:
+{"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
+
+      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        data = { emotion: "thinking", text: rawReply.slice(0, 200) };
+      }
       const emotion = (data.emotion || "thinking") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "Hmm~ I can't quite figure it out... 🤔");
       changeEmotion(emotion);
