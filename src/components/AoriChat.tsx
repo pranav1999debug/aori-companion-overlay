@@ -1843,10 +1843,19 @@ RESPOND AS VALID JSON ONLY:
     const image = captureFrame();
     if (!image) return;
     try {
-      const { data, error } = await supabase.functions.invoke("aori-vision", {
-        body: { image, previousObservation: lastObservationRef.current },
-      });
-      if (error) return;
+      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. Look at this webcam photo of your user and comment on what you see. Be specific. Keep to 1-2 sentences. Use English with Hindi/Japanese mixed in. Emoji heavy.
+${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}
+RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
+
+      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        data = { emotion: "smirk", text: rawReply.slice(0, 150) };
+      }
       const emotion = (data.emotion || "smirk") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
