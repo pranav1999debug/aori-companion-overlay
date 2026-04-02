@@ -1903,9 +1903,16 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     const name = prompt("What's this person's name?");
     if (!name?.trim()) return;
     try {
-      toast("Analyzing face...", { duration: 2000 });
-      const { data, error } = await supabase.functions.invoke("aori-face", { body: { image, action: "save" } });
-      if (error) throw error;
+      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
+      const rawReply = await puter.ai.chat(facePrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        data = { description: rawReply.slice(0, 200) };
+      }
       const description = data.description || "No description";
       const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
       if (dbError) throw dbError;
