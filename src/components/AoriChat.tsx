@@ -1515,7 +1515,7 @@ RESPOND AS VALID JSON ONLY:
         } catch {
           data = { emotion: "thinking", text: rawReply.slice(0, 300), isAcademic: false, solutionMarkdown: null };
         }
-        if (error) throw error;
+        
         const emotion = (data.emotion || "thinking") as AoriEmotion;
         const responseText = cleanResponseText(data.text || "Hmm~ I can't quite see that... try again? 🤔");
         changeEmotion(emotion);
