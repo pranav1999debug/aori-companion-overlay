@@ -1494,10 +1494,28 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (!chatOpen) setChatOpen(true);
 
       try {
-        const { data, error } = await supabase.functions.invoke("aori-image-analyze", {
-          body: { image: base64, mimeType, userMessage: capturedInput || undefined },
-        });
-        if (error) throw error;
+        const imageDataUrl = `data:${mimeType};base64,${base64}`;
+        const visionPrompt = `You are Aori Tatsumi — a brilliant, possessive, tsundere AI waifu who is also academically gifted.
+
+Analyze this image and respond as Aori. If it's a question/problem (math, physics, chemistry, homework), solve it step-by-step. If it's a meme, react dramatically. If it's food, get excited. If it's a screenshot of another AI, get jealous.
+
+${capturedInput ? `User's message: "${capturedInput}"` : "The user sent you this image. React to it."}
+
+Language: English with Hindi (yaar, batao), Nepali (kasto, babal), Japanese (baka, nani). NEVER Devanagari. Emoji heavy.
+
+RESPOND AS VALID JSON ONLY:
+{"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 2-4 sentence reply","isAcademic":true/false,"solutionMarkdown":"full step-by-step solution if academic, else null"}`;
+
+        const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+
+        let data: any = {};
+        try {
+          const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+          data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+        } catch {
+          data = { emotion: "thinking", text: rawReply.slice(0, 300), isAcademic: false, solutionMarkdown: null };
+        }
+        
         const emotion = (data.emotion || "thinking") as AoriEmotion;
         const responseText = cleanResponseText(data.text || "Hmm~ I can't quite see that... try again? 🤔");
         changeEmotion(emotion);
@@ -1825,10 +1843,19 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const image = captureFrame();
     if (!image) return;
     try {
-      const { data, error } = await supabase.functions.invoke("aori-vision", {
-        body: { image, previousObservation: lastObservationRef.current },
-      });
-      if (error) return;
+      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. Look at this webcam photo of your user and comment on what you see. Be specific. Keep to 1-2 sentences. Use English with Hindi/Japanese mixed in. Emoji heavy.
+${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}
+RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
+
+      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        data = { emotion: "smirk", text: rawReply.slice(0, 150) };
+      }
       const emotion = (data.emotion || "smirk") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
@@ -1876,9 +1903,16 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const name = prompt("What's this person's name?");
     if (!name?.trim()) return;
     try {
-      toast("Analyzing face...", { duration: 2000 });
-      const { data, error } = await supabase.functions.invoke("aori-face", { body: { image, action: "save" } });
-      if (error) throw error;
+      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
+      const rawReply = await puter.ai.chat(facePrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        data = { description: rawReply.slice(0, 200) };
+      }
       const description = data.description || "No description";
       const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
       if (dbError) throw dbError;
@@ -1900,10 +1934,18 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const image = captureFrame(backVideoRef.current);
     if (!image) return;
     try {
-      const { data, error } = await supabase.functions.invoke("aori-environment", {
-        body: { image, previousMemories: environmentMemories },
-      });
-      if (error) return;
+      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const memoriesList = (environmentMemories || []).map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n");
+      const envPrompt = `Analyze this photo from the user's camera to learn about their surroundings. Previous memories:\n${memoriesList || "None"}\n\nDescribe: room type, notable objects, decorations, colors, furniture. Return ONLY JSON: {"description": "detailed description", "location_label": "bedroom/office/kitchen/etc", "is_new": true/false}`;
+      const rawReply = await puter.ai.chat(envPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        return;
+      }
+      if (!data.description) return;
       if (data.description) {
         const { data: inserted } = await supabase.from("environment_memories").insert({
           user_id: userId,
@@ -1956,16 +1998,22 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
       if (backFrame) images.push({ image: backFrame, label: "back_camera" });
 
-      const { data, error } = await supabase.functions.invoke("aori-image-analyze", {
-        body: {
-          image: images[0].image,
-          secondImage: images[1]?.image || null,
-          mimeType: "image/jpeg",
-          userMessage: `The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment, and anything interesting you notice. Be specific and observant.`,
-        },
-      });
+      const imageDataUrl = `data:image/jpeg;base64,${images[0].image}`;
+      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment. Be specific.
 
-      if (error) throw error;
+Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
+
+RESPOND AS VALID JSON ONLY:
+{"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
+
+      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        data = { emotion: "thinking", text: rawReply.slice(0, 200) };
+      }
       const emotion = (data.emotion || "thinking") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "Hmm~ I can't quite figure it out... 🤔");
       changeEmotion(emotion);
