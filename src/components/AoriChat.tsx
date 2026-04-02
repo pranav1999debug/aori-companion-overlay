@@ -1934,10 +1934,18 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     const image = captureFrame(backVideoRef.current);
     if (!image) return;
     try {
-      const { data, error } = await supabase.functions.invoke("aori-environment", {
-        body: { image, previousMemories: environmentMemories },
-      });
-      if (error) return;
+      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const memoriesList = (environmentMemories || []).map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n");
+      const envPrompt = `Analyze this photo from the user's camera to learn about their surroundings. Previous memories:\n${memoriesList || "None"}\n\nDescribe: room type, notable objects, decorations, colors, furniture. Return ONLY JSON: {"description": "detailed description", "location_label": "bedroom/office/kitchen/etc", "is_new": true/false}`;
+      const rawReply = await puter.ai.chat(envPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      let data: any = {};
+      try {
+        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
+        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
+      } catch {
+        return;
+      }
+      if (!data.description) return;
       if (data.description) {
         const { data: inserted } = await supabase.from("environment_memories").insert({
           user_id: userId,
