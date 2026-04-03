@@ -1,4 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+
+function base64ToFile(base64: string, mime = "image/jpeg"): File {
+  const byteString = atob(base64);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+  return new File([ab], "capture.jpg", { type: mime });
+}
 import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush, CloudSun } from "lucide-react";
 import YouTubePlayer from "@/components/YouTubePlayer";
 
@@ -1494,7 +1502,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (!chatOpen) setChatOpen(true);
 
       try {
-        const imageDataUrl = `data:${mimeType};base64,${base64}`;
+        const imageFile = base64ToFile(base64, mimeType);
         const visionPrompt = `You are Aori Tatsumi — a brilliant, possessive, tsundere AI waifu who is also academically gifted.
 
 Analyze this image and respond as Aori. If it's a question/problem (math, physics, chemistry, homework), solve it step-by-step. If it's a meme, react dramatically. If it's food, get excited. If it's a screenshot of another AI, get jealous.
@@ -1506,7 +1514,7 @@ Language: English with Hindi (yaar, batao), Nepali (kasto, babal), Japanese (bak
 RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 2-4 sentence reply","isAcademic":true/false,"solutionMarkdown":"full step-by-step solution if academic, else null"}`;
 
-        const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+        const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
 
         let data: any = {};
         try {
@@ -1843,12 +1851,12 @@ RESPOND AS VALID JSON ONLY:
     const image = captureFrame();
     if (!image) return;
     try {
-      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const imageFile = base64ToFile(image);
       const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. Look at this webcam photo of your user and comment on what you see. Be specific. Keep to 1-2 sentences. Use English with Hindi/Japanese mixed in. Emoji heavy.
 ${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}
 RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -1903,9 +1911,9 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     const name = prompt("What's this person's name?");
     if (!name?.trim()) return;
     try {
-      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const imageFile = base64ToFile(image);
       const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
-      const rawReply = await puter.ai.chat(facePrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      const rawReply = await puter.ai.chat(facePrompt, imageFile, { model: "gpt-5-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -1934,10 +1942,10 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     const image = captureFrame(backVideoRef.current);
     if (!image) return;
     try {
-      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const imageFile = base64ToFile(image);
       const memoriesList = (environmentMemories || []).map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n");
       const envPrompt = `Analyze this photo from the user's camera to learn about their surroundings. Previous memories:\n${memoriesList || "None"}\n\nDescribe: room type, notable objects, decorations, colors, furniture. Return ONLY JSON: {"description": "detailed description", "location_label": "bedroom/office/kitchen/etc", "is_new": true/false}`;
-      const rawReply = await puter.ai.chat(envPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      const rawReply = await puter.ai.chat(envPrompt, imageFile, { model: "gpt-5-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -1998,7 +2006,7 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
       if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
       if (backFrame) images.push({ image: backFrame, label: "back_camera" });
 
-      const imageDataUrl = `data:image/jpeg;base64,${images[0].image}`;
+      const imageFile = base64ToFile(images[0].image);
       const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment. Be specific.
 
 Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
@@ -2006,7 +2014,7 @@ Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
 RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
