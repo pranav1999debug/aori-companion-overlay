@@ -1911,9 +1911,9 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     const name = prompt("What's this person's name?");
     if (!name?.trim()) return;
     try {
-      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const imageFile = base64ToFile(image);
       const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
-      const rawReply = await puter.ai.chat(facePrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      const rawReply = await puter.ai.chat(facePrompt, imageFile, { model: "gpt-5-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
