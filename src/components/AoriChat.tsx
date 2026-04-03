@@ -1851,12 +1851,12 @@ RESPOND AS VALID JSON ONLY:
     const image = captureFrame();
     if (!image) return;
     try {
-      const imageDataUrl = `data:image/jpeg;base64,${image}`;
+      const imageFile = base64ToFile(image);
       const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. Look at this webcam photo of your user and comment on what you see. Be specific. Keep to 1-2 sentences. Use English with Hindi/Japanese mixed in. Emoji heavy.
 ${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}
 RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
