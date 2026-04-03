@@ -1,4 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+
+function base64ToFile(base64: string, mime = "image/jpeg"): File {
+  const byteString = atob(base64);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+  return new File([ab], "capture.jpg", { type: mime });
+}
 import { Send, Mic, MicOff, Volume2, VolumeX, Camera, Eye, MessageCircle, X, Info, Trash2, UserPlus, MapPin, Music, Minimize2, Square, Settings, User, ImagePlus, FileText, Download, Loader2, Paintbrush, CloudSun } from "lucide-react";
 import YouTubePlayer from "@/components/YouTubePlayer";
 
