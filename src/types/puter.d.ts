@@ -1,7 +1,7 @@
 declare interface PuterAI {
   chat(
     prompt: string,
-    imageUrlOrFile?: string | File,
+    imageUrlOrFile?: string | File | Blob,
     options?: { model?: string }
   ): Promise<string>;
 }

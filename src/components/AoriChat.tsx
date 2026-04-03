@@ -2006,7 +2006,7 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
       if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
       if (backFrame) images.push({ image: backFrame, label: "back_camera" });
 
-      const imageDataUrl = `data:image/jpeg;base64,${images[0].image}`;
+      const imageFile = base64ToFile(images[0].image);
       const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment. Be specific.
 
 Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
@@ -2014,7 +2014,7 @@ Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
 RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
