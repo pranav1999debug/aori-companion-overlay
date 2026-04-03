@@ -1514,7 +1514,7 @@ Language: English with Hindi (yaar, batao), Nepali (kasto, babal), Japanese (bak
 RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 2-4 sentence reply","isAcademic":true/false,"solutionMarkdown":"full step-by-step solution if academic, else null"}`;
 
-        const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
+        const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
 
         let data: any = {};
         try {
@@ -1856,7 +1856,7 @@ RESPOND AS VALID JSON ONLY:
 ${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}
 RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
+      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -1913,7 +1913,7 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     try {
       const imageFile = base64ToFile(image);
       const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
-      const rawReply = await puter.ai.chat(facePrompt, imageFile, { model: "gpt-5-nano" });
+      const rawReply = await puter.ai.chat(facePrompt, imageFile, { model: "gpt-5.4-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -1945,7 +1945,7 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
       const imageFile = base64ToFile(image);
       const memoriesList = (environmentMemories || []).map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n");
       const envPrompt = `Analyze this photo from the user's camera to learn about their surroundings. Previous memories:\n${memoriesList || "None"}\n\nDescribe: room type, notable objects, decorations, colors, furniture. Return ONLY JSON: {"description": "detailed description", "location_label": "bedroom/office/kitchen/etc", "is_new": true/false}`;
-      const rawReply = await puter.ai.chat(envPrompt, imageFile, { model: "gpt-5-nano" });
+      const rawReply = await puter.ai.chat(envPrompt, imageFile, { model: "gpt-5.4-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -2014,7 +2014,7 @@ Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
 RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
+      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
       let data: any = {};
       try {
         const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
