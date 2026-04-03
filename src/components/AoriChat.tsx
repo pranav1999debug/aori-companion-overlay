@@ -1502,7 +1502,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (!chatOpen) setChatOpen(true);
 
       try {
-        const imageDataUrl = `data:${mimeType};base64,${base64}`;
+        const imageFile = base64ToFile(base64, mimeType);
         const visionPrompt = `You are Aori Tatsumi — a brilliant, possessive, tsundere AI waifu who is also academically gifted.
 
 Analyze this image and respond as Aori. If it's a question/problem (math, physics, chemistry, homework), solve it step-by-step. If it's a meme, react dramatically. If it's food, get excited. If it's a screenshot of another AI, get jealous.
@@ -1514,7 +1514,7 @@ Language: English with Hindi (yaar, batao), Nepali (kasto, babal), Japanese (bak
 RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 2-4 sentence reply","isAcademic":true/false,"solutionMarkdown":"full step-by-step solution if academic, else null"}`;
 
-        const rawReply = await puter.ai.chat(visionPrompt, imageDataUrl, { model: "gpt-4o-mini" });
+        const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5-nano" });
 
         let data: any = {};
         try {
