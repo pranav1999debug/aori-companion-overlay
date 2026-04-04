@@ -42,6 +42,68 @@ const cleanResponseText = (text: string): string =>
     .replace(/<image_prompt>[^<]*$/gi, "")
     .replace(/<image>[^<]*$/gi, "")
     .trim();
+
+const extractPuterMessageText = (value: unknown): string => {
+  if (typeof value === "string") return value.trim();
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => extractPuterMessageText(item))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+
+  if (!value || typeof value !== "object") return "";
+
+  const candidate = value as { text?: unknown; content?: unknown };
+  if (typeof candidate.text === "string") return candidate.text.trim();
+
+  return extractPuterMessageText(candidate.content);
+};
+
+const getPuterResponseText = (response: unknown): string => {
+  if (typeof response === "string") return response.trim();
+  if (!response || typeof response !== "object") return "";
+
+  const candidate = response as { message?: unknown; text?: unknown; content?: unknown };
+  return (
+    extractPuterMessageText(candidate.message) ||
+    extractPuterMessageText(candidate.text) ||
+    extractPuterMessageText(candidate.content)
+  );
+};
+
+const parsePuterJsonResponse = <T extends Record<string, unknown>>(response: unknown, fallback: T): T => {
+  const rawText = getPuterResponseText(response);
+  if (!rawText) return fallback;
+
+  const normalized = rawText.trim();
+  const candidates = [
+    normalized,
+    normalized.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim(),
+  ];
+  const objectMatch = normalized.match(/\{[\s\S]*\}/);
+  if (objectMatch?.[0]) candidates.push(objectMatch[0]);
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      return { ...fallback, ...JSON.parse(candidate) } as T;
+    } catch {
+      continue;
+    }
+  }
+
+  if ("text" in fallback) {
+    return {
+      ...fallback,
+      text: cleanResponseText(normalized),
+    } as T;
+  }
+
+  return fallback;
+};
 import { useContacts } from "@/hooks/useContacts";
 
 interface ChatMessage {
@@ -1515,13 +1577,19 @@ RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 2-4 sentence reply","isAcademic":true/false,"solutionMarkdown":"full step-by-step solution if academic, else null"}`;
 
         const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-
-        let data: any = {};
-        try {
-          const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
-          data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
-        } catch {
-          data = { emotion: "thinking", text: rawReply.slice(0, 300), isAcademic: false, solutionMarkdown: null };
+        const rawText = getPuterResponseText(rawReply);
+        const data: any = parsePuterJsonResponse(rawReply, {
+          emotion: "thinking",
+          text: "Hmm~ I can't quite see that... try again? 🤔",
+          isAcademic: false,
+          solutionMarkdown: null,
+        });
+        if (!data.solutionMarkdown && data.isAcademic && rawText) {
+          data.solutionMarkdown = rawText;
+        }
+        if (!data.solutionMarkdown && /(?:step\s*\d+|therefore|answer|solution|=)/i.test(rawText)) {
+          data.isAcademic = true;
+          data.solutionMarkdown = rawText;
         }
         
         const emotion = (data.emotion || "thinking") as AoriEmotion;
@@ -1857,13 +1925,10 @@ ${lastObservationRef.current ? `Previous observation: "${lastObservationRef.curr
 RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
 
       const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-      let data: any = {};
-      try {
-        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
-        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
-      } catch {
-        data = { emotion: "smirk", text: rawReply.slice(0, 150) };
-      }
+      const data: any = parsePuterJsonResponse(rawReply, {
+        emotion: "smirk",
+        text: "",
+      });
       const emotion = (data.emotion || "smirk") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
@@ -1872,7 +1937,9 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
       setLastAoriText(`👁️ ${responseText}`);
       setMessages((prev) => [...prev, { id: Date.now(), text: `👁️ ${responseText}`, sender: "aori", emotion, timestamp: Date.now() }]);
       speakText(responseText);
-    } catch {}
+    } catch (error) {
+      console.error("Webcam observation error:", error);
+    }
   }, [captureFrame, changeEmotion, speakText]);
 
   const toggleWebcam = useCallback(async () => {
@@ -1914,13 +1981,9 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
       const imageFile = base64ToFile(image);
       const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
       const rawReply = await puter.ai.chat(facePrompt, imageFile, { model: "gpt-5.4-nano" });
-      let data: any = {};
-      try {
-        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
-        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
-      } catch {
-        data = { description: rawReply.slice(0, 200) };
-      }
+      const data: any = parsePuterJsonResponse(rawReply, {
+        description: getPuterResponseText(rawReply).slice(0, 200),
+      });
       const description = data.description || "No description";
       const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
       if (dbError) throw dbError;
@@ -1946,13 +2009,11 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
       const memoriesList = (environmentMemories || []).map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n");
       const envPrompt = `Analyze this photo from the user's camera to learn about their surroundings. Previous memories:\n${memoriesList || "None"}\n\nDescribe: room type, notable objects, decorations, colors, furniture. Return ONLY JSON: {"description": "detailed description", "location_label": "bedroom/office/kitchen/etc", "is_new": true/false}`;
       const rawReply = await puter.ai.chat(envPrompt, imageFile, { model: "gpt-5.4-nano" });
-      let data: any = {};
-      try {
-        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
-        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
-      } catch {
-        return;
-      }
+      const data: any = parsePuterJsonResponse(rawReply, {
+        description: "",
+        location_label: null,
+        is_new: false,
+      });
       if (!data.description) return;
       if (data.description) {
         const { data: inserted } = await supabase.from("environment_memories").insert({
@@ -2015,13 +2076,10 @@ RESPOND AS VALID JSON ONLY:
 {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
 
       const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-      let data: any = {};
-      try {
-        const jsonMatch = rawReply.match(/```(?:json)?\s*([\s\S]*?)```/);
-        data = JSON.parse(jsonMatch ? jsonMatch[1].trim() : rawReply);
-      } catch {
-        data = { emotion: "thinking", text: rawReply.slice(0, 200) };
-      }
+      const data: any = parsePuterJsonResponse(rawReply, {
+        emotion: "thinking",
+        text: "Hmm~ I can't quite figure it out... 🤔",
+      });
       const emotion = (data.emotion || "thinking") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "Hmm~ I can't quite figure it out... 🤔");
       changeEmotion(emotion);
