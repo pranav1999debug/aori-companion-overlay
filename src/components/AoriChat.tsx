@@ -1899,7 +1899,7 @@ RESPOND AS VALID JSON ONLY:
       return;
     }
     if (startVoiceCmd && !voiceModeRef.current) {
-      toggleVoiceMode();
+      toggleVoiceModeRef.current();
       return;
     }
     if (stopVoiceCmd && voiceModeRef.current) {
