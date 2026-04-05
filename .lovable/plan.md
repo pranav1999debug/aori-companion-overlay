@@ -1,47 +1,52 @@
 
 
-## Fix Puter.ai Vision for Webcam & Image Analysis
+## Voice-First Aori: Remove Buttons + Auto-Features + Enhanced Weather
 
-### Problem
-All `puter.ai.chat()` calls pass **base64 data URLs** (`data:image/jpeg;base64,...`) as the image parameter. Puter.ai likely expects either a proper HTTPS URL or a `File`/`Blob` object — not a data URI string. The model name `gpt-4o-mini` may also be outdated.
+### What Changes
 
-### Plan
+**1. Remove all sidebar buttons from home screen**
+The right-side button panel (lines 2366-2461) with ~13 buttons (camera, weather, music, settings, profile, etc.) will be removed entirely. All functionality will be accessible only through voice commands or chat text.
 
-**Step 1: Create a helper to convert base64 to File**
-Add a utility function in `AoriChat.tsx`:
-```typescript
-function base64ToFile(base64: string, mime = "image/jpeg"): File {
-  const byteString = atob(base64);
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-  return new File([ab], "capture.jpg", { type: mime });
-}
-```
+**2. Auto-start camera on launch**
+When AoriChat mounts, automatically request front camera permission and start the webcam. Aori will immediately begin observing the user without needing any button press.
 
-**Step 2: Replace all 5 puter.ai.chat image calls**
-Change from:
-```typescript
-const imageDataUrl = `data:image/jpeg;base64,${image}`;
-puter.ai.chat(prompt, imageDataUrl, { model: "gpt-4o-mini" });
-```
-To:
-```typescript
-const imageFile = base64ToFile(image);
-puter.ai.chat(prompt, imageFile, { model: "gpt-5-nano" });
-```
+**3. Auto-enable weather on launch**
+Instead of requiring the CloudSun button, weather will auto-fetch using `navigator.geolocation` on component mount. The `weatherEnabled` state will default to `true`.
 
-Affected locations (~5 calls):
-1. `analyzeFrame` — periodic webcam observation (line ~1851)
-2. Image upload analysis (line ~1509)
-3. Face recognition (line ~1908)
-4. Environment analysis (line ~1940)
-5. "What am I doing" full context (line ~2009)
+**4. Enhanced weather data**
+Expand the Open-Meteo API call to include more parameters: `rain`, `showers`, `snowfall`, `cloud_cover`, `relative_humidity_2m`, `precipitation`, `surface_pressure`, `pressure_msl`, `wind_direction_10m`, `wind_gusts_10m`. The summary string injected into Aori's system prompt will be richer.
 
-**Step 3: Update TypeScript types**
-Update `src/types/puter.d.ts` to accept `Blob` in addition to `string | File`.
+Note: We will NOT use the `openmeteo` npm package (`fetchWeatherApi`) because it uses Protocol Buffers which adds complexity. The existing plain JSON fetch from `api.open-meteo.com` already supports all these parameters natively by adding them to the URL query string.
 
-### Files to modify
-- `src/components/AoriChat.tsx` — add helper, update all 5 calls
-- `src/types/puter.d.ts` — broaden type signature
+**5. Add voice/chat commands for everything buttons did**
+Extend the existing voice command regex detection (already has camera commands) to also handle:
+- "enable/disable weather" or "what's the weather"
+- "open settings" / "open profile" / "open character studio"
+- "mute/unmute" voice
+- "detect music" / "stop music detection"
+- "clear chat" / "delete messages"
+
+These same commands will also work when typed in the chat input.
+
+### Technical Details
+
+**Files to modify:**
+- `src/components/AoriChat.tsx`
+  - Remove the entire right-side button panel div (lines 2366-2461)
+  - Change `weatherEnabled` default to `true` and auto-call `syncWeatherContext` on mount
+  - Change `webcamEnabled` to auto-start: add a `useEffect` that calls `toggleWebcam()` after profile loads
+  - Expand the Open-Meteo fetch URL with additional current parameters
+  - Build a richer weather summary string with humidity, rain, cloud cover, etc.
+  - Add new voice command regex patterns for settings/profile/mute/weather/music in the `handleVoiceResult` callback
+  - Add the same command detection in `sendMessageCore` for typed commands
+  - Keep only: bottom input bar, chat overlay panel, avatar, voice transcript overlay, webcam preview thumbnail, music indicator
+
+**What stays on screen:**
+- Aori's avatar (draggable)
+- Bottom text input bar with send/image/paint buttons
+- Webcam preview thumbnail (top-left, auto-visible)
+- Chat overlay (opens when user taps input or types)
+- Voice transcript overlay (when voice mode active via "hey aori" or voice command)
+
+**Voice mode activation:** Users say "start voice mode" or type it. The existing voice mode toggle logic stays but is triggered by command instead of button.
 
