@@ -502,13 +502,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       return null;
     }
   });
-  const [weatherEnabled, setWeatherEnabled] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("aori-weather-enabled") === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [weatherEnabled, setWeatherEnabled] = useState<boolean>(true);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
   useEffect(() => {
@@ -683,6 +677,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const isSpeakingRef = useRef(false);
   const [isSpeakingState, setIsSpeakingState] = useState(false);
   const startListeningOnceRef = useRef<() => void>(() => {});
+  const toggleVoiceModeRef = useRef<() => void>(() => {});
+  const saveFaceRef = useRef<() => void>(() => {});
+  const toggleMusicDetectionRef = useRef<() => void>(() => {});
   const toggleWebcamRef = useRef<() => void>(() => {});
   const toggleBackCamRef = useRef<() => void>(() => {});
   const analyzeFullContextRef = useRef<() => void>(() => {});
@@ -1100,7 +1097,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         try {
           const { latitude, longitude } = position.coords;
           const weatherRes = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m&timezone=auto`
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,precipitation,rain,showers,snowfall,cloud_cover,surface_pressure,pressure_msl&timezone=auto`
           );
 
           if (!weatherRes.ok) throw new Error("Weather service unavailable");
@@ -1112,10 +1109,27 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           const temp = Math.round(current.temperature_2m);
           const feelsLike = Math.round(current.apparent_temperature);
           const wind = Math.round(current.wind_speed_10m);
+          const gusts = Math.round(current.wind_gusts_10m || 0);
+          const humidity = Math.round(current.relative_humidity_2m || 0);
+          const cloudCover = Math.round(current.cloud_cover || 0);
+          const rain = current.rain || 0;
+          const showers = current.showers || 0;
+          const snowfall = current.snowfall || 0;
+          const precipitation = current.precipitation || 0;
+          const pressure = Math.round(current.surface_pressure || current.pressure_msl || 0);
           const weatherLabel = WEATHER_CODE_LABELS[current.weather_code] || "mixed weather";
           const dayState = current.is_day ? "daytime" : "nighttime";
 
-          const summary = `Outside weather right now: ${weatherLabel}, ${temp}°C (feels like ${feelsLike}°C), wind ${wind} km/h, ${dayState}.`;
+          let extras = `humidity ${humidity}%`;
+          if (cloudCover > 0) extras += `, cloud cover ${cloudCover}%`;
+          if (rain > 0) extras += `, rain ${rain}mm`;
+          if (showers > 0) extras += `, showers ${showers}mm`;
+          if (snowfall > 0) extras += `, snowfall ${snowfall}cm`;
+          if (precipitation > 0 && rain === 0 && showers === 0) extras += `, precipitation ${precipitation}mm`;
+          if (pressure > 0) extras += `, pressure ${pressure}hPa`;
+          if (gusts > wind + 5) extras += `, gusts ${gusts}km/h`;
+
+          const summary = `Outside weather right now: ${weatherLabel}, ${temp}°C (feels like ${feelsLike}°C), wind ${wind} km/h, ${dayState}. ${extras}.`;
           setWeatherSummary(summary);
           setWeatherEnabled(true);
 
@@ -1157,6 +1171,100 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setInput("");
     setIsTyping(true);
     if (!chatOpen && !fromVoice) setChatOpen(true);
+    // === Typed command detection ===
+    const cmdLower = text.toLowerCase().trim();
+    const cmdReply = (msg: string, emotion: AoriEmotion) => {
+      setIsTyping(false);
+      changeEmotion(emotion);
+      setLastAoriText(msg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion, timestamp: Date.now() }]);
+      speakText(msg);
+    };
+
+    if (/\b(open|go\s*to|show)\s*(settings|setup|integrations)\b/i.test(cmdLower)) {
+      cmdReply("Opening settings for you~ ⚙️", "happy"); navigate("/setup"); return;
+    }
+    if (/\b(open|go\s*to|show)\s*(profile|account|my\s*profile)\b/i.test(cmdLower)) {
+      cmdReply("Here's your profile~ 👤", "happy"); navigate("/profile"); return;
+    }
+    if (/\b(open|go\s*to|show)\s*(character\s*studio|character|customize)\b/i.test(cmdLower)) {
+      cmdReply("Character studio it is~! Let's customize! 🎨✨", "excited"); navigate("/character"); return;
+    }
+    if (/\b(mute|be\s*quiet)\b/i.test(cmdLower)) {
+      setVoiceEnabled(false); cmdReply("Fine, I'll be quiet... *pouts* 🤐", "sad"); return;
+    }
+    if (/\b(unmute|speak|talk)\b/i.test(cmdLower)) {
+      setVoiceEnabled(true); cmdReply("Yay~! I can talk again! 💙✨", "excited"); return;
+    }
+    if (/\b(what('?s| is)\s*(the\s*)?weather|weather\s*(kya|kaisa)|mausam)\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (weatherSummary) {
+        cmdReply(`Here's what I know~ ${weatherSummary} 🌤️`, "happy");
+      } else {
+        syncWeatherContext(true);
+        cmdReply("Let me check the weather for you~ 🌤️✨", "thinking");
+      }
+      return;
+    }
+    if (/\b(enable|turn on|start)\s*weather\b/i.test(cmdLower)) {
+      setWeatherEnabled(true); syncWeatherContext(true); cmdReply("Weather awareness on~ 🌤️", "happy"); return;
+    }
+    if (/\b(disable|turn off|stop)\s*weather\b/i.test(cmdLower)) {
+      setWeatherEnabled(false); setWeatherSummary(null); cmdReply("Weather awareness off~ 🌧️", "smirk"); return;
+    }
+    if (/\b(open|turn on|start|enable)\b.*(front\s*)?camera\b/i.test(cmdLower) && !/back/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (!webcamEnabled) toggleWebcamRef.current();
+      else cmdReply("Camera is already on! I can see you~ 😏", "smirk");
+      return;
+    }
+    if (/\b(close|turn off|stop|disable)\b.*(front\s*)?camera\b/i.test(cmdLower) && !/back/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (webcamEnabled) { toggleWebcamRef.current(); cmdReply("Camera off~ 📷", "smirk"); }
+      else cmdReply("Camera is already off~ 📷", "happy");
+      return;
+    }
+    if (/\b(open|turn on|start|enable)\b.*back\s*camera\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (!backCamEnabled) toggleBackCamRef.current();
+      else cmdReply("Back camera already on~ 📷", "smirk");
+      return;
+    }
+    if (/\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (backCamEnabled) { toggleBackCamRef.current(); cmdReply("Back camera off~ 📷", "smirk"); }
+      else cmdReply("Back camera is already off~ 📷", "happy");
+      return;
+    }
+    if (/\b(detect\s*music|start\s*music\s*detect|listen\s*for\s*music)\b/i.test(cmdLower)) {
+      setIsTyping(false); toggleMusicDetectionRef.current(); cmdReply("Music detection started~ 🎵", "excited"); return;
+    }
+    if (/\b(stop\s*music\s*detect|stop\s*listening)\b/i.test(cmdLower)) {
+      setIsTyping(false); if (musicStreamRef.current) toggleMusicDetectionRef.current(); cmdReply("Music detection off~ 🎵", "happy"); return;
+    }
+    if (/\b(clear\s*chat|delete\s*messages|reset\s*chat)\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      const deletedHistory: ChatMessage[] = [];
+      try { const existing = localStorage.getItem("aori-deleted-history"); if (existing) deletedHistory.push(...JSON.parse(existing)); } catch {}
+      localStorage.setItem("aori-deleted-history", JSON.stringify([...deletedHistory, ...chatHistory].slice(-100)));
+      setMessages([firstTimeGreeting]); setChatHistory([]); setCurrentEmotion("smirk"); setLastAoriText(firstTimeGreeting.text);
+      toast("Conversation reset! Starting fresh~ 💙"); return;
+    }
+    if (/\b(start\s*voice\s*mode|voice\s*mode\s*on|voice\s*on)\b/i.test(cmdLower)) {
+      setIsTyping(false); if (!voiceModeRef.current) toggleVoiceModeRef.current(); return;
+    }
+    if (/\b(stop\s*voice\s*mode|voice\s*mode\s*off|voice\s*off)\b/i.test(cmdLower)) {
+      setIsTyping(false); if (voiceModeRef.current) toggleVoiceModeRef.current(); return;
+    }
+    if (/\b(save\s*(this\s*)?face|remember\s*(this\s*)?face)\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (webcamEnabled) saveFaceRef.current();
+      else cmdReply("Turn on the camera first so I can see the face, baka! 📷", "angry");
+      return;
+    }
+    if (/\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to))\b/i.test(cmdLower)) {
+      setIsTyping(false); analyzeFullContextRef.current(); return;
+    }
 
     // Check for music play intent
     if (MUSIC_PLAY_REGEX.test(text)) {
@@ -1688,6 +1796,25 @@ RESPOND AS VALID JSON ONLY:
     const closeBackCam = /\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(transcript);
     const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha|kya\s*ho\s*raha)\b/i.test(transcript);
 
+    // Navigation commands
+    const openSettings = /\b(open|go\s*to|show)\s*(settings|setup|integrations)\b/i.test(transcript);
+    const openProfile = /\b(open|go\s*to|show)\s*(profile|account|my\s*profile)\b/i.test(transcript);
+    const openCharStudio = /\b(open|go\s*to|show)\s*(character\s*studio|character|customize)\b/i.test(transcript);
+
+    // Feature toggle commands
+    const muteCmd = /\b(mute|shut\s*up|be\s*quiet|chup\s*ho\s*ja|chup)\b/i.test(transcript) && !INTERRUPT_WORDS.test(transcript);
+    const unmuteCmd = /\b(unmute|speak|talk|bol|bolo)\b/i.test(transcript);
+    const enableWeather = /\b(enable|turn on|start)\s*weather\b/i.test(transcript);
+    const disableWeather = /\b(disable|turn off|stop)\s*weather\b/i.test(transcript);
+    const whatWeather = /\b(what('?s| is)\s*(the\s*)?weather|weather\s*(kya|kaisa)|mausam)\b/i.test(transcript);
+    const startMusicDetect = /\b(detect\s*music|start\s*music\s*detect|listen\s*for\s*music)\b/i.test(transcript);
+    const stopMusicDetect = /\b(stop\s*music\s*detect|stop\s*listening)\b/i.test(transcript);
+    const clearChat = /\b(clear\s*chat|delete\s*messages|reset\s*chat|conversation\s*reset)\b/i.test(transcript);
+    const openChat = /\b(open\s*chat|show\s*chat|chat\s*history|messages)\b/i.test(transcript);
+    const startVoiceCmd = /\b(start\s*voice\s*mode|voice\s*mode\s*on|voice\s*on)\b/i.test(transcript);
+    const stopVoiceCmd = /\b(stop\s*voice\s*mode|voice\s*mode\s*off|voice\s*off)\b/i.test(transcript);
+    const saveFaceCmd = /\b(save\s*(this\s*)?face|remember\s*(this\s*)?face|learn\s*(my|this)\s*face)\b/i.test(transcript);
+
     if (openFrontCam) {
       const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
       setMessages(prev => [...prev, userMsg]);
@@ -1769,12 +1896,132 @@ RESPOND AS VALID JSON ONLY:
       return;
     }
 
+    // Navigation commands
+    const handleCommandMsg = (msg: string, emotion: AoriEmotion) => {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      changeEmotion(emotion);
+      setLastAoriText(msg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion, timestamp: Date.now() }]);
+      speakText(msg);
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+    };
+
+    if (openSettings) {
+      handleCommandMsg("Opening settings for you~ ⚙️", "happy");
+      navigate("/setup");
+      return;
+    }
+    if (openProfile) {
+      handleCommandMsg("Here's your profile~ 👤", "happy");
+      navigate("/profile");
+      return;
+    }
+    if (openCharStudio) {
+      handleCommandMsg("Character studio it is~! Let's customize! 🎨✨", "excited");
+      navigate("/character");
+      return;
+    }
+    if (muteCmd) {
+      handleCommandMsg("Fine, I'll be quiet... *pouts* 🤐", "sad");
+      setVoiceEnabled(false);
+      return;
+    }
+    if (unmuteCmd) {
+      setVoiceEnabled(true);
+      handleCommandMsg("Yay~! I can talk again! Did you miss my voice? 💙✨", "excited");
+      return;
+    }
+    if (enableWeather || whatWeather) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (weatherSummary && whatWeather) {
+        const msg = `Here's what I know~ ${weatherSummary} 🌤️`;
+        changeEmotion("happy");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+        speakText(msg);
+      } else {
+        syncWeatherContext(true);
+        const msg = "Let me check the weather for you~ 🌤️✨";
+        changeEmotion("thinking");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+    if (disableWeather) {
+      setWeatherEnabled(false);
+      setWeatherSummary(null);
+      handleCommandMsg("Weather awareness off~ I'll stop being a meteorologist 🌧️", "smirk");
+      return;
+    }
+    if (startMusicDetect) {
+      handleCommandMsg("Starting music detection~ Let me hear what you're playing! 🎵", "excited");
+      toggleMusicDetectionRef.current();
+      return;
+    }
+    if (stopMusicDetect) {
+      handleCommandMsg("Music detection off~ 🎵", "happy");
+      if (musicStreamRef.current) toggleMusicDetectionRef.current();
+      return;
+    }
+    if (clearChat) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      // Preserve deleted history for AI context
+      const deletedHistory: ChatMessage[] = [];
+      try {
+        const existing = localStorage.getItem("aori-deleted-history");
+        if (existing) deletedHistory.push(...JSON.parse(existing));
+      } catch {}
+      const combined = [...deletedHistory, ...chatHistory].slice(-100);
+      localStorage.setItem("aori-deleted-history", JSON.stringify(combined));
+      setMessages([firstTimeGreeting]);
+      setChatHistory([]);
+      setCurrentEmotion("smirk");
+      setLastAoriText(firstTimeGreeting.text);
+      toast("Conversation reset! Starting fresh~ 💙");
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+    if (openChat) {
+      setChatOpen(true);
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+      return;
+    }
+    if (startVoiceCmd && !voiceModeRef.current) {
+      toggleVoiceModeRef.current();
+      return;
+    }
+    if (stopVoiceCmd && voiceModeRef.current) {
+      toggleVoiceModeRef.current();
+      return;
+    }
+    if (saveFaceCmd) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (webcamEnabled) {
+        saveFaceRef.current();
+      } else {
+        const msg = "Turn on the camera first so I can see the face, baka! 📷";
+        changeEmotion("angry");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+
     // Add to voice transcript overlay
     if (voiceModeRef.current) {
       setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
     }
     sendMessageWithText(transcript);
-  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled]);
+  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled, navigate, syncWeatherContext, weatherSummary, chatHistory]);
 
   const startListeningOnce = useCallback(async () => {
     if (isTyping || isSpeakingRef.current) return;
@@ -2127,6 +2374,22 @@ RESPOND AS VALID JSON ONLY:
   useEffect(() => { toggleWebcamRef.current = toggleWebcam; }, [toggleWebcam]);
   useEffect(() => { toggleBackCamRef.current = toggleBackCam; }, [toggleBackCam]);
   useEffect(() => { analyzeFullContextRef.current = analyzeFullContext; }, [analyzeFullContext]);
+  useEffect(() => { toggleVoiceModeRef.current = toggleVoiceMode; }, [toggleVoiceMode]);
+  useEffect(() => { saveFaceRef.current = saveFace; }, [saveFace]);
+  useEffect(() => { toggleMusicDetectionRef.current = toggleMusicDetection; }, [toggleMusicDetection]);
+
+  // Auto-start front camera on mount once profile is loaded
+  const autoWebcamTriggered = useRef(false);
+  useEffect(() => {
+    if (userProfile && !autoWebcamTriggered.current && !webcamEnabled) {
+      autoWebcamTriggered.current = true;
+      // Small delay to let component settle
+      const timer = setTimeout(() => {
+        toggleWebcamRef.current();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [userProfile, webcamEnabled]);
 
   // === Proactive suggestion check (runs every 5 minutes) ===
   const proactiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -2362,103 +2625,16 @@ RESPOND AS VALID JSON ONLY:
         </div>
       )}
 
-      {/* Right side buttons */}
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2.5 z-20">
-        {onClose && (
-          <button onClick={onClose}
-            className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Minimize">
-            <Minimize2 className="w-5 h-5" />
-          </button>
-        )}
-        <button onClick={() => { if (lastAoriText) toast(lastAoriText, { duration: 4000 }); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Latest message">
-          <Info className="w-5 h-5" />
-        </button>
-
-        <button onClick={toggleVoiceMode}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${voiceModeActive ? "bg-destructive/30 border-destructive/40 text-destructive animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={voiceModeActive ? "Stop voice mode" : "Voice mode"}>
-          {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
-
-        {/* Stop speaking button — only visible while Aori is talking */}
-        {isSpeakingState && (
+      {/* Stop speaking floating button — only visible while Aori is talking */}
+      {isSpeakingState && (
+        <div className="absolute right-3 top-4 z-20">
           <button onClick={() => { stopSpeaking(); interruptCountRef.current += 1; changeEmotion("shock"); const r = "O-okay! I stopped! Happy now?! 😤"; setLastAoriText(r); setMessages(prev => [...prev, { id: Date.now(), text: r, sender: "aori" as const, emotion: "shock" as AoriEmotion, timestamp: Date.now() }]); }}
             className="w-11 h-11 rounded-full backdrop-blur-sm border border-destructive/40 bg-destructive/20 flex items-center justify-center text-destructive hover:bg-destructive/30 transition-all animate-pulse"
             title="Stop Aori">
             <Square className="w-4 h-4 fill-current" />
           </button>
-        )}
-
-        <button onClick={() => setVoiceEnabled(!voiceEnabled)}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border border-white/[0.08] flex items-center justify-center transition-all ${voiceEnabled ? "bg-white/[0.08] text-primary hover:bg-white/[0.15]" : "bg-white/[0.08] text-white/40 hover:bg-white/[0.15]"}`}
-          title={voiceEnabled ? "Mute" : "Unmute"}>
-          {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
-
-        <button onClick={toggleWebcam}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${webcamEnabled ? "bg-primary/20 border-primary/30 text-primary animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={webcamEnabled ? "Stop webcam" : "Front camera"}>
-          {webcamEnabled ? <Eye className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
-        </button>
-
-        {/* Save face button (only when webcam active) */}
-        {webcamEnabled && (
-          <button onClick={saveFace}
-            className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-accent hover:bg-white/[0.15] transition-all"
-            title="Save this face">
-            <UserPlus className="w-5 h-5" />
-          </button>
-        )}
-
-        <button onClick={toggleBackCam}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${backCamEnabled ? "bg-accent/20 border-accent/30 text-accent animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={backCamEnabled ? "Stop back camera" : "Back camera"}>
-          <MapPin className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => syncWeatherContext(true)}
-          disabled={weatherLoading}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all disabled:opacity-50 ${weatherEnabled ? "bg-primary/20 border-primary/30 text-primary" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={weatherEnabled ? "Refresh weather" : "Enable weather awareness"}>
-          {weatherLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudSun className="w-5 h-5" />}
-        </button>
-
-        <button onClick={toggleMusicDetection}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-primary/20 border-primary/30 text-primary animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={musicStreamRef.current ? "Stop music detection" : "Detect music"}>
-          <Music className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => { if (onClose) onClose(); navigate("/setup"); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all"
-          title="Integrations Setup">
-          <Settings className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => { if (onClose) onClose(); navigate("/character"); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-accent hover:bg-white/[0.15] transition-all"
-          title="Character Studio">
-          <Paintbrush className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => { if (onClose) onClose(); navigate("/profile"); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all"
-          title="Profile & Logout">
-          <User className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => setChatOpen(true)}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all relative"
-          title="Chat history">
-          <MessageCircle className="w-5 h-5" />
-          {messages.length > 1 && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center font-bold">
-              {messages.length > 99 ? "99" : messages.length}
-            </span>
-          )}
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* Voice conversation transcript overlay */}
       {voiceModeActive && !chatOpen && (
