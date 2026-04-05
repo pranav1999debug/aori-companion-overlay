@@ -1171,6 +1171,100 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     setInput("");
     setIsTyping(true);
     if (!chatOpen && !fromVoice) setChatOpen(true);
+    // === Typed command detection ===
+    const cmdLower = text.toLowerCase().trim();
+    const cmdReply = (msg: string, emotion: AoriEmotion) => {
+      setIsTyping(false);
+      changeEmotion(emotion);
+      setLastAoriText(msg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion, timestamp: Date.now() }]);
+      speakText(msg);
+    };
+
+    if (/\b(open|go\s*to|show)\s*(settings|setup|integrations)\b/i.test(cmdLower)) {
+      cmdReply("Opening settings for you~ ⚙️", "happy"); navigate("/setup"); return;
+    }
+    if (/\b(open|go\s*to|show)\s*(profile|account|my\s*profile)\b/i.test(cmdLower)) {
+      cmdReply("Here's your profile~ 👤", "happy"); navigate("/profile"); return;
+    }
+    if (/\b(open|go\s*to|show)\s*(character\s*studio|character|customize)\b/i.test(cmdLower)) {
+      cmdReply("Character studio it is~! Let's customize! 🎨✨", "excited"); navigate("/character"); return;
+    }
+    if (/\b(mute|be\s*quiet)\b/i.test(cmdLower)) {
+      setVoiceEnabled(false); cmdReply("Fine, I'll be quiet... *pouts* 🤐", "sad"); return;
+    }
+    if (/\b(unmute|speak|talk)\b/i.test(cmdLower)) {
+      setVoiceEnabled(true); cmdReply("Yay~! I can talk again! 💙✨", "excited"); return;
+    }
+    if (/\b(what('?s| is)\s*(the\s*)?weather|weather\s*(kya|kaisa)|mausam)\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (weatherSummary) {
+        cmdReply(`Here's what I know~ ${weatherSummary} 🌤️`, "happy");
+      } else {
+        syncWeatherContext(true);
+        cmdReply("Let me check the weather for you~ 🌤️✨", "thinking");
+      }
+      return;
+    }
+    if (/\b(enable|turn on|start)\s*weather\b/i.test(cmdLower)) {
+      setWeatherEnabled(true); syncWeatherContext(true); cmdReply("Weather awareness on~ 🌤️", "happy"); return;
+    }
+    if (/\b(disable|turn off|stop)\s*weather\b/i.test(cmdLower)) {
+      setWeatherEnabled(false); setWeatherSummary(null); cmdReply("Weather awareness off~ 🌧️", "smirk"); return;
+    }
+    if (/\b(open|turn on|start|enable)\b.*(front\s*)?camera\b/i.test(cmdLower) && !/back/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (!webcamEnabled) toggleWebcamRef.current();
+      else cmdReply("Camera is already on! I can see you~ 😏", "smirk");
+      return;
+    }
+    if (/\b(close|turn off|stop|disable)\b.*(front\s*)?camera\b/i.test(cmdLower) && !/back/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (webcamEnabled) { toggleWebcamRef.current(); cmdReply("Camera off~ 📷", "smirk"); }
+      else cmdReply("Camera is already off~ 📷", "happy");
+      return;
+    }
+    if (/\b(open|turn on|start|enable)\b.*back\s*camera\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (!backCamEnabled) toggleBackCamRef.current();
+      else cmdReply("Back camera already on~ 📷", "smirk");
+      return;
+    }
+    if (/\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (backCamEnabled) { toggleBackCamRef.current(); cmdReply("Back camera off~ 📷", "smirk"); }
+      else cmdReply("Back camera is already off~ 📷", "happy");
+      return;
+    }
+    if (/\b(detect\s*music|start\s*music\s*detect|listen\s*for\s*music)\b/i.test(cmdLower)) {
+      setIsTyping(false); toggleMusicDetectionRef.current(); cmdReply("Music detection started~ 🎵", "excited"); return;
+    }
+    if (/\b(stop\s*music\s*detect|stop\s*listening)\b/i.test(cmdLower)) {
+      setIsTyping(false); if (musicStreamRef.current) toggleMusicDetectionRef.current(); cmdReply("Music detection off~ 🎵", "happy"); return;
+    }
+    if (/\b(clear\s*chat|delete\s*messages|reset\s*chat)\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      const deletedHistory: ChatMessage[] = [];
+      try { const existing = localStorage.getItem("aori-deleted-history"); if (existing) deletedHistory.push(...JSON.parse(existing)); } catch {}
+      localStorage.setItem("aori-deleted-history", JSON.stringify([...deletedHistory, ...chatHistory].slice(-100)));
+      setMessages([firstTimeGreeting]); setChatHistory([]); setCurrentEmotion("smirk"); setLastAoriText(firstTimeGreeting.text);
+      toast("Conversation reset! Starting fresh~ 💙"); return;
+    }
+    if (/\b(start\s*voice\s*mode|voice\s*mode\s*on|voice\s*on)\b/i.test(cmdLower)) {
+      setIsTyping(false); if (!voiceModeRef.current) toggleVoiceModeRef.current(); return;
+    }
+    if (/\b(stop\s*voice\s*mode|voice\s*mode\s*off|voice\s*off)\b/i.test(cmdLower)) {
+      setIsTyping(false); if (voiceModeRef.current) toggleVoiceModeRef.current(); return;
+    }
+    if (/\b(save\s*(this\s*)?face|remember\s*(this\s*)?face)\b/i.test(cmdLower)) {
+      setIsTyping(false);
+      if (webcamEnabled) saveFaceRef.current();
+      else cmdReply("Turn on the camera first so I can see the face, baka! 📷", "angry");
+      return;
+    }
+    if (/\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to))\b/i.test(cmdLower)) {
+      setIsTyping(false); analyzeFullContextRef.current(); return;
+    }
 
     // Check for music play intent
     if (MUSIC_PLAY_REGEX.test(text)) {
