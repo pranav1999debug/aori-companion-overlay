@@ -1871,7 +1871,7 @@ RESPOND AS VALID JSON ONLY:
     }
     if (stopMusicDetect) {
       handleCommandMsg("Music detection off~ 🎵", "happy");
-      if (musicStreamRef.current) toggleMusicDetection();
+      if (musicStreamRef.current) toggleMusicDetectionRef.current();
       return;
     }
     if (clearChat) {
