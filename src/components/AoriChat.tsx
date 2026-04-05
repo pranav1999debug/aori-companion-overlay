@@ -676,6 +676,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const speechQueueRef = useRef<(() => Promise<void>)[]>([]);
   const isSpeakingRef = useRef(false);
   const [isSpeakingState, setIsSpeakingState] = useState(false);
+  const startListeningOnceRef = useRef<() => void>(() => {});
   const toggleVoiceModeRef = useRef<() => void>(() => {});
   const saveFaceRef = useRef<() => void>(() => {});
   const toggleMusicDetectionRef = useRef<() => void>(() => {});
