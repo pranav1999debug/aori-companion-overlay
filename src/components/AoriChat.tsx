@@ -502,13 +502,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       return null;
     }
   });
-  const [weatherEnabled, setWeatherEnabled] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("aori-weather-enabled") === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [weatherEnabled, setWeatherEnabled] = useState<boolean>(true);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
   useEffect(() => {
