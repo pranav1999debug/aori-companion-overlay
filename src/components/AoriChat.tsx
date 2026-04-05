@@ -1699,6 +1699,25 @@ RESPOND AS VALID JSON ONLY:
     const closeBackCam = /\b(close|turn off|stop|disable)\b.*back\s*camera\b/i.test(transcript);
     const whatAmIDoing = /\b(what\s*(am\s*i|i'?m)\s*(doing|up\s*to)|what('?s| is)\s*(going on|happening)|kya\s*kar\s*raha|kya\s*ho\s*raha)\b/i.test(transcript);
 
+    // Navigation commands
+    const openSettings = /\b(open|go\s*to|show)\s*(settings|setup|integrations)\b/i.test(transcript);
+    const openProfile = /\b(open|go\s*to|show)\s*(profile|account|my\s*profile)\b/i.test(transcript);
+    const openCharStudio = /\b(open|go\s*to|show)\s*(character\s*studio|character|customize)\b/i.test(transcript);
+
+    // Feature toggle commands
+    const muteCmd = /\b(mute|shut\s*up|be\s*quiet|chup\s*ho\s*ja|chup)\b/i.test(transcript) && !INTERRUPT_WORDS.test(transcript);
+    const unmuteCmd = /\b(unmute|speak|talk|bol|bolo)\b/i.test(transcript);
+    const enableWeather = /\b(enable|turn on|start)\s*weather\b/i.test(transcript);
+    const disableWeather = /\b(disable|turn off|stop)\s*weather\b/i.test(transcript);
+    const whatWeather = /\b(what('?s| is)\s*(the\s*)?weather|weather\s*(kya|kaisa)|mausam)\b/i.test(transcript);
+    const startMusicDetect = /\b(detect\s*music|start\s*music\s*detect|listen\s*for\s*music)\b/i.test(transcript);
+    const stopMusicDetect = /\b(stop\s*music\s*detect|stop\s*listening)\b/i.test(transcript);
+    const clearChat = /\b(clear\s*chat|delete\s*messages|reset\s*chat|conversation\s*reset)\b/i.test(transcript);
+    const openChat = /\b(open\s*chat|show\s*chat|chat\s*history|messages)\b/i.test(transcript);
+    const startVoiceCmd = /\b(start\s*voice\s*mode|voice\s*mode\s*on|voice\s*on)\b/i.test(transcript);
+    const stopVoiceCmd = /\b(stop\s*voice\s*mode|voice\s*mode\s*off|voice\s*off)\b/i.test(transcript);
+    const saveFaceCmd = /\b(save\s*(this\s*)?face|remember\s*(this\s*)?face|learn\s*(my|this)\s*face)\b/i.test(transcript);
+
     if (openFrontCam) {
       const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
       setMessages(prev => [...prev, userMsg]);
