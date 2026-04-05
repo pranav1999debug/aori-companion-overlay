@@ -2139,6 +2139,19 @@ RESPOND AS VALID JSON ONLY:
   useEffect(() => { toggleBackCamRef.current = toggleBackCam; }, [toggleBackCam]);
   useEffect(() => { analyzeFullContextRef.current = analyzeFullContext; }, [analyzeFullContext]);
 
+  // Auto-start front camera on mount once profile is loaded
+  const autoWebcamTriggered = useRef(false);
+  useEffect(() => {
+    if (userProfile && !autoWebcamTriggered.current && !webcamEnabled) {
+      autoWebcamTriggered.current = true;
+      // Small delay to let component settle
+      const timer = setTimeout(() => {
+        toggleWebcamRef.current();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [userProfile, webcamEnabled]);
+
   // === Proactive suggestion check (runs every 5 minutes) ===
   const proactiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastProactiveRef = useRef<number>(0);
