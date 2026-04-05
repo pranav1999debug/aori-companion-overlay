@@ -2373,103 +2373,16 @@ RESPOND AS VALID JSON ONLY:
         </div>
       )}
 
-      {/* Right side buttons */}
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2.5 z-20">
-        {onClose && (
-          <button onClick={onClose}
-            className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Minimize">
-            <Minimize2 className="w-5 h-5" />
-          </button>
-        )}
-        <button onClick={() => { if (lastAoriText) toast(lastAoriText, { duration: 4000 }); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all" title="Latest message">
-          <Info className="w-5 h-5" />
-        </button>
-
-        <button onClick={toggleVoiceMode}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${voiceModeActive ? "bg-destructive/30 border-destructive/40 text-destructive animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={voiceModeActive ? "Stop voice mode" : "Voice mode"}>
-          {voiceModeActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
-
-        {/* Stop speaking button — only visible while Aori is talking */}
-        {isSpeakingState && (
+      {/* Stop speaking floating button — only visible while Aori is talking */}
+      {isSpeakingState && (
+        <div className="absolute right-3 top-4 z-20">
           <button onClick={() => { stopSpeaking(); interruptCountRef.current += 1; changeEmotion("shock"); const r = "O-okay! I stopped! Happy now?! 😤"; setLastAoriText(r); setMessages(prev => [...prev, { id: Date.now(), text: r, sender: "aori" as const, emotion: "shock" as AoriEmotion, timestamp: Date.now() }]); }}
             className="w-11 h-11 rounded-full backdrop-blur-sm border border-destructive/40 bg-destructive/20 flex items-center justify-center text-destructive hover:bg-destructive/30 transition-all animate-pulse"
             title="Stop Aori">
             <Square className="w-4 h-4 fill-current" />
           </button>
-        )}
-
-        <button onClick={() => setVoiceEnabled(!voiceEnabled)}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border border-white/[0.08] flex items-center justify-center transition-all ${voiceEnabled ? "bg-white/[0.08] text-primary hover:bg-white/[0.15]" : "bg-white/[0.08] text-white/40 hover:bg-white/[0.15]"}`}
-          title={voiceEnabled ? "Mute" : "Unmute"}>
-          {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
-
-        <button onClick={toggleWebcam}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${webcamEnabled ? "bg-primary/20 border-primary/30 text-primary animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={webcamEnabled ? "Stop webcam" : "Front camera"}>
-          {webcamEnabled ? <Eye className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
-        </button>
-
-        {/* Save face button (only when webcam active) */}
-        {webcamEnabled && (
-          <button onClick={saveFace}
-            className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-accent hover:bg-white/[0.15] transition-all"
-            title="Save this face">
-            <UserPlus className="w-5 h-5" />
-          </button>
-        )}
-
-        <button onClick={toggleBackCam}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${backCamEnabled ? "bg-accent/20 border-accent/30 text-accent animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={backCamEnabled ? "Stop back camera" : "Back camera"}>
-          <MapPin className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => syncWeatherContext(true)}
-          disabled={weatherLoading}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all disabled:opacity-50 ${weatherEnabled ? "bg-primary/20 border-primary/30 text-primary" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={weatherEnabled ? "Refresh weather" : "Enable weather awareness"}>
-          {weatherLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudSun className="w-5 h-5" />}
-        </button>
-
-        <button onClick={toggleMusicDetection}
-          className={`w-11 h-11 rounded-full backdrop-blur-sm border flex items-center justify-center transition-all ${musicStreamRef.current ? "bg-primary/20 border-primary/30 text-primary animate-pulse" : "bg-white/[0.08] border-white/[0.08] text-white/60 hover:text-white/90 hover:bg-white/[0.15]"}`}
-          title={musicStreamRef.current ? "Stop music detection" : "Detect music"}>
-          <Music className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => { if (onClose) onClose(); navigate("/setup"); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all"
-          title="Integrations Setup">
-          <Settings className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => { if (onClose) onClose(); navigate("/character"); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-accent hover:bg-white/[0.15] transition-all"
-          title="Character Studio">
-          <Paintbrush className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => { if (onClose) onClose(); navigate("/profile"); }}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all"
-          title="Profile & Logout">
-          <User className="w-5 h-5" />
-        </button>
-
-        <button onClick={() => setChatOpen(true)}
-          className="w-11 h-11 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-white/60 hover:text-white/90 hover:bg-white/[0.15] transition-all relative"
-          title="Chat history">
-          <MessageCircle className="w-5 h-5" />
-          {messages.length > 1 && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center font-bold">
-              {messages.length > 99 ? "99" : messages.length}
-            </span>
-          )}
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* Voice conversation transcript overlay */}
       {voiceModeActive && !chatOpen && (
