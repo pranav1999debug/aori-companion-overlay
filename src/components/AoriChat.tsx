@@ -1799,12 +1799,132 @@ RESPOND AS VALID JSON ONLY:
       return;
     }
 
+    // Navigation commands
+    const handleCommandMsg = (msg: string, emotion: AoriEmotion) => {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      changeEmotion(emotion);
+      setLastAoriText(msg);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion, timestamp: Date.now() }]);
+      speakText(msg);
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+    };
+
+    if (openSettings) {
+      handleCommandMsg("Opening settings for you~ ⚙️", "happy");
+      navigate("/setup");
+      return;
+    }
+    if (openProfile) {
+      handleCommandMsg("Here's your profile~ 👤", "happy");
+      navigate("/profile");
+      return;
+    }
+    if (openCharStudio) {
+      handleCommandMsg("Character studio it is~! Let's customize! 🎨✨", "excited");
+      navigate("/character");
+      return;
+    }
+    if (muteCmd) {
+      handleCommandMsg("Fine, I'll be quiet... *pouts* 🤐", "sad");
+      setVoiceEnabled(false);
+      return;
+    }
+    if (unmuteCmd) {
+      setVoiceEnabled(true);
+      handleCommandMsg("Yay~! I can talk again! Did you miss my voice? 💙✨", "excited");
+      return;
+    }
+    if (enableWeather || whatWeather) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (weatherSummary && whatWeather) {
+        const msg = `Here's what I know~ ${weatherSummary} 🌤️`;
+        changeEmotion("happy");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "happy", timestamp: Date.now() }]);
+        speakText(msg);
+      } else {
+        syncWeatherContext(true);
+        const msg = "Let me check the weather for you~ 🌤️✨";
+        changeEmotion("thinking");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+    if (disableWeather) {
+      setWeatherEnabled(false);
+      setWeatherSummary(null);
+      handleCommandMsg("Weather awareness off~ I'll stop being a meteorologist 🌧️", "smirk");
+      return;
+    }
+    if (startMusicDetect) {
+      handleCommandMsg("Starting music detection~ Let me hear what you're playing! 🎵", "excited");
+      toggleMusicDetection();
+      return;
+    }
+    if (stopMusicDetect) {
+      handleCommandMsg("Music detection off~ 🎵", "happy");
+      if (musicStreamRef.current) toggleMusicDetection();
+      return;
+    }
+    if (clearChat) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      // Preserve deleted history for AI context
+      const deletedHistory: ChatMessage[] = [];
+      try {
+        const existing = localStorage.getItem("aori-deleted-history");
+        if (existing) deletedHistory.push(...JSON.parse(existing));
+      } catch {}
+      const combined = [...deletedHistory, ...chatHistory].slice(-100);
+      localStorage.setItem("aori-deleted-history", JSON.stringify(combined));
+      setMessages([firstTimeGreeting]);
+      setChatHistory([]);
+      setCurrentEmotion("smirk");
+      setLastAoriText(firstTimeGreeting.text);
+      toast("Conversation reset! Starting fresh~ 💙");
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+    if (openChat) {
+      setChatOpen(true);
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+      return;
+    }
+    if (startVoiceCmd && !voiceModeRef.current) {
+      toggleVoiceMode();
+      return;
+    }
+    if (stopVoiceCmd && voiceModeRef.current) {
+      toggleVoiceMode();
+      return;
+    }
+    if (saveFaceCmd) {
+      const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      if (webcamEnabled) {
+        saveFace();
+      } else {
+        const msg = "Turn on the camera first so I can see the face, baka! 📷";
+        changeEmotion("angry");
+        setLastAoriText(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: msg, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+        speakText(msg);
+      }
+      if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
+      return;
+    }
+
     // Add to voice transcript overlay
     if (voiceModeRef.current) {
       setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
     }
     sendMessageWithText(transcript);
-  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled]);
+  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled, navigate, toggleVoiceMode, toggleMusicDetection, syncWeatherContext, weatherSummary, chatHistory, saveFace]);
 
   const startListeningOnce = useCallback(async () => {
     if (isTyping || isSpeakingRef.current) return;
