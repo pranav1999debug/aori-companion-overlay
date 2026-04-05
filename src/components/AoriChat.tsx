@@ -1094,7 +1094,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         try {
           const { latitude, longitude } = position.coords;
           const weatherRes = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m&timezone=auto`
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,precipitation,rain,showers,snowfall,cloud_cover,surface_pressure,pressure_msl&timezone=auto`
           );
 
           if (!weatherRes.ok) throw new Error("Weather service unavailable");
@@ -1106,10 +1106,27 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           const temp = Math.round(current.temperature_2m);
           const feelsLike = Math.round(current.apparent_temperature);
           const wind = Math.round(current.wind_speed_10m);
+          const gusts = Math.round(current.wind_gusts_10m || 0);
+          const humidity = Math.round(current.relative_humidity_2m || 0);
+          const cloudCover = Math.round(current.cloud_cover || 0);
+          const rain = current.rain || 0;
+          const showers = current.showers || 0;
+          const snowfall = current.snowfall || 0;
+          const precipitation = current.precipitation || 0;
+          const pressure = Math.round(current.surface_pressure || current.pressure_msl || 0);
           const weatherLabel = WEATHER_CODE_LABELS[current.weather_code] || "mixed weather";
           const dayState = current.is_day ? "daytime" : "nighttime";
 
-          const summary = `Outside weather right now: ${weatherLabel}, ${temp}°C (feels like ${feelsLike}°C), wind ${wind} km/h, ${dayState}.`;
+          let extras = `humidity ${humidity}%`;
+          if (cloudCover > 0) extras += `, cloud cover ${cloudCover}%`;
+          if (rain > 0) extras += `, rain ${rain}mm`;
+          if (showers > 0) extras += `, showers ${showers}mm`;
+          if (snowfall > 0) extras += `, snowfall ${snowfall}cm`;
+          if (precipitation > 0 && rain === 0 && showers === 0) extras += `, precipitation ${precipitation}mm`;
+          if (pressure > 0) extras += `, pressure ${pressure}hPa`;
+          if (gusts > wind + 5) extras += `, gusts ${gusts}km/h`;
+
+          const summary = `Outside weather right now: ${weatherLabel}, ${temp}°C (feels like ${feelsLike}°C), wind ${wind} km/h, ${dayState}. ${extras}.`;
           setWeatherSummary(summary);
           setWeatherEnabled(true);
 
