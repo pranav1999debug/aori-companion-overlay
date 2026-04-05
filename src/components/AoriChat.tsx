@@ -2280,6 +2280,9 @@ RESPOND AS VALID JSON ONLY:
   useEffect(() => { toggleWebcamRef.current = toggleWebcam; }, [toggleWebcam]);
   useEffect(() => { toggleBackCamRef.current = toggleBackCam; }, [toggleBackCam]);
   useEffect(() => { analyzeFullContextRef.current = analyzeFullContext; }, [analyzeFullContext]);
+  useEffect(() => { toggleVoiceModeRef.current = toggleVoiceMode; }, [toggleVoiceMode]);
+  useEffect(() => { saveFaceRef.current = saveFace; }, [saveFace]);
+  useEffect(() => { toggleMusicDetectionRef.current = toggleMusicDetection; }, [toggleMusicDetection]);
 
   // Auto-start front camera on mount once profile is loaded
   const autoWebcamTriggered = useRef(false);
