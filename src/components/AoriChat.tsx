@@ -1903,7 +1903,7 @@ RESPOND AS VALID JSON ONLY:
       return;
     }
     if (stopVoiceCmd && voiceModeRef.current) {
-      toggleVoiceMode();
+      toggleVoiceModeRef.current();
       return;
     }
     if (saveFaceCmd) {
