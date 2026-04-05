@@ -1910,7 +1910,7 @@ RESPOND AS VALID JSON ONLY:
       const userMsg: Message = { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() };
       setMessages(prev => [...prev, userMsg]);
       if (webcamEnabled) {
-        saveFace();
+        saveFaceRef.current();
       } else {
         const msg = "Turn on the camera first so I can see the face, baka! 📷";
         changeEmotion("angry");
