@@ -1927,7 +1927,7 @@ RESPOND AS VALID JSON ONLY:
       setVoiceEntries(prev => [...prev.slice(-3), { id: Date.now(), text: transcript, sender: "user", timestamp: Date.now() }]);
     }
     sendMessageWithText(transcript);
-  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled, navigate, toggleVoiceMode, toggleMusicDetection, syncWeatherContext, weatherSummary, chatHistory, saveFace]);
+  }, [sendMessageWithText, stopSpeaking, changeEmotion, getInterruptReaction, webcamEnabled, backCamEnabled, navigate, syncWeatherContext, weatherSummary, chatHistory]);
 
   const startListeningOnce = useCallback(async () => {
     if (isTyping || isSpeakingRef.current) return;
