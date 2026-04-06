@@ -2939,6 +2939,95 @@ RESPOND AS VALID JSON ONLY:
           </div>
         </div>
       )}
+
+      {/* Command Hints Tooltip */}
+      {showCommandHints && (
+        <div className="absolute top-12 right-4 z-[100] w-72 max-h-[60vh] overflow-y-auto rounded-2xl border border-white/10 bg-[hsl(220,25%,8%)]/95 backdrop-blur-xl shadow-2xl p-4" style={{ animation: "slide-up 0.3s ease-out" }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <Info className="w-4 h-4 text-primary" /> Voice & Chat Commands
+            </h3>
+            <button onClick={dismissHints} className="p-1 rounded-full hover:bg-white/10 text-white/50">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2 text-[11px] text-white/70">
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">📷 Camera</p>
+              <p>"open camera" / "close camera"</p>
+              <p>"open back camera" / "close back camera"</p>
+              <p>"save this face" / "what am I doing"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">🎵 Music & Media</p>
+              <p>"play [song name]" / "detect music"</p>
+              <p>"stop music detection"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">🌤️ Weather</p>
+              <p>"what's the weather" / "enable weather"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">🎤 Voice</p>
+              <p>"start voice mode" / "stop voice mode"</p>
+              <p>"mute" / "unmute"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">⚙️ Navigation</p>
+              <p>"open settings" / "open profile"</p>
+              <p>"open character studio"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">📚 Wikipedia</p>
+              <p>"open wiki" / "close wiki"</p>
+              <p>"wiki [topic]" — look up any topic</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">💬 Chat</p>
+              <p>"clear chat" / "show commands"</p>
+              <p>Send images or PDFs for analysis</p>
+              <p>"Draw me [description]" for images</p>
+            </div>
+          </div>
+          <button onClick={dismissHints} className="mt-3 w-full py-2 rounded-xl bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors">
+            Got it! ✨
+          </button>
+        </div>
+      )}
+
+      {/* Wikipedia Live Feed Panel */}
+      {wikiPanelOpen && (
+        <div className="absolute top-12 left-4 z-[90] w-72 max-h-[50vh] rounded-2xl border border-white/10 bg-[hsl(220,25%,8%)]/90 backdrop-blur-xl shadow-2xl flex flex-col" style={{ animation: "slide-up 0.3s ease-out" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <h3 className="text-sm font-bold text-white">📚 Wikipedia Live</h3>
+            <button onClick={() => setWikiPanelOpen(false)} className="p-1 rounded-full hover:bg-white/10 text-white/50">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {wikiSummary && (
+            <div className="px-4 py-3 border-b border-white/5 bg-primary/5">
+              <p className="text-xs font-semibold text-primary mb-1">📖 {wikiSummary.title}</p>
+              <p className="text-[11px] text-white/70 leading-relaxed">{wikiSummary.extract.slice(0, 300)}{wikiSummary.extract.length > 300 ? "..." : ""}</p>
+              <button onClick={() => setWikiSummary(null)} className="text-[10px] text-primary/60 mt-1 hover:text-primary">Dismiss</button>
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5">
+            {wikiEntries.length === 0 && (
+              <p className="text-[11px] text-white/30 text-center py-4">Connecting to Wikipedia stream...</p>
+            )}
+            {wikiEntries.slice(0, 30).map((entry, i) => (
+              <button
+                key={`${entry.title}-${i}`}
+                onClick={() => fetchWikiSummary(entry.title)}
+                className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors group"
+              >
+                <p className="text-[11px] text-white/80 truncate group-hover:text-primary transition-colors">{entry.title}</p>
+                <p className="text-[9px] text-white/30">edited by {entry.user}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
