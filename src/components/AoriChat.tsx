@@ -1270,6 +1270,24 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       setMessages([firstTimeGreeting]); setChatHistory([]); setCurrentEmotion("smirk"); setLastAoriText(firstTimeGreeting.text);
       toast("Conversation reset! Starting fresh~ 💙"); return;
     }
+    if (/\b(show|open)\s*wiki(pedia)?\b/i.test(cmdLower)) {
+      setIsTyping(false); setWikiPanelOpen(true); cmdReply("Opening Wikipedia feed~ 📚✨", "excited"); return;
+    }
+    if (/\b(close|hide)\s*wiki(pedia)?\b/i.test(cmdLower)) {
+      setIsTyping(false); setWikiPanelOpen(false); cmdReply("Wikipedia feed closed~ 📚", "happy"); return;
+    }
+    if (/\bwiki(pedia)?\s+(.+)/i.test(cmdLower)) {
+      const wikiMatch = cmdLower.match(/\bwiki(pedia)?\s+(.+)/i);
+      if (wikiMatch?.[2]) {
+        setIsTyping(false);
+        fetchWikiSummary(wikiMatch[2].trim());
+        cmdReply(`Looking up "${wikiMatch[2].trim()}" on Wikipedia~ 🔍`, "thinking");
+        return;
+      }
+    }
+    if (/\b(show|what)\s*(commands?|help|hints?)\b/i.test(cmdLower)) {
+      setIsTyping(false); setShowCommandHints(true); cmdReply("Here are all the commands you can use~ 📋", "happy"); return;
+    }
     if (/\b(start\s*voice\s*mode|voice\s*mode\s*on|voice\s*on)\b/i.test(cmdLower)) {
       setIsTyping(false); if (!voiceModeRef.current) toggleVoiceModeRef.current(); return;
     }
