@@ -2664,7 +2664,7 @@ RESPOND AS VALID JSON ONLY:
         </div>
       )}
 
-      {/* Aori Avatar (centered) */}
+      {/* Aori Avatar (centered) — with face tracking */}
       <div
         className="absolute z-10 select-none cursor-grab active:cursor-grabbing"
         style={{
@@ -2674,6 +2674,9 @@ RESPOND AS VALID JSON ONLY:
           height: avatarSize,
           touchAction: "none",
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
+          transform: `rotateY(${faceOffset.x * 8}deg) rotateX(${-faceOffset.y * 5}deg) translateX(${faceOffset.x * 10}px)`,
+          transition: "transform 0.15s ease-out",
+        }}
         }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
