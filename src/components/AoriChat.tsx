@@ -1569,32 +1569,24 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
       speakText(responseText);
 
-      // Generate image if prompt was provided
+      // Generate image if prompt was provided — using Puter.ai txt2img
       if (data.imagePrompt) {
-        supabase.functions.invoke("aori-image-gen", {
-          body: { prompt: data.imagePrompt },
-        }).then(({ data: imgData, error: imgError }) => {
-          if (!imgError && imgData?.imageUrl) {
+        (async () => {
+          try {
+            const enhancedPrompt = `${data.imagePrompt}. High quality, detailed and expressive, studio quality anime art style.`;
+            const imgEl = await puter.ai.txt2img(enhancedPrompt);
+            const imgSrc = imgEl.src; // data URL
             setMessages(prev => prev.map(m =>
-              m.id === msgId ? { ...m, generatedImageUrl: imgData.imageUrl, generatingImage: false } : m
+              m.id === msgId ? { ...m, generatedImageUrl: imgSrc, generatingImage: false } : m
             ));
-          } else {
-            const status = (imgError as { context?: { status?: number } } | null)?.context?.status;
-            if (status === 402) {
-              toast.error("Image generation credits are exhausted. Add credits and try again.");
-            } else if (status === 429) {
-              toast.error("Too many image requests right now. Please wait a bit.");
-            }
-
+          } catch (imgErr: any) {
+            console.error("Puter image gen error:", imgErr);
+            toast.error("Image generation failed. Try again later.");
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, generatingImage: false } : m
             ));
           }
-        }).catch(() => {
-          setMessages(prev => prev.map(m =>
-            m.id === msgId ? { ...m, generatingImage: false } : m
-          ));
-        });
+        })();
       }
       // Execute phone action if present
       if (data.phoneAction) {
