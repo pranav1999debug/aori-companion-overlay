@@ -2677,7 +2677,6 @@ RESPOND AS VALID JSON ONLY:
           transform: `rotateY(${faceOffset.x * 8}deg) rotateX(${-faceOffset.y * 5}deg) translateX(${faceOffset.x * 10}px)`,
           transition: "transform 0.15s ease-out",
         }}
-        }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
