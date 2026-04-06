@@ -2404,7 +2404,115 @@ RESPOND AS VALID JSON ONLY:
     }
   }, [userProfile, webcamEnabled]);
 
-  // === Proactive suggestion check (runs every 5 minutes) ===
+  // Auto-start voice mode on mount
+  const autoVoiceModeTriggered = useRef(false);
+  useEffect(() => {
+    if (userProfile && !autoVoiceModeTriggered.current) {
+      autoVoiceModeTriggered.current = true;
+      const timer = setTimeout(() => {
+        if (!voiceModeRef.current) {
+          voiceModeRef.current = true;
+          setVoiceModeActive(true);
+          toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
+          startListeningOnceRef.current();
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [userProfile]);
+
+  // Face tracking — detect face position from webcam and apply offset to avatar
+  const faceTrackingRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!webcamEnabled || !webcamStream) {
+      setFaceOffset({ x: 0, y: 0 });
+      if (faceTrackingRef.current) { clearInterval(faceTrackingRef.current); faceTrackingRef.current = null; }
+      return;
+    }
+
+    const detectFacePosition = () => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || video.readyState < 2) return;
+
+      canvas.width = 160;
+      canvas.height = 120;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, 160, 120);
+      const imageData = ctx.getImageData(0, 0, 160, 120);
+      const data = imageData.data;
+
+      // Simple skin-tone detection to find face center
+      let totalX = 0, totalY = 0, count = 0;
+      for (let y = 0; y < 120; y += 3) {
+        for (let x = 0; x < 160; x += 3) {
+          const i = (y * 160 + x) * 4;
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          // Skin tone heuristic
+          if (r > 80 && g > 50 && b > 30 && r > g && r > b && (r - g) > 15 && Math.abs(r - b) > 15) {
+            totalX += x;
+            totalY += y;
+            count++;
+          }
+        }
+      }
+
+      if (count > 50) {
+        const centerX = totalX / count;
+        const centerY = totalY / count;
+        // Map to -1 to 1 range (mirrored for front cam)
+        const offsetX = -((centerX / 160) - 0.5) * 2; // Negative because front cam is mirrored
+        const offsetY = ((centerY / 120) - 0.5) * 2;
+        // Smooth with lerp
+        setFaceOffset(prev => ({
+          x: prev.x + (offsetX - prev.x) * 0.15,
+          y: prev.y + (offsetY - prev.y) * 0.15,
+        }));
+      }
+    };
+
+    faceTrackingRef.current = setInterval(detectFacePosition, 100); // 10fps tracking
+    return () => { if (faceTrackingRef.current) clearInterval(faceTrackingRef.current); };
+  }, [webcamEnabled, webcamStream]);
+
+  // Wikipedia SSE stream
+  useEffect(() => {
+    const es = new EventSource("https://stream.wikimedia.org/v2/stream/recentchange");
+    wikiSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "edit" && data.wiki === "enwiki" && data.namespace === 0 && !data.bot) {
+          setWikiEntries(prev => [
+            { title: data.title, user: data.user, timestamp: Date.now() },
+            ...prev.slice(0, 49),
+          ]);
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    return () => { es.close(); wikiSourceRef.current = null; };
+  }, []);
+
+  // On-demand Wikipedia summary fetcher
+  const fetchWikiSummary = useCallback(async (title: string) => {
+    try {
+      const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setWikiSummary({ title: data.title, extract: data.extract || "No summary available." });
+    } catch { /* ignore */ }
+  }, []);
+
+  // Add wiki commands to voice/chat
+  const dismissHints = useCallback(() => {
+    setShowCommandHints(false);
+    try { localStorage.setItem("aori-hints-dismissed", "1"); } catch {}
+  }, []);
+
+
   const proactiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastProactiveRef = useRef<number>(0);
 
