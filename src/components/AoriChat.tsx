@@ -1105,6 +1105,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
+
+          // Reverse geocode to get city name
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`);
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              const city = geoData?.address?.city || geoData?.address?.town || geoData?.address?.village || geoData?.address?.suburb || geoData?.address?.state_district || null;
+              if (city) setCityName(city);
+            }
+          } catch { /* ignore geocode errors */ }
+
           const weatherRes = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,precipitation,rain,showers,snowfall,cloud_cover,surface_pressure,pressure_msl&timezone=auto`
           );
