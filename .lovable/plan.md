@@ -1,52 +1,40 @@
 
+## Multi-Feature Update Plan
 
-## Voice-First Aori: Remove Buttons + Auto-Features + Enhanced Weather
+### 1. Onboarding Command Hints + Voice Mode Default
+- Add a dismissible tooltip/overlay showing available voice/chat commands on first visit
+- Set voice mode to auto-start by default on mount
 
-### What Changes
+### 2. Use Puter.ai for Image Generation in Chat
+- Replace the Lovable AI gateway image gen edge function call with client-side `puter.ai.chat()` using an image-generation capable model
+- Display generated images inline in chat
 
-**1. Remove all sidebar buttons from home screen**
-The right-side button panel (lines 2366-2461) with ~13 buttons (camera, weather, music, settings, profile, etc.) will be removed entirely. All functionality will be accessible only through voice commands or chat text.
+### 3. Use Puter.ai for Character Studio
+- Replace `aori-character-lookup` edge function with client-side `puter.ai.chat()` for character metadata lookup
+- Replace `aori-generate-expressions` edge function with `puter.ai.chat()` for generating expression images
 
-**2. Auto-start camera on launch**
-When AoriChat mounts, automatically request front camera permission and start the webcam. Aori will immediately begin observing the user without needing any button press.
+### 4. Face Tracking (Head Movement → Aori Eye Contact)
+- Use the existing webcam feed to detect face position (left/right/up/down tilt)
+- Apply CSS transforms to Aori's avatar so she appears to "look at" the user — mirroring their head position
+- Use simple canvas-based face position detection (center of face relative to frame) rather than heavy MediaPipe library
+- Creates an illusion of eye contact and reactive movement
 
-**3. Auto-enable weather on launch**
-Instead of requiring the CloudSun button, weather will auto-fetch using `navigator.geolocation` on component mount. The `weatherEnabled` state will default to `true`.
+### 5. Auto-inject City, Time, Weather into System Prompt
+- Use the existing geolocation + reverse geocoding (via Open-Meteo's timezone info or a free reverse geocoding API) to get the user's city name
+- Append a context block like `"Good evening from Danapur! 22°C, partly cloudy"` into the system prompt sent to the chat edge function
+- The weather data is already fetched; we just need to add city name resolution and format it into the prompt
 
-**4. Enhanced weather data**
-Expand the Open-Meteo API call to include more parameters: `rain`, `showers`, `snowfall`, `cloud_cover`, `relative_humidity_2m`, `precipitation`, `surface_pressure`, `pressure_msl`, `wind_direction_10m`, `wind_gusts_10m`. The summary string injected into Aori's system prompt will be richer.
+### 6. Wikipedia SSE Stream + Live Feed Panel
+- Connect to `https://stream.wikimedia.org/v2/stream/recentchange` via EventSource
+- Create a small glassmorphism side panel showing recent Wikipedia edits filtered by user's city or current chat topic
+- Add on-demand Wikipedia summary fetching via `https://en.wikipedia.org/api/rest_v1/page/summary/{title}`
+- Show a "Wiki Verified ✓" badge on messages where Aori references factual Wikipedia data
 
-Note: We will NOT use the `openmeteo` npm package (`fetchWeatherApi`) because it uses Protocol Buffers which adds complexity. The existing plain JSON fetch from `api.open-meteo.com` already supports all these parameters natively by adding them to the URL query string.
+### Files to modify
+- `src/components/AoriChat.tsx` — commands tooltip, voice default, face tracking, context injection, puter image gen, wiki integration
+- `src/pages/CharacterStudio.tsx` — switch to puter.ai for character lookup and expression generation
+- `src/types/puter.d.ts` — add txt2img if needed
 
-**5. Add voice/chat commands for everything buttons did**
-Extend the existing voice command regex detection (already has camera commands) to also handle:
-- "enable/disable weather" or "what's the weather"
-- "open settings" / "open profile" / "open character studio"
-- "mute/unmute" voice
-- "detect music" / "stop music detection"
-- "clear chat" / "delete messages"
-
-These same commands will also work when typed in the chat input.
-
-### Technical Details
-
-**Files to modify:**
-- `src/components/AoriChat.tsx`
-  - Remove the entire right-side button panel div (lines 2366-2461)
-  - Change `weatherEnabled` default to `true` and auto-call `syncWeatherContext` on mount
-  - Change `webcamEnabled` to auto-start: add a `useEffect` that calls `toggleWebcam()` after profile loads
-  - Expand the Open-Meteo fetch URL with additional current parameters
-  - Build a richer weather summary string with humidity, rain, cloud cover, etc.
-  - Add new voice command regex patterns for settings/profile/mute/weather/music in the `handleVoiceResult` callback
-  - Add the same command detection in `sendMessageCore` for typed commands
-  - Keep only: bottom input bar, chat overlay panel, avatar, voice transcript overlay, webcam preview thumbnail, music indicator
-
-**What stays on screen:**
-- Aori's avatar (draggable)
-- Bottom text input bar with send/image/paint buttons
-- Webcam preview thumbnail (top-left, auto-visible)
-- Chat overlay (opens when user taps input or types)
-- Voice transcript overlay (when voice mode active via "hey aori" or voice command)
-
-**Voice mode activation:** Users say "start voice mode" or type it. The existing voice mode toggle logic stays but is triggered by command instead of button.
-
+### Note
+- Face tracking will use simple canvas position detection (no external library) — lightweight but effective for basic "look at user" behavior
+- Wikipedia SSE is a nice ambient feature but may generate a lot of traffic; we'll add a toggle

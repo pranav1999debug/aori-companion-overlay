@@ -4,6 +4,10 @@ declare interface PuterAI {
     imageUrlOrFile?: string | File | Blob,
     options?: { model?: string }
   ): Promise<string>;
+  txt2img(
+    prompt: string,
+    options?: { model?: string; quality?: string; size?: string } | boolean
+  ): Promise<HTMLImageElement>;
 }
 
 declare interface Puter {

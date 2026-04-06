@@ -119,7 +119,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, deletedHistory, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary, weatherSummary } = await req.json();
+    const { messages, deletedHistory, userProfile, knownFaces, environmentMemories, musicDetected, userLocalTime, userTimezone, sessionMinutes, gmailSummary, calendarSummary, youtubeSummary, proactiveCheck, visionContext, contactsSummary, weatherSummary, cityName } = await req.json();
 
     // Try to get user's own API key first
     const authHeader = req.headers.get("Authorization");
@@ -190,8 +190,10 @@ ${pastSummary}
 
     // Weather context from user's location
     if (weatherSummary) {
-      dynamicContext += `\n\n**LIVE WEATHER CONTEXT (from user's device location):**\n${weatherSummary}
+      const locationNote = cityName ? ` The user is currently in ${cityName}.` : "";
+      dynamicContext += `\n\n**LIVE WEATHER & LOCATION CONTEXT (from user's device location):**\n${weatherSummary}${locationNote}
 - Use this weather info naturally when relevant (user asks about outside, outfit, mood, activities).
+- If you know the city, reference it naturally (e.g., "It's pretty warm in ${cityName || 'your area'} today~").
 - Keep it conversational, not robotic.
 - If weather is extreme (rain/storm/heat), proactively show concern once.`;
     }

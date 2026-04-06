@@ -563,6 +563,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const [avatarPos, setAvatarPos] = useState({ x: 0, y: 0 });
   const [avatarSize, setAvatarSize] = useState(400);
   const [avatarInitialized, setAvatarInitialized] = useState(false);
+  const [faceOffset, setFaceOffset] = useState({ x: 0, y: 0 });
+  const [cityName, setCityName] = useState<string | null>(null);
+  const [showCommandHints, setShowCommandHints] = useState(() => {
+    try { return !localStorage.getItem("aori-hints-dismissed"); } catch { return true; }
+  });
+  const [wikiEntries, setWikiEntries] = useState<{ title: string; user: string; timestamp: number }[]>([]);
+  const [wikiPanelOpen, setWikiPanelOpen] = useState(false);
+  const [wikiSummary, setWikiSummary] = useState<{ title: string; extract: string } | null>(null);
+  const wikiSourceRef = useRef<EventSource | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origSize: number } | null>(null);
   const pinchRef = useRef<{ initialDist: number; origSize: number } | null>(null);
@@ -1096,6 +1105,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
+
+          // Reverse geocode to get city name
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`);
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              const city = geoData?.address?.city || geoData?.address?.town || geoData?.address?.village || geoData?.address?.suburb || geoData?.address?.state_district || null;
+              if (city) setCityName(city);
+            }
+          } catch { /* ignore geocode errors */ }
+
           const weatherRes = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,precipitation,rain,showers,snowfall,cloud_cover,surface_pressure,pressure_msl&timezone=auto`
           );
@@ -1249,6 +1269,24 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       localStorage.setItem("aori-deleted-history", JSON.stringify([...deletedHistory, ...chatHistory].slice(-100)));
       setMessages([firstTimeGreeting]); setChatHistory([]); setCurrentEmotion("smirk"); setLastAoriText(firstTimeGreeting.text);
       toast("Conversation reset! Starting fresh~ 💙"); return;
+    }
+    if (/\b(show|open)\s*wiki(pedia)?\b/i.test(cmdLower)) {
+      setIsTyping(false); setWikiPanelOpen(true); cmdReply("Opening Wikipedia feed~ 📚✨", "excited"); return;
+    }
+    if (/\b(close|hide)\s*wiki(pedia)?\b/i.test(cmdLower)) {
+      setIsTyping(false); setWikiPanelOpen(false); cmdReply("Wikipedia feed closed~ 📚", "happy"); return;
+    }
+    if (/\bwiki(pedia)?\s+(.+)/i.test(cmdLower)) {
+      const wikiMatch = cmdLower.match(/\bwiki(pedia)?\s+(.+)/i);
+      if (wikiMatch?.[2]) {
+        setIsTyping(false);
+        fetchWikiSummary(wikiMatch[2].trim());
+        cmdReply(`Looking up "${wikiMatch[2].trim()}" on Wikipedia~ 🔍`, "thinking");
+        return;
+      }
+    }
+    if (/\b(show|what)\s*(commands?|help|hints?)\b/i.test(cmdLower)) {
+      setIsTyping(false); setShowCommandHints(true); cmdReply("Here are all the commands you can use~ 📋", "happy"); return;
     }
     if (/\b(start\s*voice\s*mode|voice\s*mode\s*on|voice\s*on)\b/i.test(cmdLower)) {
       setIsTyping(false); if (!voiceModeRef.current) toggleVoiceModeRef.current(); return;
@@ -1518,6 +1556,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           youtubeSummary,
           contactsSummary,
           weatherSummary: weatherEnabled ? weatherSummary : null,
+          cityName: cityName || null,
         },
       });
       if (error) throw error;
@@ -1560,32 +1599,24 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
       speakText(responseText);
 
-      // Generate image if prompt was provided
+      // Generate image if prompt was provided — using Puter.ai txt2img
       if (data.imagePrompt) {
-        supabase.functions.invoke("aori-image-gen", {
-          body: { prompt: data.imagePrompt },
-        }).then(({ data: imgData, error: imgError }) => {
-          if (!imgError && imgData?.imageUrl) {
+        (async () => {
+          try {
+            const enhancedPrompt = `${data.imagePrompt}. High quality, detailed and expressive, studio quality anime art style.`;
+            const imgEl = await puter.ai.txt2img(enhancedPrompt);
+            const imgSrc = imgEl.src; // data URL
             setMessages(prev => prev.map(m =>
-              m.id === msgId ? { ...m, generatedImageUrl: imgData.imageUrl, generatingImage: false } : m
+              m.id === msgId ? { ...m, generatedImageUrl: imgSrc, generatingImage: false } : m
             ));
-          } else {
-            const status = (imgError as { context?: { status?: number } } | null)?.context?.status;
-            if (status === 402) {
-              toast.error("Image generation credits are exhausted. Add credits and try again.");
-            } else if (status === 429) {
-              toast.error("Too many image requests right now. Please wait a bit.");
-            }
-
+          } catch (imgErr: any) {
+            console.error("Puter image gen error:", imgErr);
+            toast.error("Image generation failed. Try again later.");
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, generatingImage: false } : m
             ));
           }
-        }).catch(() => {
-          setMessages(prev => prev.map(m =>
-            m.id === msgId ? { ...m, generatingImage: false } : m
-          ));
-        });
+        })();
       }
       // Execute phone action if present
       if (data.phoneAction) {
@@ -2391,7 +2422,115 @@ RESPOND AS VALID JSON ONLY:
     }
   }, [userProfile, webcamEnabled]);
 
-  // === Proactive suggestion check (runs every 5 minutes) ===
+  // Auto-start voice mode on mount
+  const autoVoiceModeTriggered = useRef(false);
+  useEffect(() => {
+    if (userProfile && !autoVoiceModeTriggered.current) {
+      autoVoiceModeTriggered.current = true;
+      const timer = setTimeout(() => {
+        if (!voiceModeRef.current) {
+          voiceModeRef.current = true;
+          setVoiceModeActive(true);
+          toast("🎤 Voice mode on — speak freely!", { duration: 2000 });
+          startListeningOnceRef.current();
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [userProfile]);
+
+  // Face tracking — detect face position from webcam and apply offset to avatar
+  const faceTrackingRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!webcamEnabled || !webcamStream) {
+      setFaceOffset({ x: 0, y: 0 });
+      if (faceTrackingRef.current) { clearInterval(faceTrackingRef.current); faceTrackingRef.current = null; }
+      return;
+    }
+
+    const detectFacePosition = () => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || video.readyState < 2) return;
+
+      canvas.width = 160;
+      canvas.height = 120;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, 160, 120);
+      const imageData = ctx.getImageData(0, 0, 160, 120);
+      const data = imageData.data;
+
+      // Simple skin-tone detection to find face center
+      let totalX = 0, totalY = 0, count = 0;
+      for (let y = 0; y < 120; y += 3) {
+        for (let x = 0; x < 160; x += 3) {
+          const i = (y * 160 + x) * 4;
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          // Skin tone heuristic
+          if (r > 80 && g > 50 && b > 30 && r > g && r > b && (r - g) > 15 && Math.abs(r - b) > 15) {
+            totalX += x;
+            totalY += y;
+            count++;
+          }
+        }
+      }
+
+      if (count > 50) {
+        const centerX = totalX / count;
+        const centerY = totalY / count;
+        // Map to -1 to 1 range (mirrored for front cam)
+        const offsetX = -((centerX / 160) - 0.5) * 2; // Negative because front cam is mirrored
+        const offsetY = ((centerY / 120) - 0.5) * 2;
+        // Smooth with lerp
+        setFaceOffset(prev => ({
+          x: prev.x + (offsetX - prev.x) * 0.15,
+          y: prev.y + (offsetY - prev.y) * 0.15,
+        }));
+      }
+    };
+
+    faceTrackingRef.current = setInterval(detectFacePosition, 100); // 10fps tracking
+    return () => { if (faceTrackingRef.current) clearInterval(faceTrackingRef.current); };
+  }, [webcamEnabled, webcamStream]);
+
+  // Wikipedia SSE stream
+  useEffect(() => {
+    const es = new EventSource("https://stream.wikimedia.org/v2/stream/recentchange");
+    wikiSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "edit" && data.wiki === "enwiki" && data.namespace === 0 && !data.bot) {
+          setWikiEntries(prev => [
+            { title: data.title, user: data.user, timestamp: Date.now() },
+            ...prev.slice(0, 49),
+          ]);
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    return () => { es.close(); wikiSourceRef.current = null; };
+  }, []);
+
+  // On-demand Wikipedia summary fetcher
+  const fetchWikiSummary = useCallback(async (title: string) => {
+    try {
+      const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setWikiSummary({ title: data.title, extract: data.extract || "No summary available." });
+    } catch { /* ignore */ }
+  }, []);
+
+  // Add wiki commands to voice/chat
+  const dismissHints = useCallback(() => {
+    setShowCommandHints(false);
+    try { localStorage.setItem("aori-hints-dismissed", "1"); } catch {}
+  }, []);
+
+
   const proactiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastProactiveRef = useRef<number>(0);
 
@@ -2525,7 +2664,7 @@ RESPOND AS VALID JSON ONLY:
         </div>
       )}
 
-      {/* Aori Avatar (centered) */}
+      {/* Aori Avatar (centered) — with face tracking */}
       <div
         className="absolute z-10 select-none cursor-grab active:cursor-grabbing"
         style={{
@@ -2535,6 +2674,8 @@ RESPOND AS VALID JSON ONLY:
           height: avatarSize,
           touchAction: "none",
           animation: musicDetected ? "breathe 1.5s ease-in-out infinite" : "breathe 4s ease-in-out infinite",
+          transform: `rotateY(${faceOffset.x * 8}deg) rotateX(${-faceOffset.y * 5}deg) translateX(${faceOffset.x * 10}px)`,
+          transition: "transform 0.15s ease-out",
         }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
@@ -2795,6 +2936,95 @@ RESPOND AS VALID JSON ONLY:
                 <X className="w-5 h-5" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Command Hints Tooltip */}
+      {showCommandHints && (
+        <div className="absolute top-12 right-4 z-[100] w-72 max-h-[60vh] overflow-y-auto rounded-2xl border border-white/10 bg-[hsl(220,25%,8%)]/95 backdrop-blur-xl shadow-2xl p-4" style={{ animation: "slide-up 0.3s ease-out" }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <Info className="w-4 h-4 text-primary" /> Voice & Chat Commands
+            </h3>
+            <button onClick={dismissHints} className="p-1 rounded-full hover:bg-white/10 text-white/50">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2 text-[11px] text-white/70">
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">📷 Camera</p>
+              <p>"open camera" / "close camera"</p>
+              <p>"open back camera" / "close back camera"</p>
+              <p>"save this face" / "what am I doing"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">🎵 Music & Media</p>
+              <p>"play [song name]" / "detect music"</p>
+              <p>"stop music detection"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">🌤️ Weather</p>
+              <p>"what's the weather" / "enable weather"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">🎤 Voice</p>
+              <p>"start voice mode" / "stop voice mode"</p>
+              <p>"mute" / "unmute"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">⚙️ Navigation</p>
+              <p>"open settings" / "open profile"</p>
+              <p>"open character studio"</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">📚 Wikipedia</p>
+              <p>"open wiki" / "close wiki"</p>
+              <p>"wiki [topic]" — look up any topic</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-primary font-semibold text-xs">💬 Chat</p>
+              <p>"clear chat" / "show commands"</p>
+              <p>Send images or PDFs for analysis</p>
+              <p>"Draw me [description]" for images</p>
+            </div>
+          </div>
+          <button onClick={dismissHints} className="mt-3 w-full py-2 rounded-xl bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors">
+            Got it! ✨
+          </button>
+        </div>
+      )}
+
+      {/* Wikipedia Live Feed Panel */}
+      {wikiPanelOpen && (
+        <div className="absolute top-12 left-4 z-[90] w-72 max-h-[50vh] rounded-2xl border border-white/10 bg-[hsl(220,25%,8%)]/90 backdrop-blur-xl shadow-2xl flex flex-col" style={{ animation: "slide-up 0.3s ease-out" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <h3 className="text-sm font-bold text-white">📚 Wikipedia Live</h3>
+            <button onClick={() => setWikiPanelOpen(false)} className="p-1 rounded-full hover:bg-white/10 text-white/50">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {wikiSummary && (
+            <div className="px-4 py-3 border-b border-white/5 bg-primary/5">
+              <p className="text-xs font-semibold text-primary mb-1">📖 {wikiSummary.title}</p>
+              <p className="text-[11px] text-white/70 leading-relaxed">{wikiSummary.extract.slice(0, 300)}{wikiSummary.extract.length > 300 ? "..." : ""}</p>
+              <button onClick={() => setWikiSummary(null)} className="text-[10px] text-primary/60 mt-1 hover:text-primary">Dismiss</button>
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5">
+            {wikiEntries.length === 0 && (
+              <p className="text-[11px] text-white/30 text-center py-4">Connecting to Wikipedia stream...</p>
+            )}
+            {wikiEntries.slice(0, 30).map((entry, i) => (
+              <button
+                key={`${entry.title}-${i}`}
+                onClick={() => fetchWikiSummary(entry.title)}
+                className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors group"
+              >
+                <p className="text-[11px] text-white/80 truncate group-hover:text-primary transition-colors">{entry.title}</p>
+                <p className="text-[9px] text-white/30">edited by {entry.user}</p>
+              </button>
+            ))}
           </div>
         </div>
       )}
