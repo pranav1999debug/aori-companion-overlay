@@ -1538,6 +1538,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
           youtubeSummary,
           contactsSummary,
           weatherSummary: weatherEnabled ? weatherSummary : null,
+          cityName: cityName || null,
         },
       });
       if (error) throw error;
