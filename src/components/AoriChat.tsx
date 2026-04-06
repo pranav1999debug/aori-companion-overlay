@@ -563,6 +563,15 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   const [avatarPos, setAvatarPos] = useState({ x: 0, y: 0 });
   const [avatarSize, setAvatarSize] = useState(400);
   const [avatarInitialized, setAvatarInitialized] = useState(false);
+  const [faceOffset, setFaceOffset] = useState({ x: 0, y: 0 });
+  const [cityName, setCityName] = useState<string | null>(null);
+  const [showCommandHints, setShowCommandHints] = useState(() => {
+    try { return !localStorage.getItem("aori-hints-dismissed"); } catch { return true; }
+  });
+  const [wikiEntries, setWikiEntries] = useState<{ title: string; user: string; timestamp: number }[]>([]);
+  const [wikiPanelOpen, setWikiPanelOpen] = useState(false);
+  const [wikiSummary, setWikiSummary] = useState<{ title: string; extract: string } | null>(null);
+  const wikiSourceRef = useRef<EventSource | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origSize: number } | null>(null);
   const pinchRef = useRef<{ initialDist: number; origSize: number } | null>(null);

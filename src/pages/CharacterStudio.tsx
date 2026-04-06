@@ -102,26 +102,49 @@ export default function CharacterStudio() {
     }
     setIsSearching(true);
     try {
-      const { data, error } = await supabase.functions.invoke("aori-character-lookup", {
-        body: { characterQuery: searchQuery.trim() },
-      });
+      const systemPrompt = `You are an anime/manga/game character encyclopedia. Given a character name (and optionally their series), return accurate details in JSON format.
 
-      if (error) throw error;
-      if (!data?.success || !data?.character) {
-        toast.error(data?.error || "Character not found. Try a different name.");
+Return ONLY valid JSON with these fields:
+{
+  "character_name": "Full canonical name",
+  "character_personality": "Detailed personality description (200-300 words)",
+  "character_speaking_style": "How they speak, catchphrases, verbal tics, 2-3 famous dialogue examples",
+  "character_appearance": "Physical description for AI image generation",
+  "character_gender": "male" or "female",
+  "series": "Name of the anime/manga/game series"
+}`;
+
+      const rawReply = await puter.ai.chat(
+        `${systemPrompt}\n\nLook up this character: ${searchQuery.trim()}`,
+        undefined,
+        { model: "gpt-5.4-nano" }
+      );
+
+      const rawText = typeof rawReply === "string" ? rawReply : (rawReply as any)?.message?.content || (rawReply as any)?.text || JSON.stringify(rawReply);
+      
+      // Extract JSON from response
+      let parsed: any = null;
+      const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const candidates = [jsonMatch?.[1], rawText.match(/\{[\s\S]*\}/)?.[0], rawText];
+      for (const candidate of candidates) {
+        if (!candidate) continue;
+        try { parsed = JSON.parse(candidate.trim()); break; } catch { continue; }
+      }
+
+      if (!parsed?.character_name) {
+        toast.error("Character not found. Try a different name.");
         return;
       }
 
-      const c = data.character;
-      setCharacterName(c.character_name || "");
-      setCharacterPersonality(c.character_personality || "");
-      setCharacterSpeakingStyle(c.character_speaking_style || "");
-      setCharacterAppearance(c.character_appearance || "");
-      if (c.character_gender === "male" || c.character_gender === "female") {
-        setCharacterGender(c.character_gender);
+      setCharacterName(parsed.character_name || "");
+      setCharacterPersonality(parsed.character_personality || "");
+      setCharacterSpeakingStyle(parsed.character_speaking_style || "");
+      setCharacterAppearance(parsed.character_appearance || "");
+      if (parsed.character_gender === "male" || parsed.character_gender === "female") {
+        setCharacterGender(parsed.character_gender);
       }
 
-      toast.success(`✨ ${c.character_name} from ${c.series || "unknown series"} loaded!`);
+      toast.success(`✨ ${parsed.character_name} from ${parsed.series || "unknown series"} loaded!`);
     } catch (e: any) {
       console.error("Character search error:", e);
       toast.error("Search failed. Try again!");
