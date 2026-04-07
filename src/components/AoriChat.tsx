@@ -2458,6 +2458,25 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
   useEffect(() => { saveFaceRef.current = saveFace; }, [saveFace]);
   useEffect(() => { toggleMusicDetectionRef.current = toggleMusicDetection; }, [toggleMusicDetection]);
 
+  // Initialize local AI models on mount
+  const localAIInitTriggered = useRef(false);
+  const [localAIProgress, setLocalAIProgress] = useState(0);
+  const [localAIStatus, setLocalAIStatus] = useState("");
+  useEffect(() => {
+    if (localAIInitTriggered.current) return;
+    localAIInitTriggered.current = true;
+    const unsub = onLocalAIProgress((p, s) => { setLocalAIProgress(p); setLocalAIStatus(s); });
+    initAllModels().then(() => {
+      console.log("Local AI models loaded");
+      setLocalAIStatus("Ready ✨");
+    }).catch(e => {
+      console.error("Local AI init error:", e);
+      setLocalAIStatus("Failed to load models");
+    });
+    loadFaceModels().then(() => console.log("Face models loaded")).catch(e => console.error("Face models error:", e));
+    return unsub;
+  }, []);
+
   // Auto-start front camera on mount once profile is loaded
   const autoWebcamTriggered = useRef(false);
   useEffect(() => {
