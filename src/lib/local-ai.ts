@@ -30,7 +30,7 @@ const listeners = new Set<(progress: number, status: string) => void>();
 
 export function onLocalAIProgress(cb: (progress: number, status: string) => void) {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => { listeners.delete(cb); };
 }
 
 function notify(progress: number, status: string) {
