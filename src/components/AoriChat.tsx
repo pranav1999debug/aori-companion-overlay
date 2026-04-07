@@ -45,6 +45,19 @@ const cleanResponseText = (text: string): string =>
     .replace(/<image>[^<]*$/gi, "")
     .trim();
 
+/** Guess location label from detected objects */
+function guessLocation(objects: string[]): string {
+  const s = objects.join(" ").toLowerCase();
+  if (/bed|pillow|blanket/.test(s)) return "bedroom";
+  if (/desk|monitor|keyboard|laptop|mouse/.test(s)) return "office";
+  if (/oven|microwave|sink|refrigerator/.test(s)) return "kitchen";
+  if (/couch|sofa|tv|remote/.test(s)) return "living room";
+  if (/car|truck|bus|traffic/.test(s)) return "outdoors";
+  if (/dining|table|chair|cup/.test(s)) return "dining area";
+  if (/book|shelf/.test(s)) return "study";
+  return "room";
+}
+
 const extractPuterMessageText = (value: unknown): string => {
   if (typeof value === "string") return value.trim();
 
