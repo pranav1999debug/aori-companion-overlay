@@ -1,40 +1,44 @@
+## Fully Local AI: Transformers.js + face-api.js + Groq
 
-## Multi-Feature Update Plan
+### 1. Install Dependencies
+- `@huggingface/transformers` (Transformers.js v3)
+- `face-api.js` (browser face detection/recognition)
 
-### 1. Onboarding Command Hints + Voice Mode Default
-- Add a dismissible tooltip/overlay showing available voice/chat commands on first visit
-- Set voice mode to auto-start by default on mount
+### 2. Create Local Vision Service (`src/lib/local-ai.ts`)
+- Initialize Transformers.js pipeline for **image-to-text** (model: `Xenova/vit-gpt2-image-captioning`) — describes what the camera sees
+- Initialize **object-detection** pipeline (model: `Xenova/detr-resnet-50`) — detects objects with bounding boxes
+- For academic/homework solving: Use Transformers.js **OCR** (`Xenova/trocr-base-handwritten`) to extract text, then send extracted text to Groq for solving
+- All models load once and are cached in browser IndexedDB
+- Show loading progress bar on first use
 
-### 2. Use Puter.ai for Image Generation in Chat
-- Replace the Lovable AI gateway image gen edge function call with client-side `puter.ai.chat()` using an image-generation capable model
-- Display generated images inline in chat
+### 3. Create Face Recognition Service (`src/lib/face-service.ts`)
+- Load face-api.js models (tinyFaceDetector, faceLandmark68, faceRecognition, faceExpression)
+- Host model weights in `public/models/face-api/` 
+- Detect faces, extract descriptors, match against saved known faces
+- Replace current Puter.ai face analysis calls
 
-### 3. Use Puter.ai for Character Studio
-- Replace `aori-character-lookup` edge function with client-side `puter.ai.chat()` for character metadata lookup
-- Replace `aori-generate-expressions` edge function with `puter.ai.chat()` for generating expression images
+### 4. Update AoriChat.tsx — Replace ALL Puter Vision Calls
+- **Periodic webcam observation**: Use local image-to-text + object-detection instead of `puter.ai.chat()`
+- **Image analysis (sent photos)**: Use local captioning + OCR, then Groq for interpretation
+- **Face recognition**: Use face-api.js instead of Puter
+- **Environment analysis**: Use local object-detection
+- **"What am I doing" context**: Combine local detections
 
-### 4. Face Tracking (Head Movement → Aori Eye Contact)
-- Use the existing webcam feed to detect face position (left/right/up/down tilt)
-- Apply CSS transforms to Aori's avatar so she appears to "look at" the user — mirroring their head position
-- Use simple canvas-based face position detection (center of face relative to frame) rather than heavy MediaPipe library
-- Creates an illusion of eye contact and reactive movement
+### 5. Update CharacterStudio.tsx — Use Groq for Search
+- Replace `puter.ai.chat()` character lookup with Groq API call via `aori-chat` edge function or a new lightweight edge function
+- Groq will return character metadata (name, anime, personality, appearance)
 
-### 5. Auto-inject City, Time, Weather into System Prompt
-- Use the existing geolocation + reverse geocoding (via Open-Meteo's timezone info or a free reverse geocoding API) to get the user's city name
-- Append a context block like `"Good evening from Danapur! 22°C, partly cloudy"` into the system prompt sent to the chat edge function
-- The weather data is already fetched; we just need to add city name resolution and format it into the prompt
+### 6. Local Image Generation
+- Use Transformers.js with `Xenova/stable-diffusion-v1-5` or lighter model
+- Show progress indicator (will be slow, especially on mobile)
+- Provide clear "generating locally..." UI feedback
+- WebGPU acceleration where available, WASM fallback
 
-### 6. Wikipedia SSE Stream + Live Feed Panel
-- Connect to `https://stream.wikimedia.org/v2/stream/recentchange` via EventSource
-- Create a small glassmorphism side panel showing recent Wikipedia edits filtered by user's city or current chat topic
-- Add on-demand Wikipedia summary fetching via `https://en.wikipedia.org/api/rest_v1/page/summary/{title}`
-- Show a "Wiki Verified ✓" badge on messages where Aori references factual Wikipedia data
+### Files to Create
+- `src/lib/local-ai.ts` — Transformers.js vision pipelines
+- `src/lib/face-service.ts` — face-api.js wrapper
 
-### Files to modify
-- `src/components/AoriChat.tsx` — commands tooltip, voice default, face tracking, context injection, puter image gen, wiki integration
-- `src/pages/CharacterStudio.tsx` — switch to puter.ai for character lookup and expression generation
-- `src/types/puter.d.ts` — add txt2img if needed
-
-### Note
-- Face tracking will use simple canvas position detection (no external library) — lightweight but effective for basic "look at user" behavior
-- Wikipedia SSE is a nice ambient feature but may generate a lot of traffic; we'll add a toggle
+### Files to Modify  
+- `src/components/AoriChat.tsx` — replace all puter.ai vision calls
+- `src/pages/CharacterStudio.tsx` — use Groq for search
+- `src/types/puter.d.ts` — can keep for non-vision puter uses

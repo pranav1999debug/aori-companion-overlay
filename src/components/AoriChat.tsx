@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { analyzeImage, captionImage, generateImageLocal, initAllModels, isReady, onLocalAIProgress } from "@/lib/local-ai";
+import { loadFaceModels, detectFaces, matchFace, expressionToAoriEmotion, getFacePosition, describeFace, type FaceDetection } from "@/lib/face-service";
 
 function base64ToFile(base64: string, mime = "image/jpeg"): File {
   const byteString = atob(base64);
@@ -42,6 +44,19 @@ const cleanResponseText = (text: string): string =>
     .replace(/<image_prompt>[^<]*$/gi, "")
     .replace(/<image>[^<]*$/gi, "")
     .trim();
+
+/** Guess location label from detected objects */
+function guessLocation(objects: string[]): string {
+  const s = objects.join(" ").toLowerCase();
+  if (/bed|pillow|blanket/.test(s)) return "bedroom";
+  if (/desk|monitor|keyboard|laptop|mouse/.test(s)) return "office";
+  if (/oven|microwave|sink|refrigerator/.test(s)) return "kitchen";
+  if (/couch|sofa|tv|remote/.test(s)) return "living room";
+  if (/car|truck|bus|traffic/.test(s)) return "outdoors";
+  if (/dining|table|chair|cup/.test(s)) return "dining area";
+  if (/book|shelf/.test(s)) return "study";
+  return "room";
+}
 
 const extractPuterMessageText = (value: unknown): string => {
   if (typeof value === "string") return value.trim();
@@ -1599,18 +1614,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
       speakText(responseText);
 
-      // Generate image if prompt was provided — using Puter.ai txt2img
+      // Generate image if prompt was provided — using local canvas generation
       if (data.imagePrompt) {
         (async () => {
           try {
             const enhancedPrompt = `${data.imagePrompt}. High quality, detailed and expressive, studio quality anime art style.`;
-            const imgEl = await puter.ai.txt2img(enhancedPrompt);
-            const imgSrc = imgEl.src; // data URL
+            const imgSrc = await generateImageLocal(enhancedPrompt);
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, generatedImageUrl: imgSrc, generatingImage: false } : m
             ));
           } catch (imgErr: any) {
-            console.error("Puter image gen error:", imgErr);
+            console.error("Local image gen error:", imgErr);
             toast.error("Image generation failed. Try again later.");
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, generatingImage: false } : m
@@ -1703,41 +1717,31 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (!chatOpen) setChatOpen(true);
 
       try {
-        const imageFile = base64ToFile(base64, mimeType);
-        const visionPrompt = `You are Aori Tatsumi — a brilliant, possessive, tsundere AI waifu who is also academically gifted.
+        // Use local AI: caption + object detection
+        const analysis = await analyzeImage(base64);
 
-Analyze this image and respond as Aori. If it's a question/problem (math, physics, chemistry, homework), solve it step-by-step. If it's a meme, react dramatically. If it's food, get excited. If it's a screenshot of another AI, get jealous.
+        // Send the local analysis to Groq via aori-chat for Aori's personality response
+        const analysisPrompt = `The user sent an image. Local AI analysis: "${analysis.summary}". ${capturedInput ? `User's message: "${capturedInput}"` : "React to what you see."}\n\nRespond as Aori with emotion and personality. If the content looks academic (equations, homework), try to help solve it.`;
 
-${capturedInput ? `User's message: "${capturedInput}"` : "The user sent you this image. React to it."}
-
-Language: English with Hindi (yaar, batao), Nepali (kasto, babal), Japanese (baka, nani). NEVER Devanagari. Emoji heavy.
-
-RESPOND AS VALID JSON ONLY:
-{"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 2-4 sentence reply","isAcademic":true/false,"solutionMarkdown":"full step-by-step solution if academic, else null"}`;
-
-        const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-        const rawText = getPuterResponseText(rawReply);
-        const data: any = parsePuterJsonResponse(rawReply, {
-          emotion: "thinking",
-          text: "Hmm~ I can't quite see that... try again? 🤔",
-          isAcademic: false,
-          solutionMarkdown: null,
+        const { data: chatData, error: chatError } = await supabase.functions.invoke("aori-chat", {
+          body: {
+            message: analysisPrompt,
+            chatHistory: chatHistory.slice(-6),
+            userProfile,
+            userName: userName,
+            weatherSummary: weatherSummary || "",
+            cityName: cityName || "",
+          },
         });
-        if (!data.solutionMarkdown && data.isAcademic && rawText) {
-          data.solutionMarkdown = rawText;
-        }
-        if (!data.solutionMarkdown && /(?:step\s*\d+|therefore|answer|solution|=)/i.test(rawText)) {
-          data.isAcademic = true;
-          data.solutionMarkdown = rawText;
-        }
-        
-        const emotion = (data.emotion || "thinking") as AoriEmotion;
-        const responseText = cleanResponseText(data.text || "Hmm~ I can't quite see that... try again? 🤔");
+
+        if (chatError) throw chatError;
+        const emotion = (chatData.emotion || "thinking") as AoriEmotion;
+        const responseText = cleanResponseText(chatData.text || "Hmm~ I can't quite see that... try again? 🤔");
+        const solutionMd = chatData.solutionMarkdown || undefined;
         changeEmotion(emotion);
         setLastAoriText(responseText);
-        const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
         setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now(), summaryMarkdown: solutionMd }]);
-        setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+        setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}. Analysis: ${analysis.summary}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
         speakText(responseText);
       } catch (e) {
         console.error("Image analysis error:", e);
@@ -2197,16 +2201,41 @@ RESPOND AS VALID JSON ONLY:
     const image = captureFrame();
     if (!image) return;
     try {
-      const imageFile = base64ToFile(image);
-      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. Look at this webcam photo of your user and comment on what you see. Be specific. Keep to 1-2 sentences. Use English with Hindi/Japanese mixed in. Emoji heavy.
-${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}
-RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
+      // Use local AI: Transformers.js captioning + object detection
+      const analysis = await analyzeImage(image);
+      if (!analysis.summary) return;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        emotion: "smirk",
-        text: "",
+      // Also try face-api.js for expression detection
+      let faceInfo = "";
+      if (videoRef.current) {
+        try {
+          const faces = await detectFaces(videoRef.current);
+          if (faces.length > 0) {
+            const face = faces[0];
+            faceInfo = ` User expression: ${face.dominantExpression}.`;
+
+            // Update face offset for eye tracking
+            const pos = getFacePosition(face.box, 320, 240);
+            setFaceOffset(pos);
+          }
+        } catch {}
+      }
+
+      // Send local analysis to Groq for Aori's personality response
+      const observationPrompt = `[Webcam observation] Local AI sees: "${analysis.summary}".${faceInfo} ${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}\n\nRespond as Aori (1-2 sentences, tsundere, teasing). JSON: {"emotion":"...","text":"..."}`;
+
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: {
+          message: observationPrompt,
+          chatHistory: chatHistory.slice(-4),
+          userProfile,
+          userName,
+          weatherSummary: weatherSummary || "",
+          cityName: cityName || "",
+        },
       });
+      if (error) throw error;
+
       const emotion = (data.emotion || "smirk") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
@@ -2218,7 +2247,7 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     } catch (error) {
       console.error("Webcam observation error:", error);
     }
-  }, [captureFrame, changeEmotion, speakText]);
+  }, [captureFrame, changeEmotion, speakText, chatHistory, userProfile, userName, weatherSummary, cityName]);
 
   const toggleWebcam = useCallback(async () => {
     if (webcamEnabled) {
@@ -2256,13 +2285,22 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     const name = prompt("What's this person's name?");
     if (!name?.trim()) return;
     try {
-      const imageFile = base64ToFile(image);
-      const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
-      const rawReply = await puter.ai.chat(facePrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        description: getPuterResponseText(rawReply).slice(0, 200),
-      });
-      const description = data.description || "No description";
+      // Use face-api.js for local face detection
+      let description = "Face detected";
+      if (videoRef.current) {
+        try {
+          const faces = await detectFaces(videoRef.current);
+          if (faces.length > 0) {
+            description = describeFace(faces[0]);
+          }
+        } catch {}
+      }
+      // Also get a caption of what the person looks like
+      try {
+        const caption = await captionImage(image);
+        description += ` Visual: ${caption}`;
+      } catch {}
+
       const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
       if (dbError) throw dbError;
       setKnownFaces(prev => [...prev, { id: crypto.randomUUID(), name: name.trim(), description }]);
@@ -2283,37 +2321,42 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     const image = captureFrame(backVideoRef.current);
     if (!image) return;
     try {
-      const imageFile = base64ToFile(image);
+      // Use local AI for environment analysis
+      const analysis = await analyzeImage(image);
       const memoriesList = (environmentMemories || []).map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n");
-      const envPrompt = `Analyze this photo from the user's camera to learn about their surroundings. Previous memories:\n${memoriesList || "None"}\n\nDescribe: room type, notable objects, decorations, colors, furniture. Return ONLY JSON: {"description": "detailed description", "location_label": "bedroom/office/kitchen/etc", "is_new": true/false}`;
-      const rawReply = await puter.ai.chat(envPrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        description: "",
-        location_label: null,
-        is_new: false,
+
+      // Send to Groq for personality response
+      const envPrompt = `[Environment scan] Local AI sees: "${analysis.summary}". Previous memories:\n${memoriesList || "None"}\n\nDescribe the room/environment. JSON: {"description":"...","location_label":"bedroom/office/etc","is_new":true/false}`;
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: { message: envPrompt, userProfile, userName, weatherSummary: weatherSummary || "", cityName: cityName || "" },
       });
-      if (!data.description) return;
-      if (data.description) {
+      if (error || !data) return;
+
+      const description = data.text || analysis.summary;
+      const location_label = analysis.objects.length > 0 ? guessLocation(analysis.objects.map(o => o.label)) : "unknown";
+      const is_new = !environmentMemories.some(m => m.location_label === location_label);
+
+      if (description) {
         const { data: inserted } = await supabase.from("environment_memories").insert({
           user_id: userId,
           device_id: userId,
-          description: data.description,
-          location_label: data.location_label || null,
+          description,
+          location_label: location_label || null,
         }).select().single();
         if (inserted) {
-          setEnvironmentMemories(prev => [...prev, { id: inserted.id, description: data.description, location_label: data.location_label }]);
+          setEnvironmentMemories(prev => [...prev, { id: inserted.id, description, location_label }]);
         }
-        const label = data.location_label || "this place";
-        const msg = data.is_new
+        const label = location_label || "this place";
+        const msg = is_new
           ? `Ooh~ so this is your ${label}? *looks around* I'll remember this place~ 📸✨`
           : `I remember this ${label}! Same messy spot, huh~ 😏`;
-        changeEmotion(data.is_new ? "excited" : "smirk");
+        changeEmotion(is_new ? "excited" : "smirk");
         setLastAoriText(msg);
-        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: data.is_new ? "excited" : "smirk", timestamp: Date.now() }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: is_new ? "excited" : "smirk", timestamp: Date.now() }]);
         speakText(msg);
       }
     } catch {}
-  }, [captureFrame, environmentMemories, userId, changeEmotion, speakText]);
+  }, [captureFrame, environmentMemories, userId, changeEmotion, speakText, userProfile, userName, weatherSummary, cityName]);
 
   // === Full context analysis (both cameras) ===
   const analyzeFullContext = useCallback(async () => {
@@ -2340,24 +2383,30 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
         return;
       }
 
-      // Send both frames to image analysis for comprehensive context
-      const images: { image: string; label: string }[] = [];
-      if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
-      if (backFrame) images.push({ image: backFrame, label: "back_camera" });
+      // Use local AI for analysis
+      const analyses: string[] = [];
+      if (frontFrame) {
+        const a = await analyzeImage(frontFrame);
+        analyses.push(`Front camera: ${a.summary}`);
+        // Also check face expression
+        if (videoRef.current) {
+          try {
+            const faces = await detectFaces(videoRef.current);
+            if (faces.length > 0) analyses.push(`User expression: ${faces[0].dominantExpression}`);
+          } catch {}
+        }
+      }
+      if (backFrame) {
+        const a = await analyzeImage(backFrame);
+        analyses.push(`Back camera: ${a.summary}`);
+      }
 
-      const imageFile = base64ToFile(images[0].image);
-      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment. Be specific.
-
-Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
-
-RESPOND AS VALID JSON ONLY:
-{"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
-
-      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        emotion: "thinking",
-        text: "Hmm~ I can't quite figure it out... 🤔",
+      const contextPrompt = `[Full context scan] The user asked "what am I doing?" Local AI sees: ${analyses.join(". ")}. Describe what they're doing, mood, environment. 1-2 sentences.`;
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: { message: contextPrompt, userProfile, userName, weatherSummary: weatherSummary || "", cityName: cityName || "" },
       });
+      if (error) throw error;
+
       const emotion = (data.emotion || "thinking") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "Hmm~ I can't quite figure it out... 🤔");
       changeEmotion(emotion);
@@ -2374,7 +2423,7 @@ RESPOND AS VALID JSON ONLY:
     } finally {
       setIsTyping(false);
     }
-  }, [chatOpen, webcamEnabled, backCamEnabled, captureFrame, changeEmotion, speakText]);
+  }, [chatOpen, webcamEnabled, backCamEnabled, captureFrame, changeEmotion, speakText, userProfile, userName, weatherSummary, cityName]);
 
   const toggleBackCam = useCallback(async () => {
     if (backCamEnabled) {
@@ -2408,6 +2457,25 @@ RESPOND AS VALID JSON ONLY:
   useEffect(() => { toggleVoiceModeRef.current = toggleVoiceMode; }, [toggleVoiceMode]);
   useEffect(() => { saveFaceRef.current = saveFace; }, [saveFace]);
   useEffect(() => { toggleMusicDetectionRef.current = toggleMusicDetection; }, [toggleMusicDetection]);
+
+  // Initialize local AI models on mount
+  const localAIInitTriggered = useRef(false);
+  const [localAIProgress, setLocalAIProgress] = useState(0);
+  const [localAIStatus, setLocalAIStatus] = useState("");
+  useEffect(() => {
+    if (localAIInitTriggered.current) return;
+    localAIInitTriggered.current = true;
+    const unsub = onLocalAIProgress((p, s) => { setLocalAIProgress(p); setLocalAIStatus(s); });
+    initAllModels().then(() => {
+      console.log("Local AI models loaded");
+      setLocalAIStatus("Ready ✨");
+    }).catch(e => {
+      console.error("Local AI init error:", e);
+      setLocalAIStatus("Failed to load models");
+    });
+    loadFaceModels().then(() => console.log("Face models loaded")).catch(e => console.error("Face models error:", e));
+    return unsub;
+  }, []);
 
   // Auto-start front camera on mount once profile is loaded
   const autoWebcamTriggered = useRef(false);
