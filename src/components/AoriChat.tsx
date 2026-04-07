@@ -2308,37 +2308,42 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const image = captureFrame(backVideoRef.current);
     if (!image) return;
     try {
-      const imageFile = base64ToFile(image);
+      // Use local AI for environment analysis
+      const analysis = await analyzeImage(image);
       const memoriesList = (environmentMemories || []).map((m: any) => `- ${m.location_label || "Unknown"}: ${m.description}`).join("\n");
-      const envPrompt = `Analyze this photo from the user's camera to learn about their surroundings. Previous memories:\n${memoriesList || "None"}\n\nDescribe: room type, notable objects, decorations, colors, furniture. Return ONLY JSON: {"description": "detailed description", "location_label": "bedroom/office/kitchen/etc", "is_new": true/false}`;
-      const rawReply = await puter.ai.chat(envPrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        description: "",
-        location_label: null,
-        is_new: false,
+
+      // Send to Groq for personality response
+      const envPrompt = `[Environment scan] Local AI sees: "${analysis.summary}". Previous memories:\n${memoriesList || "None"}\n\nDescribe the room/environment. JSON: {"description":"...","location_label":"bedroom/office/etc","is_new":true/false}`;
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: { message: envPrompt, userProfile, userName, weatherSummary: weatherSummary || "", cityName: cityName || "" },
       });
-      if (!data.description) return;
-      if (data.description) {
+      if (error || !data) return;
+
+      const description = data.text || analysis.summary;
+      const location_label = analysis.objects.length > 0 ? guessLocation(analysis.objects.map(o => o.label)) : "unknown";
+      const is_new = !environmentMemories.some(m => m.location_label === location_label);
+
+      if (description) {
         const { data: inserted } = await supabase.from("environment_memories").insert({
           user_id: userId,
           device_id: userId,
-          description: data.description,
-          location_label: data.location_label || null,
+          description,
+          location_label: location_label || null,
         }).select().single();
         if (inserted) {
-          setEnvironmentMemories(prev => [...prev, { id: inserted.id, description: data.description, location_label: data.location_label }]);
+          setEnvironmentMemories(prev => [...prev, { id: inserted.id, description, location_label }]);
         }
-        const label = data.location_label || "this place";
-        const msg = data.is_new
+        const label = location_label || "this place";
+        const msg = is_new
           ? `Ooh~ so this is your ${label}? *looks around* I'll remember this place~ 📸✨`
           : `I remember this ${label}! Same messy spot, huh~ 😏`;
-        changeEmotion(data.is_new ? "excited" : "smirk");
+        changeEmotion(is_new ? "excited" : "smirk");
         setLastAoriText(msg);
-        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: data.is_new ? "excited" : "smirk", timestamp: Date.now() }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: is_new ? "excited" : "smirk", timestamp: Date.now() }]);
         speakText(msg);
       }
     } catch {}
-  }, [captureFrame, environmentMemories, userId, changeEmotion, speakText]);
+  }, [captureFrame, environmentMemories, userId, changeEmotion, speakText, userProfile, userName, weatherSummary, cityName]);
 
   // === Full context analysis (both cameras) ===
   const analyzeFullContext = useCallback(async () => {
