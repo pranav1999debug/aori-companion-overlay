@@ -1601,18 +1601,17 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       }
       speakText(responseText);
 
-      // Generate image if prompt was provided — using Puter.ai txt2img
+      // Generate image if prompt was provided — using local canvas generation
       if (data.imagePrompt) {
         (async () => {
           try {
             const enhancedPrompt = `${data.imagePrompt}. High quality, detailed and expressive, studio quality anime art style.`;
-            const imgEl = await puter.ai.txt2img(enhancedPrompt);
-            const imgSrc = imgEl.src; // data URL
+            const imgSrc = await generateImageLocal(enhancedPrompt);
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, generatedImageUrl: imgSrc, generatingImage: false } : m
             ));
           } catch (imgErr: any) {
-            console.error("Puter image gen error:", imgErr);
+            console.error("Local image gen error:", imgErr);
             toast.error("Image generation failed. Try again later.");
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, generatingImage: false } : m
