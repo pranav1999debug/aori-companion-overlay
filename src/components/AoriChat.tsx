@@ -2370,24 +2370,30 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         return;
       }
 
-      // Send both frames to image analysis for comprehensive context
-      const images: { image: string; label: string }[] = [];
-      if (frontFrame) images.push({ image: frontFrame, label: "front_camera" });
-      if (backFrame) images.push({ image: backFrame, label: "back_camera" });
+      // Use local AI for analysis
+      const analyses: string[] = [];
+      if (frontFrame) {
+        const a = await analyzeImage(frontFrame);
+        analyses.push(`Front camera: ${a.summary}`);
+        // Also check face expression
+        if (videoRef.current) {
+          try {
+            const faces = await detectFaces(videoRef.current);
+            if (faces.length > 0) analyses.push(`User expression: ${faces[0].dominantExpression}`);
+          } catch {}
+        }
+      }
+      if (backFrame) {
+        const a = await analyzeImage(backFrame);
+        analyses.push(`Back camera: ${a.summary}`);
+      }
 
-      const imageFile = base64ToFile(images[0].image);
-      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. The user asked "what am I doing?" Analyze what you see. ${frontFrame ? "Front camera shows the user." : ""} ${backFrame ? "Back camera shows their surroundings/screen." : ""} Describe what they're doing, their mood, environment. Be specific.
-
-Language: English with Hindi (yaar, batao), Japanese (baka, nani). Emoji heavy.
-
-RESPOND AS VALID JSON ONLY:
-{"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 1-2 sentence observation"}`;
-
-      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        emotion: "thinking",
-        text: "Hmm~ I can't quite figure it out... 🤔",
+      const contextPrompt = `[Full context scan] The user asked "what am I doing?" Local AI sees: ${analyses.join(". ")}. Describe what they're doing, mood, environment. 1-2 sentences.`;
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: { message: contextPrompt, userProfile, userName, weatherSummary: weatherSummary || "", cityName: cityName || "" },
       });
+      if (error) throw error;
+
       const emotion = (data.emotion || "thinking") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "Hmm~ I can't quite figure it out... 🤔");
       changeEmotion(emotion);
@@ -2404,7 +2410,7 @@ RESPOND AS VALID JSON ONLY:
     } finally {
       setIsTyping(false);
     }
-  }, [chatOpen, webcamEnabled, backCamEnabled, captureFrame, changeEmotion, speakText]);
+  }, [chatOpen, webcamEnabled, backCamEnabled, captureFrame, changeEmotion, speakText, userProfile, userName, weatherSummary, cityName]);
 
   const toggleBackCam = useCallback(async () => {
     if (backCamEnabled) {
