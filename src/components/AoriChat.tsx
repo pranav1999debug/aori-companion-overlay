@@ -1713,11 +1713,11 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         const { data: chatData, error: chatError } = await supabase.functions.invoke("aori-chat", {
           body: {
             message: analysisPrompt,
-            chatHistory: chatHistoryRef.current.slice(-6),
-            profile: profileRef.current,
+            chatHistory: chatHistory.slice(-6),
+            userProfile,
             userName: userName,
-            weatherSummary: weatherSummaryRef.current || "",
-            cityName: cityNameRef.current || "",
+            weatherSummary: weatherSummary || "",
+            cityName: cityName || "",
           },
         });
 
