@@ -114,15 +114,20 @@ Return ONLY valid JSON with these fields:
   "series": "Name of the anime/manga/game series"
 }`;
 
-      const rawReply = await puter.ai.chat(
-        `${systemPrompt}\n\nLook up this character: ${searchQuery.trim()}`,
-        undefined,
-        { model: "gpt-5.4-nano" }
-      );
+      // Use Groq via aori-chat edge function instead of puter.ai
+      const { data: rawData, error } = await supabase.functions.invoke("aori-chat", {
+        body: {
+          message: `${systemPrompt}\n\nLook up this character: ${searchQuery.trim()}`,
+          chatHistory: [],
+          userProfile: { name: "user" },
+          userName: "user",
+        },
+      });
 
-      const rawText = typeof rawReply === "string" ? rawReply : (rawReply as any)?.message?.content || (rawReply as any)?.text || JSON.stringify(rawReply);
-      
-      // Extract JSON from response
+      if (error) throw error;
+
+      // The aori-chat response has text — try to parse JSON from it
+      const rawText = rawData?.text || rawData?.message || JSON.stringify(rawData);
       let parsed: any = null;
       const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
       const candidates = [jsonMatch?.[1], rawText.match(/\{[\s\S]*\}/)?.[0], rawText];
