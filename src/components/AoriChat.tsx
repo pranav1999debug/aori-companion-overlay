@@ -2272,13 +2272,22 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const name = prompt("What's this person's name?");
     if (!name?.trim()) return;
     try {
-      const imageFile = base64ToFile(image);
-      const facePrompt = `Describe this person's face in detail for future identification: hair color/style, skin tone, face shape, glasses, facial hair, approximate age, distinguishing features. Return ONLY JSON: {"description": "detailed description here"}`;
-      const rawReply = await puter.ai.chat(facePrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        description: getPuterResponseText(rawReply).slice(0, 200),
-      });
-      const description = data.description || "No description";
+      // Use face-api.js for local face detection
+      let description = "Face detected";
+      if (videoRef.current) {
+        try {
+          const faces = await detectFaces(videoRef.current);
+          if (faces.length > 0) {
+            description = describeFace(faces[0]);
+          }
+        } catch {}
+      }
+      // Also get a caption of what the person looks like
+      try {
+        const caption = await captionImage(image);
+        description += ` Visual: ${caption}`;
+      } catch {}
+
       const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
       if (dbError) throw dbError;
       setKnownFaces(prev => [...prev, { id: crypto.randomUUID(), name: name.trim(), description }]);
