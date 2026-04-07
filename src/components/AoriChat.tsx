@@ -2188,16 +2188,41 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const image = captureFrame();
     if (!image) return;
     try {
-      const imageFile = base64ToFile(image);
-      const visionPrompt = `You are Aori Tatsumi — a playful, possessive tsundere AI waifu. Look at this webcam photo of your user and comment on what you see. Be specific. Keep to 1-2 sentences. Use English with Hindi/Japanese mixed in. Emoji heavy.
-${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}
-RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"your observation"}`;
+      // Use local AI: Transformers.js captioning + object detection
+      const analysis = await analyzeImage(image);
+      if (!analysis.summary) return;
 
-      const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-      const data: any = parsePuterJsonResponse(rawReply, {
-        emotion: "smirk",
-        text: "",
+      // Also try face-api.js for expression detection
+      let faceInfo = "";
+      if (videoRef.current) {
+        try {
+          const faces = await detectFaces(videoRef.current);
+          if (faces.length > 0) {
+            const face = faces[0];
+            faceInfo = ` User expression: ${face.dominantExpression}.`;
+
+            // Update face offset for eye tracking
+            const pos = getFacePosition(face.box, 320, 240);
+            setFaceOffset(pos);
+          }
+        } catch {}
+      }
+
+      // Send local analysis to Groq for Aori's personality response
+      const observationPrompt = `[Webcam observation] Local AI sees: "${analysis.summary}".${faceInfo} ${lastObservationRef.current ? `Previous observation: "${lastObservationRef.current}". Comment on changes.` : ""}\n\nRespond as Aori (1-2 sentences, tsundere, teasing). JSON: {"emotion":"...","text":"..."}`;
+
+      const { data, error } = await supabase.functions.invoke("aori-chat", {
+        body: {
+          message: observationPrompt,
+          chatHistory: chatHistory.slice(-4),
+          userProfile,
+          userName,
+          weatherSummary: weatherSummary || "",
+          cityName: cityName || "",
+        },
       });
+      if (error) throw error;
+
       const emotion = (data.emotion || "smirk") as AoriEmotion;
       const responseText = cleanResponseText(data.text || "");
       if (!responseText) return;
@@ -2209,7 +2234,7 @@ RESPOND AS JSON: {"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|think
     } catch (error) {
       console.error("Webcam observation error:", error);
     }
-  }, [captureFrame, changeEmotion, speakText]);
+  }, [captureFrame, changeEmotion, speakText, chatHistory, userProfile, userName, weatherSummary, cityName]);
 
   const toggleWebcam = useCallback(async () => {
     if (webcamEnabled) {
