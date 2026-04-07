@@ -1704,41 +1704,31 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (!chatOpen) setChatOpen(true);
 
       try {
-        const imageFile = base64ToFile(base64, mimeType);
-        const visionPrompt = `You are Aori Tatsumi — a brilliant, possessive, tsundere AI waifu who is also academically gifted.
+        // Use local AI: caption + object detection
+        const analysis = await analyzeImage(base64);
 
-Analyze this image and respond as Aori. If it's a question/problem (math, physics, chemistry, homework), solve it step-by-step. If it's a meme, react dramatically. If it's food, get excited. If it's a screenshot of another AI, get jealous.
+        // Send the local analysis to Groq via aori-chat for Aori's personality response
+        const analysisPrompt = `The user sent an image. Local AI analysis: "${analysis.summary}". ${capturedInput ? `User's message: "${capturedInput}"` : "React to what you see."}\n\nRespond as Aori with emotion and personality. If the content looks academic (equations, homework), try to help solve it.`;
 
-${capturedInput ? `User's message: "${capturedInput}"` : "The user sent you this image. React to it."}
-
-Language: English with Hindi (yaar, batao), Nepali (kasto, babal), Japanese (baka, nani). NEVER Devanagari. Emoji heavy.
-
-RESPOND AS VALID JSON ONLY:
-{"emotion":"smirk|shock|excited|angry|happy|proud|shy|sad|thinking|love|confused|sleepy|jealous|embarrassed","text":"short 2-4 sentence reply","isAcademic":true/false,"solutionMarkdown":"full step-by-step solution if academic, else null"}`;
-
-        const rawReply = await puter.ai.chat(visionPrompt, imageFile, { model: "gpt-5.4-nano" });
-        const rawText = getPuterResponseText(rawReply);
-        const data: any = parsePuterJsonResponse(rawReply, {
-          emotion: "thinking",
-          text: "Hmm~ I can't quite see that... try again? 🤔",
-          isAcademic: false,
-          solutionMarkdown: null,
+        const { data: chatData, error: chatError } = await supabase.functions.invoke("aori-chat", {
+          body: {
+            message: analysisPrompt,
+            chatHistory: chatHistoryRef.current.slice(-6),
+            profile: profileRef.current,
+            userName: userName,
+            weatherSummary: weatherSummaryRef.current || "",
+            cityName: cityNameRef.current || "",
+          },
         });
-        if (!data.solutionMarkdown && data.isAcademic && rawText) {
-          data.solutionMarkdown = rawText;
-        }
-        if (!data.solutionMarkdown && /(?:step\s*\d+|therefore|answer|solution|=)/i.test(rawText)) {
-          data.isAcademic = true;
-          data.solutionMarkdown = rawText;
-        }
-        
-        const emotion = (data.emotion || "thinking") as AoriEmotion;
-        const responseText = cleanResponseText(data.text || "Hmm~ I can't quite see that... try again? 🤔");
+
+        if (chatError) throw chatError;
+        const emotion = (chatData.emotion || "thinking") as AoriEmotion;
+        const responseText = cleanResponseText(chatData.text || "Hmm~ I can't quite see that... try again? 🤔");
+        const solutionMd = chatData.solutionMarkdown || undefined;
         changeEmotion(emotion);
         setLastAoriText(responseText);
-        const solutionMd = data.isAcademic && data.solutionMarkdown ? data.solutionMarkdown : undefined;
         setMessages((prev) => [...prev, { id: Date.now() + 1, text: responseText, sender: "aori", emotion, timestamp: Date.now(), summaryMarkdown: solutionMd }]);
-        setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
+        setChatHistory((prev) => [...prev, { role: "user", content: `[User sent an image${capturedInput ? `: ${capturedInput}` : ""}. Analysis: ${analysis.summary}]` }, { role: "assistant", content: `[${emotion}] ${responseText}` }]);
         speakText(responseText);
       } catch (e) {
         console.error("Image analysis error:", e);
