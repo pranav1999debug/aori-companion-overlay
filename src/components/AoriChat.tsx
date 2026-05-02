@@ -2325,20 +2325,22 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
     const name = prompt("What's this person's name?");
     if (!name?.trim()) return;
     try {
-      // Use face-api.js for local face detection
-      let description = "Face detected";
-      if (videoRef.current) {
-        try {
-          const faces = await detectFaces(videoRef.current);
-          if (faces.length > 0) {
-            description = describeFace(faces[0]);
-          }
-        } catch {}
+      // Enroll on Luxand cloud for future recognition
+      let luxandUuid: string | null = null;
+      try {
+        const { data: enroll, error: enrollErr } = await supabase.functions.invoke("aori-luxand", {
+          body: { action: "enroll", image, name: name.trim() },
+        });
+        if (enrollErr) throw enrollErr;
+        if (enroll?.success) luxandUuid = enroll.uuid || null;
+      } catch (err) {
+        console.warn("Luxand enroll failed, saving locally only:", err);
       }
-      // Also get a caption of what the person looks like
+
+      let description = luxandUuid ? `Luxand uuid: ${luxandUuid}` : "Face saved";
       try {
         const caption = await captionImage(image);
-        description += ` Visual: ${caption}`;
+        description += ` | Visual: ${caption}`;
       } catch {}
 
       const { error: dbError } = await supabase.from("known_faces").insert({ user_id: userId, device_id: userId, name: name.trim(), description });
