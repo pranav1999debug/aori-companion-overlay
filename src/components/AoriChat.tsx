@@ -2205,20 +2205,60 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       const analysis = await analyzeImage(image);
       if (!analysis.summary) return;
 
-      // Also try face-api.js for expression detection
+      // face-api.js for expression + eye tracking only
       let faceInfo = "";
+      let faceDetectedLocally = false;
       if (videoRef.current) {
         try {
           const faces = await detectFaces(videoRef.current);
           if (faces.length > 0) {
+            faceDetectedLocally = true;
             const face = faces[0];
             faceInfo = ` User expression: ${face.dominantExpression}.`;
-
-            // Update face offset for eye tracking
             const pos = getFacePosition(face.box, 320, 240);
             setFaceOffset(pos);
           }
         } catch {}
+      }
+
+      // Cloud face identification via Luxand
+      if (faceDetectedLocally) {
+        try {
+          const { data: luxand } = await supabase.functions.invoke("aori-luxand", {
+            body: { action: "identify", image },
+          });
+          if (luxand?.recognized && luxand.name) {
+            faceInfo += ` Recognized person: ${luxand.name} (${Math.round((luxand.probability || 0) * 100)}% match).`;
+          } else if (luxand && !luxand.recognized) {
+            // Unknown face — ask the user once who this is
+            const askedKey = "aori_asked_unknown_face";
+            const lastAsked = Number(sessionStorage.getItem(askedKey) || 0);
+            if (Date.now() - lastAsked > 60000) {
+              sessionStorage.setItem(askedKey, String(Date.now()));
+              setTimeout(async () => {
+                const newName = window.prompt("I don't recognize this person. What's their name? (leave empty to skip)");
+                if (newName?.trim()) {
+                  try {
+                    const { data: enroll } = await supabase.functions.invoke("aori-luxand", {
+                      body: { action: "enroll", image, name: newName.trim() },
+                    });
+                    if (enroll?.success) {
+                      await supabase.from("known_faces").insert({
+                        user_id: userId,
+                        device_id: userId,
+                        name: newName.trim(),
+                        description: `Luxand uuid: ${enroll.uuid || "n/a"}`,
+                      });
+                      setKnownFaces((p) => [...p, { id: crypto.randomUUID(), name: newName.trim(), description: "" }]);
+                      toast.success(`Saved ${newName.trim()} for future recognition`);
+                    }
+                  } catch (err) { console.error("Enroll failed:", err); }
+                }
+              }, 500);
+            }
+            faceInfo += ` Unknown person detected.`;
+          }
+        } catch (err) { console.warn("Luxand identify error:", err); }
       }
 
       // Send local analysis to Groq for Aori's personality response
