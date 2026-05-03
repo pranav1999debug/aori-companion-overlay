@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { analyzeImage, captionImage, generateImageLocal, initAllModels, isReady, onLocalAIProgress } from "@/lib/local-ai";
 import { loadFaceModels, detectFaces, matchFace, expressionToAoriEmotion, getFacePosition, describeFace, type FaceDetection } from "@/lib/face-service";
+import { takeSnapshots, isVisionQuery } from "@/lib/snapshot-service";
 
 function base64ToFile(base64: string, mime = "image/jpeg"): File {
   const byteString = atob(base64);
