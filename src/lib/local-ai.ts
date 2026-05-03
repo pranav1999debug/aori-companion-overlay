@@ -78,9 +78,9 @@ export async function initDetector(): Promise<void> {
   }
 }
 
-/** Load all models at once */
+/** Load all models at once — failures are swallowed so app stays responsive */
 export async function initAllModels(): Promise<void> {
-  await Promise.all([initCaptioner(), initDetector()]);
+  await Promise.allSettled([initCaptioner(), initDetector()]);
 }
 
 /** Check if models are loaded */
@@ -100,21 +100,33 @@ function base64ToDataUrl(base64: string, mime = "image/jpeg"): string {
 
 /** Describe an image using the captioning model */
 export async function captionImage(imageBase64: string): Promise<string> {
-  if (!state.captioner) await initCaptioner();
-  const dataUrl = base64ToDataUrl(imageBase64);
-  const result = await state.captioner(dataUrl);
-  return result?.[0]?.generated_text || "Unable to describe image";
+  if (!state.captioner && state.captionerStatus !== "error") await initCaptioner();
+  if (!state.captioner) return ""; // disabled — fail silently, no retry
+  try {
+    const dataUrl = base64ToDataUrl(imageBase64);
+    const result = await state.captioner(dataUrl);
+    return result?.[0]?.generated_text || "";
+  } catch (e) {
+    console.warn("captionImage failed:", e);
+    return "";
+  }
 }
 
 /** Detect objects in an image */
 export async function detectObjects(imageBase64: string, threshold = 0.7): Promise<Array<{ label: string; score: number }>> {
-  if (!state.detector) await initDetector();
-  const dataUrl = base64ToDataUrl(imageBase64);
-  const results = await state.detector(dataUrl, { threshold });
-  return (results || []).map((r: any) => ({
-    label: r.label,
-    score: Math.round(r.score * 100) / 100,
-  }));
+  if (!state.detector && state.detectorStatus !== "error") await initDetector();
+  if (!state.detector) return [];
+  try {
+    const dataUrl = base64ToDataUrl(imageBase64);
+    const results = await state.detector(dataUrl, { threshold });
+    return (results || []).map((r: any) => ({
+      label: r.label,
+      score: Math.round(r.score * 100) / 100,
+    }));
+  } catch (e) {
+    console.warn("detectObjects failed:", e);
+    return [];
+  }
 }
 
 /** Combined analysis: caption + objects for a rich description */
