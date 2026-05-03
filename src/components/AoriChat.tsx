@@ -1217,6 +1217,56 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       speakText(msg);
     };
 
+    // === Vision query: take 4-5 snaps from front+back, upload to catbox, send URLs to chat ===
+    if (isVisionQuery(cmdLower)) {
+      const thinking = "Hmm~ let me take a look... 📸";
+      changeEmotion("thinking");
+      setLastAoriText(thinking);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: thinking, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+      try {
+        const snaps = await takeSnapshots({
+          frontVideo: webcamEnabled ? videoRef.current : null,
+          backVideo: backCamEnabled ? backVideoRef.current : null,
+        });
+        const urls = snaps.map(s => s.url).filter(Boolean) as string[];
+
+        let caption = "";
+        if (snaps[0]?.base64) {
+          try { caption = await captionImage(snaps[0].base64); } catch {}
+        }
+
+        const visionPrompt = `[Vision request] User asked: "${text}". Local caption: "${caption || "n/a"}". Hosted snapshots (${urls.length}): ${urls.join(", ") || "(upload failed)"}. Respond as Aori — describe/identify what's shown in 1-2 tsundere sentences.`;
+        const { data, error } = await supabase.functions.invoke("aori-chat", {
+          body: { message: visionPrompt, chatHistory: chatHistory.slice(-4), userProfile, userName, weatherSummary: weatherSummary || "", cityName: cityName || "" },
+        });
+        if (error) throw error;
+        const emotion = (data?.emotion || "smirk") as AoriEmotion;
+        const reply = cleanResponseText(data?.text || "Hmm~ I can't quite tell from here... 🤔");
+        changeEmotion(emotion);
+        setLastAoriText(reply);
+        setMessages(prev => [...prev, {
+          id: Date.now() + 2,
+          text: reply,
+          sender: "aori",
+          emotion,
+          timestamp: Date.now(),
+          generatedImageUrl: urls[0] || undefined,
+        }]);
+        speakText(reply);
+        if (urls.length) toast.success(`📷 Saved ${urls.length} snap${urls.length > 1 ? "s" : ""}`);
+      } catch (e) {
+        console.error("Vision snapshot error:", e);
+        const err = "Mou~ I couldn't get a clear shot. Try again? 😤";
+        changeEmotion("angry");
+        setLastAoriText(err);
+        setMessages(prev => [...prev, { id: Date.now() + 2, text: err, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+        speakText(err);
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
     if (/\b(open|go\s*to|show)\s*(settings|setup|integrations)\b/i.test(cmdLower)) {
       cmdReply("Opening settings for you~ ⚙️", "happy"); navigate("/setup"); return;
     }
