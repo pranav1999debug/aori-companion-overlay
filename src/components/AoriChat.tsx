@@ -2312,7 +2312,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         };
         waitForVideo();
       }
-      webcamIntervalRef.current = setInterval(() => analyzeFrame(), 60000);
+      // Periodic webcam scans disabled — vision is now strictly on-demand (snapshot-service)
       const msg = `Ara ara~ now I can see you, ${userName}! Don't do anything weird, baka~ 😏👁️`;
       setLastAoriText(msg);
       setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
@@ -2484,11 +2484,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (backVideoRef.current) {
         backVideoRef.current.srcObject = stream;
         await backVideoRef.current.play().catch(() => {});
-        // Analyze once after a short delay
+        // Initial environment scan only — no periodic re-scans (on-demand vision only)
         setTimeout(() => analyzeEnvironment(), 2000);
       }
-      // Re-analyze every 2 minutes
-      backCamIntervalRef.current = setInterval(() => analyzeEnvironment(), 120000);
       toast("📷 Back camera on — showing Aori your world~", { duration: 3000 });
     } catch {
       toast.error("Couldn't access back camera. Are you on a mobile device?");
