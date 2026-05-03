@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { analyzeImage, captionImage, generateImageLocal, initAllModels, isReady, onLocalAIProgress } from "@/lib/local-ai";
 import { loadFaceModels, detectFaces, matchFace, expressionToAoriEmotion, getFacePosition, describeFace, type FaceDetection } from "@/lib/face-service";
+import { takeSnapshots, isVisionQuery } from "@/lib/snapshot-service";
 
 function base64ToFile(base64: string, mime = "image/jpeg"): File {
   const byteString = atob(base64);
@@ -1216,6 +1217,56 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       speakText(msg);
     };
 
+    // === Vision query: take 4-5 snaps from front+back, upload to catbox, send URLs to chat ===
+    if (isVisionQuery(cmdLower)) {
+      const thinking = "Hmm~ let me take a look... 📸";
+      changeEmotion("thinking");
+      setLastAoriText(thinking);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: thinking, sender: "aori", emotion: "thinking", timestamp: Date.now() }]);
+      try {
+        const snaps = await takeSnapshots({
+          frontVideo: webcamEnabled ? videoRef.current : null,
+          backVideo: backCamEnabled ? backVideoRef.current : null,
+        });
+        const urls = snaps.map(s => s.url).filter(Boolean) as string[];
+
+        let caption = "";
+        if (snaps[0]?.base64) {
+          try { caption = await captionImage(snaps[0].base64); } catch {}
+        }
+
+        const visionPrompt = `[Vision request] User asked: "${text}". Local caption: "${caption || "n/a"}". Hosted snapshots (${urls.length}): ${urls.join(", ") || "(upload failed)"}. Respond as Aori — describe/identify what's shown in 1-2 tsundere sentences.`;
+        const { data, error } = await supabase.functions.invoke("aori-chat", {
+          body: { message: visionPrompt, chatHistory: chatHistory.slice(-4), userProfile, userName, weatherSummary: weatherSummary || "", cityName: cityName || "" },
+        });
+        if (error) throw error;
+        const emotion = (data?.emotion || "smirk") as AoriEmotion;
+        const reply = cleanResponseText(data?.text || "Hmm~ I can't quite tell from here... 🤔");
+        changeEmotion(emotion);
+        setLastAoriText(reply);
+        setMessages(prev => [...prev, {
+          id: Date.now() + 2,
+          text: reply,
+          sender: "aori",
+          emotion,
+          timestamp: Date.now(),
+          generatedImageUrl: urls[0] || undefined,
+        }]);
+        speakText(reply);
+        if (urls.length) toast.success(`📷 Saved ${urls.length} snap${urls.length > 1 ? "s" : ""}`);
+      } catch (e) {
+        console.error("Vision snapshot error:", e);
+        const err = "Mou~ I couldn't get a clear shot. Try again? 😤";
+        changeEmotion("angry");
+        setLastAoriText(err);
+        setMessages(prev => [...prev, { id: Date.now() + 2, text: err, sender: "aori", emotion: "angry", timestamp: Date.now() }]);
+        speakText(err);
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
     if (/\b(open|go\s*to|show)\s*(settings|setup|integrations)\b/i.test(cmdLower)) {
       cmdReply("Opening settings for you~ ⚙️", "happy"); navigate("/setup"); return;
     }
@@ -2311,7 +2362,7 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         };
         waitForVideo();
       }
-      webcamIntervalRef.current = setInterval(() => analyzeFrame(), 60000);
+      // Periodic webcam scans disabled — vision is now strictly on-demand (snapshot-service)
       const msg = `Ara ara~ now I can see you, ${userName}! Don't do anything weird, baka~ 😏👁️`;
       setLastAoriText(msg);
       setMessages((prev) => [...prev, { id: Date.now(), text: msg, sender: "aori", emotion: "smirk", timestamp: Date.now() }]);
@@ -2483,11 +2534,9 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       if (backVideoRef.current) {
         backVideoRef.current.srcObject = stream;
         await backVideoRef.current.play().catch(() => {});
-        // Analyze once after a short delay
+        // Initial environment scan only — no periodic re-scans (on-demand vision only)
         setTimeout(() => analyzeEnvironment(), 2000);
       }
-      // Re-analyze every 2 minutes
-      backCamIntervalRef.current = setInterval(() => analyzeEnvironment(), 120000);
       toast("📷 Back camera on — showing Aori your world~", { duration: 3000 });
     } catch {
       toast.error("Couldn't access back camera. Are you on a mobile device?");

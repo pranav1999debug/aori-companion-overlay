@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.aori-youtube-search]
 verify_jwt = false
+
+[functions.aori-catbox-upload]
+verify_jwt = false
+
+[functions.aori-luxand]
+verify_jwt = false
