@@ -2145,13 +2145,13 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
         // Fatal permission errors — STOP retrying or we hammer the browser
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
           voiceModeRef.current = false;
-          setVoiceMode(false);
+          setVoiceModeActive(false);
           toast.error("Microphone permission blocked. Enable it in your browser settings to use voice mode.", { duration: 6000 });
           return;
         }
         if (event.error === "audio-capture") {
           voiceModeRef.current = false;
-          setVoiceMode(false);
+          setVoiceModeActive(false);
           toast.error("No microphone detected.", { duration: 4000 });
           return;
         }
