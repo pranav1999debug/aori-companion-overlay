@@ -2142,10 +2142,23 @@ export default function AoriChat({ onClose, autoVoiceMode }: AoriChatProps) {
       recognition.onerror = (event: any) => {
         console.warn("[STT] Recognition error:", event.error);
         setIsListening(false);
+        // Fatal permission errors — STOP retrying or we hammer the browser
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          voiceModeRef.current = false;
+          setVoiceModeActive(false);
+          toast.error("Microphone permission blocked. Enable it in your browser settings to use voice mode.", { duration: 6000 });
+          return;
+        }
+        if (event.error === "audio-capture") {
+          voiceModeRef.current = false;
+          setVoiceModeActive(false);
+          toast.error("No microphone detected.", { duration: 4000 });
+          return;
+        }
         if (event.error === "no-speech" || event.error === "aborted") {
-          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 300);
+          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 500);
         } else {
-          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 1000);
+          if (voiceModeRef.current) setTimeout(() => { if (voiceModeRef.current) startListeningOnceRef.current(); }, 2000);
         }
       };
 
